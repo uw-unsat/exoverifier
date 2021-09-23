@@ -1,0 +1,31 @@
+The scripts "gcdmax8bits.sh" and "gcdmax16.sh" are used to compute
+the maximum number of loop iterations of the modern Euclidian GCD
+algorithm:
+
+int gcd(int a, int b){
+  int t;
+  while (b){
+    t = b;
+    b = a % n;
+    a= t;
+  }
+  return a;
+}
+
+Examples:
+  ./gcdmax8bits 10 | ../../c32sat -8bits
+  ./gcdmax16bits 10 | ../../c32sat -16bits
+
+If the formula is satisfiable then C32SAT has found an input where
+<max_loops> iterations are needed to compute the GCD. If the formula
+is unsatisfiable then there are no inputs where <max_loops> 
+iterations ore more are needed. 
+The upper limit of loop iterations is 10 in the 8 bits signed integer
+and 22 in the 16 bits signed integer case.
+
+The script "gcddiv.sh" unrolls the loop 10 times and proves 
+the property "if d divides input a and d divides input b then
+d divides GCD(a,b)" in the 8 bits signed integer case.
+
+Call:
+./gcddiv8bits.sh | ../../c32sat -8bits -t

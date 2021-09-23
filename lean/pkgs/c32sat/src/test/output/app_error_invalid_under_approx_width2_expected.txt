@@ -1,0 +1,2 @@
+==> Invalid under-approximation width!
+    Width must be a power of two and less than number of bits!

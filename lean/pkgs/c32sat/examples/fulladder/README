@@ -1,0 +1,7 @@
+The file "fulladder.c32sat" is used to prove a simple full-adder
+theorem. If the inputs x, y, cin are equal then also the outputs
+s and cout are equal. Note that x XOR y is modelled as
+!(x <=> y), because the builtin XOR operator ^ has bit-vector semantics. 
+
+Call:
+../../c32sat -t fulladder.c32sat

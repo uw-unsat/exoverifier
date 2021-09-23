@@ -1,0 +1,20 @@
+version 1.2
+  
+  dumping of AIGs
+
+version 1.3
+
+  binary and hexadecimal output
+  new AIG output format AIGER (see http://fmv.jku.at/aiger)
+  graphical user interface XC32SAT
+
+version 1.4
+  under approximation for SAT mode
+  added keywords "INT_MIN" and "INT_MAX" to the input language
+  two level AIG optimization can be turned on or off at runtime
+  more SAT solvers supported: PicoSAT, BooleForce, NanoSAT and Compsat
+  default SAT solver of C32SAT is now PicoSAT
+  examples directory
+
+version 1.4.1
+  fixed shell scripts in example directory

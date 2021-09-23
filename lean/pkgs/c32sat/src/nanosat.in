@@ -1,0 +1,93 @@
+/*
+ Institute for Formal Models and Verification (FMV),
+ Johannes Kepler University Linz, Austria
+ 
+ Copyright (c) 2006, Robert Daniel Brummayer
+ All rights reserved.
+
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions are met:
+
+    * Redistributions of source code must retain the above copyright notice,
+      this list of conditions and the following disclaimer.
+    * Redistributions in binary form must reproduce the above copyright notice,
+      this list of conditions and the following disclaimer in the documentation
+      and/or other materials provided with the distribution.
+    * Neither the name of the FMV nor the names of its contributors may be
+      used to endorse or promote products derived from this software without
+      specific prior written permission.
+
+ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE
+ FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+#include <assert.h>
+#include <stdio.h>
+#include "sat_solver.h"
+#include "memory_management.h"
+#include "@SATSOLVER_HEADER@"
+
+static void *
+wrapper_init ()
+{
+  nanosat_init ();
+  return NULL;
+}
+
+static void
+wrapper_finalise (void *solver)
+{
+  assert (solver == NULL);
+  nanosat_release ();
+}
+
+static void
+wrapper_add (void *solver, int x)
+{
+  assert (solver == NULL);
+  nanosat_add (x);
+}
+
+static int
+wrapper_sat (void *solver)
+{
+  assert (solver == NULL);
+  return nanosat_sat ();
+}
+
+static int
+wrapper_deref (void *solver, int x)
+{
+  assert (solver == NULL && x > 0);
+  return nanosat_deref (x);
+}
+
+SatSolver *
+create_sat_solver ()
+{
+  SatSolver *sat_solver = (SatSolver *) malloc_c32sat (sizeof (SatSolver));
+  sat_solver->solver = NULL;
+  sat_solver->name = "NanoSAT";
+  sat_solver->sat_val = NANOSAT_SATISFIABLE;
+  sat_solver->unsat_val = NANOSAT_UNSATISFIABLE;
+  sat_solver->ptr_sat_solver_init = wrapper_init;
+  sat_solver->ptr_sat_solver_finalise = wrapper_finalise;
+  sat_solver->ptr_sat_solver_sat = wrapper_sat;
+  sat_solver->ptr_sat_solver_add = wrapper_add;
+  sat_solver->ptr_sat_solver_deref = wrapper_deref;
+  return sat_solver;
+}
+
+void
+delete_sat_solver (SatSolver * sat_solver)
+{
+  assert (sat_solver != NULL);
+  free_c32sat (sat_solver, sizeof (SatSolver));
+}

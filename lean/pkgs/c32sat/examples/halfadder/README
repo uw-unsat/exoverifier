@@ -1,0 +1,5 @@
+The file "halfadder.c32sat" is used to prove a simple half-adder
+theorem. It can never be the case that sum and carry are both one.
+
+CALL:
+../../c32sat -t halfadder.c32sat

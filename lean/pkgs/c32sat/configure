@@ -1,0 +1,115 @@
+#!/bin/sh
+dir=$(pwd)
+CC=gcc
+debug=no
+solver=picosat
+solverdir=../picosat
+solverset=no
+solverdirset=no
+checkfile=/tmp/__c32sat_syscheck__
+CFLAGS="-ansi -DNDEBUG -O2"
+usage="*** usage: ./configure [-g] [--picosat|--booleforce|--nanosat|--compsat] [-d <solver-dir>]"
+
+cleanup() {
+  rm -f $checkfile".c" $checkfile
+}
+
+while [ $# -gt 0 ]
+do
+  case $1 in
+    -g) debug=yes; CFLAGS="-ansi -Wall -Wextra -g";;
+    --picosat) solver=picosat; solverdir=../picosat; solverset=yes;;
+    --booleforce) solver=booleforce; solverdir=../booleforce; solverset=yes;;
+    --nanosat) solver=nanosat; solverdir=../nanosat; solverset=yes;;
+    --compsat) solver=compsat; solverdir=../compsat; solverset=yes;;
+    -d) if [ $# -eq 1 ]; then
+           echo "$usage"
+           exit 1
+        fi
+        shift
+        solverdir=$1
+        solverdirset=yes
+        ;;
+    *) echo "$usage"; exit 1;;
+  esac
+shift
+done
+
+echo -n "Checking system requirements ... "
+cat <<EOF >$checkfile".c"
+#include <stddef.h>
+int main (){
+  if ((sizeof(int) < 4) || (sizeof(long long int) < 8) || 
+      (sizeof(long int) != sizeof(void *)))
+    return 1;
+  return 0;
+}
+EOF
+$CC -o $checkfile $checkfile".c" 1>/dev/null 2>/dev/null
+$checkfile
+if [ $? -ne 0 ]; then
+  echo ""
+  echo "Sorry! C32SAT cannot be run on this system!"
+  echo "One or more of the following requirements are not fulfilled:"
+  echo " (sizeof(int) < 4), (sizeof(long lont int) < 8),"
+  echo " (sizeof(long int) != sizeof(void *)"
+  cleanup
+  exit 1
+else
+  echo "done!"
+fi
+
+if [ $solverset = yes ]; then
+  echo -n "Using SAT solver ... "
+else
+  echo -n "Assuming SAT solver is ... "
+fi
+echo $solver
+
+# test if solver directory exists
+if ! [ -d $solverdir ] || ! [ -r $solverdir ]; then
+  if [ $solverdirset = no ]; then
+    echo "Assuming $solver directory is ... $solverdir"
+  fi 
+  echo "Error! Could not access directory $solverdir! "
+  echo "Use -d <solver-dir> to specify the directory of the SAT solver!"
+  cleanup
+  exit 1
+fi
+
+# get absolute path
+cd $solverdir
+solverdir=$(pwd)
+cd $dir
+
+if [ $solverdirset = yes ]; then
+  echo -n "$solver directory is ... "
+else
+  echo -n "Assuming $solver directory is ... "
+fi
+echo $solverdir
+solverlib=$solverdir"/lib$solver"".a"
+solverheader=$solverdir"/$solver"".h"
+
+echo "CFLAGS ... $CFLAGS"
+
+echo -n "Generating Makefile ... "
+rm -f Makefile
+sed -e "s,@CC@,$CC," -e "s,@CFLAGS@,$CFLAGS," -e "s,@SATSOLVER_LIB@,$solverlib," -e "s,@SATSOLVER_HEADER@,$solverheader," Makefile.in > Makefile
+echo done!
+
+echo -n "Generating SAT solver configuration ... "
+cd src
+if [ $solver = picosat ]; then
+  sed -e "s,@SATSOLVER_HEADER@,$solverheader," picosat.in > sat_solver.c
+elif [ $solver = booleforce ]; then
+  sed -e "s,@SATSOLVER_HEADER@,$solverheader," booleforce.in > sat_solver.c
+elif [ $solver = nanosat ]; then
+  sed -e "s,@SATSOLVER_HEADER@,$solverheader," nanosat.in > sat_solver.c
+else
+  sed -e "s,@SATSOLVER_HEADER@,$solverheader," compsat.in > sat_solver.c
+fi
+echo done!
+cleanup
+
+  

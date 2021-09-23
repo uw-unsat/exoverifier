@@ -1,0 +1,15 @@
+state02 ident34 name_9 test heat close x_y x _ _x_ __3
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+/* kommentar test*/
+23 7890 43245 45324 3 0 2147483647
+(/*test*/) /**kommentar 1**/ /*kommentar 2*//*kommentar 3*/
+=> <=>
+? :
+|| &&
+== !=
+< <= > >= 
+>> <<
++ -
+* / %
+! ~
+^ | & INT_MAX INT_MIN

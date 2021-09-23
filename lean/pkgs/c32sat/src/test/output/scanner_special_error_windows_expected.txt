@@ -1,0 +1,4 @@
+==> 1:2: Invalid newline
+    '=' expected
+==> Unexpected end of input
+    '=' expected

@@ -1,0 +1,7 @@
+The program "selection_sort_c32sat_gen" creates a verification instance
+for the selection sort algorithm. Compile "selection_sort_c32sat_gen.c"
+and call it afterwards with the size of the array to generate the
+verification instance.
+
+Example:
+./selection_sort_c32sat_gen 3 | ../../c32sat -t

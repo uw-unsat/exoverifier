@@ -1,0 +1,10 @@
+Trivial:
+- false.cnf
+- true.cnf
+
+[Circuit fault analysis](https://www.cs.ubc.ca/~hoos/SATLIB/Benchmarks/SAT/DIMACS/BF/descr.html):
+- bf*.cnf
+- ssa*.cnf
+
+[Pigeon hole](https://www.cs.ubc.ca/~hoos/SATLIB/Benchmarks/SAT/DIMACS/PHOLE/descr.html):
+- hole*.cnf

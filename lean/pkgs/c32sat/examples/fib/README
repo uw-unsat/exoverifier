@@ -1,0 +1,4 @@
+The script "fib.sh" generates the first <n> fibonacci numbers. 
+
+Example:
+./fib.sh 5 | ../../c32sat

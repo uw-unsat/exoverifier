@@ -1,0 +1,10 @@
+The script "sudoku.sh" generates all constraints needed for sudoku.
+You have to do the initialization of the sudoku problem manually and
+call the script to add all constraints afterwards. See "example.c32sat".
+
+Call:
+../../c32sat -8bits example.c32sat
+
+The sudoku instance of the example is from 
+http://de.wikipedia.org/wiki/Sudoku
+

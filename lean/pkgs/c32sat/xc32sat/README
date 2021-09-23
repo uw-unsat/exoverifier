@@ -1,0 +1,3 @@
+XC32SAT is a graphical user interface for C32SAT and needs GTK+ >= 2.6. Before 
+you run XC32SAT make sure that C32SAT is compiled. XC32SAT calls C32SAT via 
+system calls.

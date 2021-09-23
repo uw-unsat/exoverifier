@@ -1,0 +1,1 @@
+#define UTS_RELEASE "5.12.0-00972-g380afe720896"

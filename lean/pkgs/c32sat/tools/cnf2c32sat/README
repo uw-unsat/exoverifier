@@ -1,0 +1,3 @@
+CNF2C32SAT reads the DIMCAS CNF file format from stdin, converts the input
+into the C32SAT syntax and writes the result to stdout. Note that this 
+tool is for testing purposes only.

@@ -1,0 +1,6 @@
+This is a library for online checking of DRUP proofs.
+Alternatively or in addition it can trace proofs.
+We use it internally for model based testing of correct
+proof trace generation capabilities of our SAT solvers.
+
+Armin Biere

@@ -1,0 +1,19 @@
+==> 1:1: Invalid character: 'ä'
+==> 1:3: Invalid character: 'ö'
+==> 1:5: Invalid character: 'ü'
+==> 1:7: Invalid character: '§'
+==> 1:8: Invalid character: '$'
+==> 1:11: Invalid character: '#'
+==> 1:13: Invalid character: ']'
+==> 2:1: Integer constant is too big: 2147483647...
+==> 2:13: Integer constant is too big: 2147483647...
+==> 3:1: Integer constant is too big: 2147483648
+==> 3:12: Integer constant is too big: 9999999999
+==> 4:1: Identifier is too long: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx...
+==> 5:1: Identifier is too long: yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy...
+==> 6:1: Leading zero is not allowed: 00
+==> 6:4: Leading zero is not allowed: 003
+==> 6:8: Leading zero is not allowed: 0123456789
+==> 6:19: Leading zero is not allowed: 0123123123...
+==> 7:2: Invalid character: ' '
+    '=' expected

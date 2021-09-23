@@ -1,0 +1,44 @@
+image: unsat/lean:3.33.0
+
+before_script:
+  - cd lean && leanpkg configure
+
+stages:
+  - build
+  - test
+
+build-lean:
+  stage: build
+  script:
+    - leanpkg build
+  artifacts:
+    paths:
+      - lean/_target/
+      - lean/src/**/*.olean
+    expire_in: 1 hr
+
+build-bpf:
+  stage: build
+  script:
+    - make -B gen-bpf-tests
+  artifacts:
+    paths:
+      - lean/test/bpf/examples/*.bin
+      - lean/test/bpf/examples/absint/*.bin
+      - lean/test/bpf/examples/symeval/*.bin
+      - lean/test/bpf/linux/bin/*.bin
+    expire_in: 1 hr
+
+generate-proofs:
+  script:
+    - ./scripts/make_proof.py --verifier se+sat test/bpf/examples/absint/simple2.bin out2-symeval.lef
+    - ./scripts/make_proof.py --verifier absint test/bpf/examples/absint/simple2.bin out2-absint.lef
+
+test-lean:
+  script:
+    - leanpkg build && leanpkg test -- --tstack=32000
+
+test-python-tests:
+  script:
+    - green -vv -f test
+

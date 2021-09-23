@@ -1,0 +1,19 @@
+CC=@CC@
+CFLAGS=@CFLAGS@
+SATSOLVER_LIB=@SATSOLVER_LIB@
+SATSOLVER_HEADER=@SATSOLVER_HEADER@
+export CC
+export CFLAGS
+export SATSOLVER_LIB
+export SATSOLVER_HEADER
+
+all:
+	$(MAKE) -C src
+	$(MAKE) -C src/test
+	$(MAKE) -C tools/cnf2c32sat
+
+clean:
+	$(MAKE) clean -C src
+	$(MAKE) clean -C src/test
+	$(MAKE) clean -C tools/cnf2c32sat
+	rm -f c32sat Makefile

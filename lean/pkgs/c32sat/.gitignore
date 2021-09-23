@@ -1,0 +1,6 @@
+*.o
+/Makefile
+/c32sat
+/src/sat_solver.c
+/src/test/test_runner
+/tools/cnf2c32sat/cnf2c32sat

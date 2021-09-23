@@ -1,0 +1,18 @@
+The file "swapxor.c32sat" verifies that the following code fragment
+in the programming language C swaps the values of x and y:
+
+...
+int x, y;
+...
+x ^= y;
+y ^= x;
+x ^= y;
+/* The values of x and y have been swapped */
+...
+
+This code fragment needs no temporary variable for swapping. Only the
+bitwise XOR operation is needed.
+
+Call:
+../../c32sat -t swapxor.c32sat
+

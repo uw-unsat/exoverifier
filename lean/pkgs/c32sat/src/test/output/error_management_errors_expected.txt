@@ -1,0 +1,27 @@
+==> Out of memory
+==> 1:1: Invalid character: '$'
+==> 2:1: Integer constant is too big: 2147483647...
+==> 4:2: Integer constant is too big: 2147483653
+==> 10:23: Identifier is too long: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx...
+==> 17:4: Leading zero is not allowed: 003
+==> 18:1: Leading zero is not allowed: 0123123123...
+==> 5:2: Invalid character: 'a'
+    '=' expected
+==> 5:2: Invalid newline
+    '=' expected
+==> Unexpected end of input
+    '=' expected
+==> 4:5: Parse error at token "param1"
+==> Parse error at end of input
+==> Usage message
+==> Invalid under-approximation width!
+    Width must be a power of two and less than number of bits!
+==> No under-approximation width has been specified for dumping!
+    Please use "-ua-width <width>" or disable under-approximation with "-no-ua"!
+==> Unknown option "-x"
+==> Cannot open file "input.txt"
+==> Cannot write to file "output.txt"
+==> SAT solver error occurred! Error number: -1
+==> Too many variables! Maximum number of variables is 2000000000
+==> Too many AIGs have been generated! Maximum number of AIGs is 1000
+==> Too many CNF clauses have been generated! Maximum number of CNF clauses is 2000
