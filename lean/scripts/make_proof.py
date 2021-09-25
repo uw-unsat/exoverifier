@@ -16,7 +16,7 @@ THIS_DIR = os.path.dirname(__file__)
 parser = argparse.ArgumentParser()
 parser.add_argument(
     "--verifier",
-    choices=["absint", "se+sat"],
+    choices=["absint", "se+sat", "simple"],
     help="User-space verifier to use to generate proof",
     required=True,
 )
@@ -28,6 +28,7 @@ args = parser.parse_args()
 VERIFIER_MAP = {
     "absint": "test/bpf/absint_harness.lean",
     "se+sat": "test/bpf/symeval_harness.lean",
+    "simple": "test/bpf/simplechecker_harness.lean",
 }
 
 
