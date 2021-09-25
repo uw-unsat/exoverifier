@@ -22,7 +22,7 @@ class BPFCheckerTest(unittest.TestCase):
         env = dict(os.environ)
         env.update({"BPF_BIN_PATH": str(self.bpf_prog)})
         p = subprocess.run(
-            [LEAN_EXE, "--tstack=32000", self.LEAN_TEST_FILE],
+            [LEAN_EXE, "--tstack=256000", self.LEAN_TEST_FILE],
             capture_output=True,
             encoding="utf8",
             env=env,
