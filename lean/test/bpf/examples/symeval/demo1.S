@@ -1,5 +1,4 @@
     r1 = r2
-    r1 ^= 1
-    if r1 == 1 goto l
-    r3 /= r2           // Safe because r1 != 1, and r1 == r2 ^ 1
+    if r1 == 0 goto l
+    r3 /= r2           // Safe because r2 != 0, and r1 == r2
 l:  exit

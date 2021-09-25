@@ -6,6 +6,7 @@ import subprocess
 import os
 import glob
 import shutil
+import sys
 from unittest.util import strclass
 
 LEAN_EXE = shutil.which("lean")
@@ -26,7 +27,12 @@ class BPFCheckerTest(unittest.TestCase):
             encoding="utf8",
             env=env,
         )
-        if self.expect_success:
+        if self.expect_success is None:
+            print(
+                f"Ignoring result: {p.returncode} {p.stdout} {p.stderr}",
+                file=sys.stderr,
+            )
+        elif self.expect_success:
             self.assertEqual(p.returncode, 0, "non-zero exit: " + p.stderr + p.stdout)
         else:
             self.assertNotEqual(p.returncode, 0, "exit status 0 when failure expected")

@@ -11,6 +11,10 @@ TEST_FILES = [
     (name, not "fail" in name) for name in glob.glob(ABSINT_TEST_DIR + "*.bin")
 ]
 
+LINUX_TEST_DIR = "test/bpf/linux/bin/"
+
+TEST_FILES += [(name, None) for name in glob.glob(LINUX_TEST_DIR + "*.bin")]
+
 
 class AbsintTest(BPFCheckerTest):
     LEAN_TEST_FILE = "test/bpf/absint_harness.lean"
