@@ -3,11 +3,11 @@ Copyright (c) 2021 The UNSAT Group. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Luke Nelson, Xi Wang
 -/
+import .regs
 import bpf.basic
 import bpf.cfg
 import data.domain.basic
 import misc.bool
-import .regs
 
 namespace ai
 

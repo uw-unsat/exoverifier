@@ -1,5 +1,10 @@
-import ..cfg
+/-
+Copyright (c) 2021 The UNSAT Group. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Luke Nelson, Xi Wang
+-/
 import ..basic
+import ..cfg
 
 namespace bpf
 namespace simplechecker
@@ -10,7 +15,7 @@ open unordered_map
 
 abbreviation program : Type := bpf.cfg.CFG (map (bpf.cfg.instr α)) α
 
-def check_from (p : program) : α → ℕ → bool
+private def check_from (p : program) : α → ℕ → bool
 | pc 0       := ff
 | pc (n + 1) :=
   match lookup pc p.code with
@@ -23,7 +28,7 @@ def check_from (p : program) : α → ℕ → bool
 /- A very simple checker for BPF programs. -/
 def check (p : program) (fuel : ℕ) : bool := check_from p p.entry fuel
 
-theorem check_from_sound {p : program} {pc : α} {fuel : ℕ} {s : bpf.cfg.state α} :
+private theorem check_from_sound {p : program} {pc : α} {fuel : ℕ} {s : bpf.cfg.state α} :
   (∃ r, s = bpf.cfg.state.running pc r) →
   check_from p pc fuel = tt →
   bpf.cfg.safe_from_state p s :=
@@ -44,29 +49,21 @@ begin
       subst h₁,
       apply cfg.safe_from_state_of_det_step,
       swap 2,
-      apply cfg.step.ALU64_X,
-      exact h₃,
-      refl,
-      refl,
-      apply ih,
-      existsi _,
-      refl,
-      exact h₂,
-      apply cfg.step_alu64_x_det,
-      exact h₃ },
+      { exact cfg.step.ALU64_X h₃ rfl rfl },
+      { exact ih ⟨_, rfl⟩ h₂ },
+      { exact cfg.step_alu64_x_det h₃ } },
     { cases h₂ },
     { cases h₂ },
     { cases h₂ },
     { cases h₁ with regs h₁,
       apply cfg.safe_from_state_of_det_step,
       apply cfg.safe_from_exited,
-      exact regs bpf.reg.R0,
-      subst h₁,
-      constructor,
-      exact h₃,
-      subst h₁,
-      apply cfg.step_exit_det,
-      exact h₃ } }
+      { exact regs bpf.reg.R0 },
+      { subst h₁,
+        constructor,
+        exact h₃ },
+      { subst h₁,
+        exact cfg.step_exit_det h₃ } } }
 end
 
 theorem check_sound {p : program} (fuel : ℕ) :
