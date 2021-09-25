@@ -1,8 +1,6 @@
 import ..cfg
 import ..basic
 
-axiom bogus : false
-
 namespace bpf
 namespace simplechecker
 
@@ -25,9 +23,62 @@ def check_from (p : program) : α → ℕ → bool
 /- A very simple checker for BPF programs. -/
 def check (p : program) (fuel : ℕ) : bool := check_from p p.entry fuel
 
+theorem check_from_sound {p : program} {pc : α} {fuel : ℕ} {s : bpf.cfg.state α} :
+  (∃ r, s = bpf.cfg.state.running pc r) →
+  check_from p pc fuel = tt →
+  bpf.cfg.safe_from_state p s :=
+begin
+  revert s pc,
+  induction fuel with fuel ih,
+  { intros s pc h₁ h₂,
+    cases h₂ },
+  { intros s pc h₁ h₂,
+    simp only [check_from] at h₂,
+    cases h₃ : (lookup pc p.code),
+    { rw [h₃] at h₂, cases h₂ },
+    rw h₃ at h₂,
+    cases val,
+    case bpf.cfg.instr.ALU64_X : op dst src next {
+      cases op; try {cases h₂},
+      cases h₁ with regs h₁,
+      subst h₁,
+      apply cfg.safe_from_state_of_det_step,
+      swap 2,
+      apply cfg.step.ALU64_X,
+      exact h₃,
+      refl,
+      refl,
+      apply ih,
+      existsi _,
+      refl,
+      exact h₂,
+      apply cfg.step_alu64_x_det,
+      exact h₃ },
+    { cases h₂ },
+    { cases h₂ },
+    { cases h₂ },
+    { cases h₁ with regs h₁,
+      apply cfg.safe_from_state_of_det_step,
+      apply cfg.safe_from_exited,
+      exact regs bpf.reg.R0,
+      subst h₁,
+      constructor,
+      exact h₃,
+      subst h₁,
+      apply cfg.step_exit_det,
+      exact h₃ } }
+end
+
 theorem check_sound {p : program} (fuel : ℕ) :
   check p fuel = tt →
-  bpf.cfg.safe p := bogus.elim
+  bpf.cfg.safe p :=
+begin
+  intros h₁ s h₂,
+  cases h₂,
+  apply check_from_sound,
+  existsi _, refl,
+  exact h₁
+end
 
 end
 end simplechecker
