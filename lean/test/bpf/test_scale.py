@@ -13,7 +13,7 @@ MOV_ONE = b"\xb7\x01\x00\x00\x01\x00\x00\x00"
 # exit
 EXIT = b"\x95\x00\x00\x00\x00\x00\x00\x00"
 
-NITER = 20
+NITER = 50
 
 
 class TestScale(unittest.TestCase):

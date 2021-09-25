@@ -8,6 +8,7 @@ import data.unordered_map.basic
 import data.unordered_map.alist
 import data.unordered_map.trie
 import data.list.sort
+import misc.reify
 
 /-!
 # Control-flow graphs of BPF programs
@@ -63,6 +64,8 @@ instance (χ : Type*) [unordered_map pos_num (instr pos_num) χ] :
 abbreviation trie_program : Type := CFG (trie (instr pos_num)) pos_num
 
 namespace trie_program
+
+instance : has_serialize trie_program trie_program := serialize_via_id
 
 private def of_list_aux : trie (instr pos_num) → pos_num → list (instr pos_num) → trie (instr pos_num)
 | tr _ []         := tr

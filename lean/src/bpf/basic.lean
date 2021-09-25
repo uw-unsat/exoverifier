@@ -10,6 +10,7 @@ import data.list.alist
 import data.trie.basic
 import data.vector
 import misc.vector
+import misc.reify
 import tactic.basic
 import tactic.derive_fintype
 
