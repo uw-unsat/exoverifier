@@ -278,4 +278,20 @@ meta instance (n : ℕ) : has_reflect (vector bool n)
   unchecked_cast `(list_to_vec %%(y.expr) : vector bool %%(z.expr))
 
 end reflect
+
+section has_to_pexpr
+
+variables {α : Type*} [has_to_pexpr α]
+
+private meta def vector_to_pexpr : ∀ {n : ℕ} (v : vector α n), pexpr
+| 0       _ := ``(vector.nil)
+| (n + 1) v :=
+  let x  : α     := v.head,
+      e₁ : pexpr := to_pexpr x,
+      e₂ : pexpr := vector_to_pexpr v.tail in
+  ``(vector.cons %%e₁ %%e₂)
+
+meta instance {n : ℕ} : has_to_pexpr (vector α n) := ⟨vector_to_pexpr⟩
+
+end has_to_pexpr
 end vector
