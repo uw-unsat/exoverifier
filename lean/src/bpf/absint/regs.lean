@@ -5,7 +5,6 @@ Authors: Luke Nelson, Xi Wang
 -/
 import bpf.basic
 import data.domain.basic
-import misc.reify
 
 /-!
 # Abstract domains for BPF registers
@@ -112,17 +111,9 @@ instance : regs_abstr (bpf.reg → β) :=
   invert_jmp_tt  := invert_jmp_tt,
   test_reg_neq   := test_reg_neq }
 
-/-- Convert to a form that can be reflected from meta lean to regular lean. -/
-private def serialize (regs : bpf.reg → β) : list β :=
-(bpf.reg.to_vector regs).to_list
-
-/-- Convert back from a reflected form to a function. -/
-private def deserialize (l : list β) : bpf.reg → β :=
-λ (r : bpf.reg), (l.nth r.to_fin).get_or_else ⊤
-
-/-- Reify registers from meta lean to regular lean. -/
-instance (β' : Type) [has_serialize β β'] : has_serialize (bpf.reg → β) (list β') :=
-⟨ λ (regs : bpf.reg → β), (serialize regs).map has_serialize.serialize,
-  λ (l : list β'), deserialize (l.map has_serialize.deserialize) ⟩
+-- /-- Reify registers from meta lean to regular lean. -/
+-- instance (β' : Type) [has_serialize β β'] : has_serialize (bpf.reg → β) (list β') :=
+-- ⟨ λ (regs : bpf.reg → β), (serialize regs).map has_serialize.serialize,
+--   λ (l : list β'), deserialize (l.map has_serialize.deserialize) ⟩
 
 end nonrelational

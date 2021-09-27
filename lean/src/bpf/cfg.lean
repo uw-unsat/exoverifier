@@ -8,7 +8,6 @@ import data.unordered_map.basic
 import data.unordered_map.alist
 import data.unordered_map.trie
 import data.list.sort
-import misc.reify
 
 /-!
 # Control-flow graphs of BPF programs
@@ -25,7 +24,7 @@ namespace cfg
 section syntax
 
 /-- An abstraction of BPF instructions where instructions contain the label of the next instruction to execute. -/
-@[derive [decidable_eq, inhabited, has_reflect]]
+@[derive [decidable_eq, inhabited]]
 inductive instr (α : Type*)
 | ALU64_X : ALU → reg → reg → α → instr
 | ALU64_K : ALU → reg → lsbvector 64 → α → instr
@@ -35,6 +34,15 @@ inductive instr (α : Type*)
 
 namespace instr
 variable {α : Type*}
+
+private meta def to_pexpr' [has_to_pexpr α] : instr α → pexpr
+| (ALU64_X op dst src next) := ``(ALU64_X %%op %%dst %%src %%next)
+| (ALU64_K op dst imm next) := ``(ALU64_K %%op %%dst %%imm %%next)
+| (JMP_X op r₁ r₂ if_true if_false) := ``(JMP_X %%op %%r₁ %%r₂ %%if_true %%if_false)
+| (JMP_K op r₁ imm if_true if_false) := ``(JMP_K %%op %%r₁ %%imm %%if_true %%if_false)
+| Exit := ``(Exit)
+
+meta instance [has_to_pexpr α] : has_to_pexpr (instr α) := ⟨to_pexpr'⟩
 
 private def repr' [has_repr α] : instr α → string
 | (ALU64_X op dst src next)          := "ALU64_X(" ++ repr op ++ ", " ++ repr dst ++ ", " ++ repr src ++ ", " ++ repr next ++ ")"
@@ -53,6 +61,19 @@ structure CFG (χ α : Type*) [unordered_map α (instr α) χ] :=
 (entry : α)
 (code  : χ)
 
+namespace CFG
+
+section has_to_pexpr
+variables {α χ : Type*} [unordered_map α (instr α) χ] [has_to_pexpr α] [has_to_pexpr χ]
+
+private meta def to_pexpr' (cfg : CFG χ α) : pexpr :=
+``(CFG.mk %%cfg.entry %%cfg.code)
+
+meta instance : has_to_pexpr (CFG χ α) := ⟨to_pexpr'⟩
+
+end has_to_pexpr
+
+/-- Convert a program to string by sorting the `pos_num` keys. -/
 instance (χ : Type*) [unordered_map pos_num (instr pos_num) χ] :
   has_repr (CFG χ pos_num) :=
 ⟨λ x,
@@ -60,12 +81,12 @@ instance (χ : Type*) [unordered_map pos_num (instr pos_num) χ] :
       l' := list.merge_sort (λ (x y : Σ (_ : pos_num), instr pos_num), x.1 ≤ y.1) l in
     repr (x.entry, l') ⟩
 
+end CFG
+
 /-- An implementation of CFG using pos_num as label and trie as map. -/
 abbreviation trie_program : Type := CFG (trie (instr pos_num)) pos_num
 
 namespace trie_program
-
-instance : has_serialize trie_program trie_program := serialize_via_id
 
 private def of_list_aux : trie (instr pos_num) → pos_num → list (instr pos_num) → trie (instr pos_num)
 | tr _ []         := tr

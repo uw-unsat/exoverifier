@@ -100,4 +100,16 @@ begin
 end
 
 end sigma
+
+section has_to_pexpr
+
+variables {α : Type*} [has_to_pexpr α]
+
+private meta def to_pexpr' : list α → pexpr
+| nil      := ``(nil)
+| (hd::tl) := ``(cons %%hd %%(to_pexpr' tl))
+
+meta instance : has_to_pexpr (list α) := ⟨to_pexpr'⟩
+
+end has_to_pexpr
 end list

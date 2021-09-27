@@ -26,10 +26,10 @@ meta def program_meta : bpf.cfg.trie_program :=
 option.iget o_program
 
 meta def program_expr :=
-  let s := has_serialize.serialize program_meta in reflected_value.mk s
+``(%%program_meta)
 
 def program : bpf.cfg.trie_program :=
-has_serialize.deserialize (by tactic.exact program_expr.expr)
+(by tactic.to_expr program_expr >>= tactic.exact)
 
 def program_safety : bpf.cfg.safe program :=
 bpf.simplechecker.check_sound 150 (by refl)

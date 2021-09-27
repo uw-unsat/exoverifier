@@ -24,24 +24,24 @@ bpf.decode progbits >>= λ x, pure $ bpf.cfg.trie_program.decode_from_flat x
 meta def program_meta : bpf.cfg.trie_program :=
 option.iget o_program
 
-meta def program_expr :=
-  let s := has_serialize.serialize program_meta in reflected_value.mk s
+meta def program_expr : pexpr :=
+to_pexpr program_meta
 
 def program : bpf.cfg.trie_program :=
-has_serialize.deserialize (by tactic.exact program_expr.expr)
+(by tactic.to_expr program_expr >>= tactic.exact)
 
 def constraints := @ai.gen_constraints pos_num (bpf.reg → tnum 64) _ _ trie _ program
 
 meta def solution : ai.STATE :=
  @ai.solve pos_num (bpf.reg → tnum 64) _ _ trie _ constraints 2
 
-meta def solexpr :=
-  let s := has_serialize.serialize solution in reflected_value.mk s
+meta def solexpr : pexpr :=
+``(%%solution : @ai.STATE (bpf.reg → tnum 64) _ trie)
 
 /-- The solution, but reified into a concrete trie (no computation),
     by doing computation in meta-lean and serializing. -/
 def solution' : @ai.STATE (bpf.reg → tnum 64) _ trie :=
-has_serialize.deserialize (by tactic.exact solexpr.expr)
+(by tactic.to_expr solexpr >>= tactic.exact)
 
 def predicates := @ai.gen_safety pos_num (bpf.reg → tnum 64) _ _ trie _ program
 

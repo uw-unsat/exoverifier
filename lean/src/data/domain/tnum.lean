@@ -16,12 +16,17 @@ Each bit in a tnum can be either 0, 1, or unknown.
 -/
 
 /-- A tnum is represented by a value and a mask. -/
-@[derive has_reflect]
+@[derive decidable_eq]
 structure tnum (n : ℕ) : Type :=
 (value mask : lsbvector n)
 
 namespace tnum
 variable {n : ℕ}
+
+private meta def to_pexpr' (t : tnum n) : pexpr :=
+``(tnum.mk %%t.value %%t.mask)
+
+meta instance : has_to_pexpr (tnum n) := ⟨to_pexpr'⟩
 
 def cons (value mask : bool) (x : tnum n) : tnum (n + 1) :=
 ⟨ value ::ᵥ x.value,
@@ -30,8 +35,6 @@ def cons (value mask : bool) (x : tnum n) : tnum (n + 1) :=
 def tail (x : tnum n) : tnum (n - 1) :=
 ⟨ vector.tail x.value,
   vector.tail x.mask ⟩
-
-instance : has_serialize (tnum n) (tnum n) := serialize_via_id
 
 instance : has_repr (tnum n) :=
 ⟨ λ t, "⟨" ++ repr t.value ++ ", " ++ repr t.mask ++ "⟩" ⟩

@@ -32,15 +32,16 @@ namespace tactic
 namespace io
 
 /-- Create an expression from running an io action. -/
-meta def exact_io {α : Type} [has_reflect α] (x : io α) : tactic unit := do
-v ← tactic.unsafe_run_io x,
-tactic.exact `(v)
+meta def exact_io {α : Type} [has_to_pexpr α] (x : io α) : tactic unit := do
+v ← unsafe_run_io x,
+elab ← to_expr $ to_pexpr v,
+exact elab
 
 /-- A tactic that fills in a string using the value from an environment variable. -/
 meta def from_env_var (s default : string) : tactic unit := do
-var ← tactic.unsafe_run_io $ io.env.get s,
+var ← unsafe_run_io $ io.env.get s,
 let v := var.get_or_else default in
-tactic.exact `(v)
+exact `(v)
 
 private def bytes_to_quadwords_le_aux : list (msbvector 8) → list (msbvector 64) → list (msbvector 64)
 | (b₁ :: b₂ :: b₃ :: b₄ :: b₅ :: b₆ :: b₇ :: b₈ :: tail) rest :=

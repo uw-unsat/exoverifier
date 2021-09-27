@@ -10,7 +10,7 @@ import data.list.alist
 import data.trie.basic
 import data.vector
 import misc.vector
-import misc.reify
+import misc.fin_enum
 import tactic.basic
 import tactic.derive_fintype
 
@@ -80,6 +80,11 @@ begin
     intros i },
   exact fin.elim0 i
 end
+
+/-- `reg` is finite and enumerable. -/
+instance : fin_enum reg :=
+fin_enum.of_list [R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, FP, AX]
+                 (by intros x; cases x; simp)
 
 instance : has_repr reg :=
 ⟨λ r,
@@ -262,7 +267,7 @@ bit index 0, which matches the built-in library Lean has for operations on `vect
 simplifies the job of the decoder. When we parse this to the CFG format, we must be careful flip
 bit ordering accordingly.
 -/
-@[derive [has_reflect, decidable_eq]]
+@[derive decidable_eq]
 inductive instr : Type
 | ALU64_X : ALU → reg → reg → instr
 | ALU64_K : ALU → reg → msbvector 32 → instr

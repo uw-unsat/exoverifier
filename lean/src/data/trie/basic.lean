@@ -5,6 +5,7 @@ Authors: Luke Nelson, Xi Wang
 -/
 import data.num.lemmas
 import misc.list
+import misc.option
 
 /-!
 # Binary trie
@@ -40,6 +41,17 @@ instance : inhabited (trie α) :=
 
 instance : has_emptyc (trie α) :=
 ⟨nil⟩
+
+section has_to_pexpr
+variable [has_to_pexpr α]
+
+meta def to_pexpr' : trie α → pexpr
+| nil          := ``(trie.nil)
+| (node x l r) := ``(node %%x %%(to_pexpr' l) %%(to_pexpr' r))
+
+meta instance : has_to_pexpr (trie α) := ⟨to_pexpr'⟩
+
+end has_to_pexpr
 
 section repr
 variable [has_repr α]

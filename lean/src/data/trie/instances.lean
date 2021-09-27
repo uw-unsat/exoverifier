@@ -3,7 +3,6 @@ Copyright (c) 2021 The UNSAT Group. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Luke Nelson, Xi Wang
 -/
-import misc.reify
 import .basic
 
 namespace trie
@@ -99,10 +98,4 @@ instance : is_lawful_traversable trie :=
       simp with functor_norm } } }
 
 end traversable
-
-section serialize
-variables {α : Type} {α' : Type} [has_serialize α α']
-instance : has_serialize (trie α) (trie α') := serialize_functor
-end serialize
-
 end trie

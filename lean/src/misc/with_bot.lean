@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Luke Nelson, Xi Wang
 -/
 import order.bounded_lattice
-import misc.reify
+import misc.option
 
 namespace with_bot
 section
@@ -29,10 +29,7 @@ instance [has_repr T] : has_repr (with_bot T) :=
   | none := "⊥"
   end⟩
 
-section
-variables {α : Type} {α' : Type} [has_serialize α α']
-instance : has_serialize (with_bot α) (with_bot α') := serialize_functor
-end
+meta instance [has_to_pexpr T] : has_to_pexpr (with_bot T) := by apply_instance
 
 end
 end with_bot

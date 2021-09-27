@@ -5,7 +5,6 @@ Authors: Luke Nelson, Xi Wang
 -/
 import data.vector
 import data.vector.basic
-import misc.reify
 import tactic.linarith
 
 /-!
@@ -241,57 +240,15 @@ end
 
 end snoc
 
-section reflect
-
-/--
-Convert a list to a vector n, doing something arbitrary when length of the list ≠ n.
-Used to implement a `has_reflec` instance for vectors, which otherwise cannot be done
-as they contain proof terms.
--/
-private def list_to_vec {α : Type} [inhabited α] : list α → ∀ {n : ℕ}, vector α n
-| _         0       := vector.nil
-| (x :: xs) (n + 1) := vector.cons x $ list_to_vec xs
-| []        n       := vector.repeat (default _) n
-
-/-- Sanity check on `list_to_vec` that it sends `v.to_list` back to `v`. -/
-private theorem list_to_vec_of_vec {α : Type} [inhabited α] {n : ℕ} (v : vector α n) :
-  list_to_vec v.to_list = v :=
-begin
-  revert v,
-  induction n; intros v,
-  { rw [vector.eq_nil v],
-    refl },
-  { rw [← vector.cons_head_tail v, vector.to_list_cons, list_to_vec, n_ih] }
-end
-
-/-- Serialize vectors by converting to list and back. -/
-instance (α : Type*) (α' : Type) [has_serialize α α'] [inhabited α'] (n : ℕ) :
-  has_serialize (vector α n) (list α') :=
-⟨ λ (v : vector α n), v.to_list.map has_serialize.serialize,
-  λ (l : list α'), (list_to_vec l).map has_serialize.deserialize ⟩
-
-meta instance (n : ℕ) : has_reflect (vector bool n)
-| v :=
-  let x : list bool := v.to_list,
-      y : reflected_value (list bool) := reflected_value.mk x,
-      z : reflected_value ℕ := reflected_value.mk n in
-  unchecked_cast `(list_to_vec %%(y.expr) : vector bool %%(z.expr))
-
-end reflect
-
 section has_to_pexpr
 
 variables {α : Type*} [has_to_pexpr α]
 
-private meta def vector_to_pexpr : ∀ {n : ℕ} (v : vector α n), pexpr
-| 0       _ := ``(vector.nil)
-| (n + 1) v :=
-  let x  : α     := v.head,
-      e₁ : pexpr := to_pexpr x,
-      e₂ : pexpr := vector_to_pexpr v.tail in
-  ``(vector.cons %%e₁ %%e₂)
+private meta def to_pexpr' : ∀ {n : ℕ} (v : vector α n), pexpr
+| 0       _ := ``(nil)
+| (n + 1) v := ``(cons %%(v.head) %%(to_pexpr' v.tail))
 
-meta instance {n : ℕ} : has_to_pexpr (vector α n) := ⟨vector_to_pexpr⟩
+meta instance {n : ℕ} : has_to_pexpr (vector α n) := ⟨to_pexpr'⟩
 
 end has_to_pexpr
 end vector
