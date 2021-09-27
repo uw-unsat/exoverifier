@@ -4,7 +4,6 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Luke Nelson, Xi Wang
 */
 
-        r1 = 0
-        if r1 == 0 goto out
-        r1 /= r3
-out:    exit
+/* Expected failure: a program without an exit instruction at end of program. */
+
+    r1 += r2

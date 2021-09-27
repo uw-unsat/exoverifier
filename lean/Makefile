@@ -7,7 +7,7 @@ all:
 
 clean:
 	@find ./src -name '*.olean' -print -delete
-	@find ./test -name '*.bin' -or -name '*.asm' -or -name '*.llvmasm' -print -delete
+	@find ./test \( -name '*.bin' -or -name '*.asm' -or -name '*.llvmasm' -or -name '*.lef' \) -print -delete
 
 clean-deps:
 	@find . -name '*.olean' -print -delete

@@ -14,7 +14,7 @@ open bpf
 meta def file (s : string) : tactic unit :=
 `[tactic.io.from_le_quadword_file_as_be_bits $ "test/bpf/examples/" ++ s]
 
-example : bpf.decode (by file "prog1.bin") = some [
+example : bpf.decode (by file "common/test-decode.bin") = some [
   instr.ALU64_K ALU.MOV bpf.reg.R1 (vector.of_fn (λ x, if x = 31 then tt else ff)),
   instr.ALU64_X ALU.ADD bpf.reg.R1 bpf.reg.R2,
   instr.ALU64_X ALU.SUB bpf.reg.R1 bpf.reg.R2,

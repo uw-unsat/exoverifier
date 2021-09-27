@@ -4,7 +4,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Luke Nelson, Xi Wang
 */
 
-        r1 = 0
-        if r1 == 0 goto out
-        r1 /= r3
-out:    exit
+/* A trivially safe program. */
+
+r1 = 1
+r1 += r4
+exit

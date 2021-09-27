@@ -1,3 +1,1 @@
-r1 += r2
-r1 += r1
-exit
+../common/simple1.S
