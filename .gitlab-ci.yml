@@ -26,6 +26,7 @@ build-bpf:
       - lean/test/bpf/examples/*.bin
       - lean/test/bpf/examples/absint/*.bin
       - lean/test/bpf/examples/symeval/*.bin
+      - lean/test/bpf/examples/common/*.bin
       - lean/test/bpf/linux/bin/*.bin
     expire_in: 1 hr
 
