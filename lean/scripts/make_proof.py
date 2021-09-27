@@ -6,6 +6,7 @@ import argparse
 import subprocess
 import shutil
 import os
+import time
 
 
 LEAN_EXE = shutil.which("lean")
@@ -33,6 +34,7 @@ VERIFIER_MAP = {
 
 
 def produce_proof(verifier, program, outfile):
+    start_time = time.time()
     harness_file = os.path.join(THIS_DIR, "..", VERIFIER_MAP[verifier])
     env = dict(os.environ)
     env.update({"BPF_BIN_PATH": program})
@@ -47,6 +49,8 @@ def produce_proof(verifier, program, outfile):
         check=True,
         env=env,
     )
+    end_time = time.time()
+    print(f'Generated proof at {outfile} in {(end_time-start_time):3.1f}s.')
 
 
 produce_proof(args.verifier, args.program, args.output)

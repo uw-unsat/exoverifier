@@ -31,8 +31,7 @@ build-bpf:
 
 generate-proofs:
   script:
-    - ./scripts/make_proof.py --verifier se+sat test/bpf/examples/absint/simple2.bin out2-symeval.lef
-    - ./scripts/make_proof.py --verifier absint test/bpf/examples/absint/simple2.bin out2-absint.lef
+    - leanpkg build && make -j8 proofs
 
 test-lean:
   script:
@@ -41,4 +40,3 @@ test-lean:
 test-python-tests:
   script:
     - green -vv -f test
-

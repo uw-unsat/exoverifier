@@ -1,6 +1,7 @@
 *.export
 *.olean
 *.olean.lock
+*.lef.lock
 *.lef
 *.llvmasm
 /_target

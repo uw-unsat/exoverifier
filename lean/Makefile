@@ -1,20 +1,22 @@
 include Makefile.lib
 
 UBPF_DISASSEMBLER ?= ./pkgs/ubpf/bin/ubpf-disassembler
+PROOF_GENERATOR := ./scripts/make_proof.py
 
 all:
 
 clean:
 	@find ./src -name '*.olean' -print -delete
-	@rm -f test/bpf/examples/*.o test/bpf/examples/*.bin
+	@find ./test -name '*.bin' -or -name '*.asm' -or -name '*.llvmasm' -print -delete
 
 clean-deps:
 	@find . -name '*.olean' -print -delete
 
-certificates: test/bpf/se.lef
+%-absint.lef: %.bin
+	$(PROOF_GENERATOR) --verifier 'absint' "$<" "$@"
 
-%.lef: %.lean
-	lean --only-export=progbits_safe --export=$@ $<
+%-symeval.lef: %.bin
+	$(PROOF_GENERATOR) --verifier 'se+sat' "$<" "$@"
 
 bin: \
 	pkgs/aiger/aigtoaig \
@@ -66,12 +68,21 @@ test/aig/c32sat: \
 	$(patsubst %.c32sat,%_08.aig,$(C32SAT_TESTS)) \
 	$(patsubst %.c32sat,%_16.aig,$(C32SAT_TESTS)) \
 	$(patsubst %.c32sat,%_32.aig,$(C32SAT_TESTS)) \
-	$(patsubst %.c32sat,%_64.aig,$(C32SAT_TESTS))
+	$(patsubst %.c32sat,%_64.aig,$(C32SAT_TESTS)) \
 
 BPF_BINS := \
-  $(patsubst %.S,%.bin,$(call rwildcard,test/bpf/examples/,*.S)) \
-  $(patsubst %.c,%.bin,$(call rwildcard,test/bpf/examples/ebpf-samples/src/,*.c)) \
-  $(patsubst %.o,%.bin,$(call rwildcard,test/bpf/examples/,*.o))
+    $(patsubst %.S,%.bin,$(call rwildcard,test/bpf/examples/,*.S)) \
+    $(patsubst %.c,%.bin,$(call rwildcard,test/bpf/examples/ebpf-samples/src/,*.c)) \
+    $(patsubst %.o,%.bin,$(call rwildcard,test/bpf/examples/,*.o)) \
+
+FILTER_OUT = $(foreach v,$(2),$(if $(findstring $(1),$(v)),,$(v)))
+
+BPF_PROOFS := $(call FILTER_OUT,fail, \
+    $(patsubst %.S,%-absint.lef,$(call rwildcard,test/bpf/examples/absint/,*.S)) \
+    $(patsubst %.S,%-symeval.lef,$(call rwildcard,test/bpf/examples/symeval/,*.S)) \
+    )
+
+proofs: $(call FILTER_OUT,fail,$(BPF_PROOFS))
 
 gen-bpf-tests: bpf-examples
 
@@ -94,4 +105,4 @@ bpf-examples: $(BPF_BINS) $(patsubst %.bin,%.asm,$(BPF_BINS)) $(patsubst %.o,%.l
 
 .PRECIOUS: %.o %.bin
 
-.PHONY: bin clean clean-deps bpf-examples gen-bpf-tests test/aig/c32sat certificates
+.PHONY: bin clean clean-deps bpf-examples gen-bpf-tests test/aig/c32sat proofs certificates
