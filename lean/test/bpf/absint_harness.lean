@@ -33,7 +33,7 @@ def program : bpf.cfg.trie_program :=
 def constraints := @ai.gen_constraints pos_num (bpf.reg → tnum 64) _ _ trie _ program
 
 meta def solution : ai.STATE :=
- @ai.solve pos_num (bpf.reg → tnum 64) _ _ trie _ constraints 2
+ @ai.solver.solve pos_num (bpf.reg → tnum 64) _ _ trie _ constraints 5000
 
 meta def solexpr : pexpr :=
 ``(%%solution : @ai.STATE (bpf.reg → tnum 64) _ trie)

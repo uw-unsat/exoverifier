@@ -125,6 +125,11 @@ def gen_one_safety (p : PGRM) (current : CTRL) : bpf.cfg.instr CTRL → MEM → 
   λ _, (lookup if_true p.code).is_some ∧ (lookup if_false p.code).is_some
 | _ := λ _, tt
 
+/--
+Generate the safety conditions for a BPF program. It consists of a
+special constraint that the entry point exists, and the constraints
+generated for each individual instruction.
+-/
 def gen_safety (p : PGRM) : list safety_predicate :=
 (p.entry, λ _, (lookup p.entry p.code).is_some) ::
 (to_list p.code).map (λ (i : Σ (_ : CTRL), bpf.cfg.instr CTRL), (i.1, gen_one_safety p i.1 i.2))
@@ -437,28 +442,35 @@ begin
   exact correctness p s approx sec ⟨_, ⟨h₁, h₂⟩⟩
 end
 
-section solver
+namespace solver
 
 /-- The initial state is the empty map (i.e., maps everything to ⊥). -/
-def initial_state : STATE :=
+private def initial_state : STATE :=
 @unordered_map.empty CTRL _ (map MEM) _
 
 /-- Refine an abstract state using a constraint and ⊔. -/
-def refine (s : STATE) (c : constraint) : STATE :=
+private def refine (s : STATE) (c : constraint) : STATE :=
 insert_with abstr_join.join c.target (c.compute (interpret s c.source)) s
 
 /-- Refine a state using all constraints in a list. -/
-def refine_all : STATE → list constraint → STATE
+private def refine_all : STATE → list constraint → STATE
 | s []        := s
 | s (c :: cs) := refine_all (refine s c) cs
 
-/-- Iterate refining a state with all contraints in the list `fuel` times. -/
-def iterate (s : STATE) (l : list constraint) (fuel : ℕ) : STATE :=
-nat.iterate (λ s, refine_all s l) fuel s
+/--
+Iterate refining a state with all contraints in the list `fuel` times.
+Stop early if a state is found which satisfies the constraints.
+-/
+private def iterate (l : list constraint) : STATE → ℕ → STATE
+| s 0       := s
+| s (n + 1) :=
+  if ∀ c, c ∈ l → constraint_holds c s
+  then s
+  else iterate (refine_all s l) n
 
 /-- Solve constraints by iterating `fuel` times on the initial state. -/
 def solve (l : list constraint) (fuel : ℕ) : STATE :=
-iterate initial_state l fuel
+iterate l initial_state fuel
 
 end solver
 end -- section
