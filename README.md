@@ -101,16 +101,17 @@ $ green -vv -f test
 
 Code under `lean/pkgs` maintains the licenses of the original packages:
 
-- `lean/pkgs/c32sat/tools/cnf2c32sat/LICENSE`
+- `lean/pkgs/aiger/LICENSE`
 - `lean/pkgs/c32sat/LICENSE`
-- `lean/pkgs/c32sat/xc32sat/LICENSE`
 - `lean/pkgs/c32sat/src/LICENSE`
 - `lean/pkgs/c32sat/src/test/LICENSE`
-- `lean/pkgs/aiger/LICENSE`
-- `lean/pkgs/ubpf/LICENSE-APACHE`
-- `lean/pkgs/druplig/LICENSE`
-- `lean/pkgs/picosat/LICENSE`
+- `lean/pkgs/c32sat/tools/cnf2c32sat/LICENSE`
+- `lean/pkgs/c32sat/xc32sat/LICENSE`
 - `lean/pkgs/drat-trim/LICENSE`
+- `lean/pkgs/druplig/LICENSE`
+- `lean/pkgs/nanoda_lib/LICENSE`
+- `lean/pkgs/picosat/LICENSE`
+- `lean/pkgs/ubpf/LICENSE-APACHE`
 
 Test BPF programs under `lean/test/bpf/examples/ebpf-samples` are copyrighted under their original sources (obtained from <https://github.com/vbpf/ebpf-samples>).
 
