@@ -10,6 +10,8 @@ import data.domain.basic
 # Abstract domains for BPF registers
 -/
 
+namespace absint
+
 /--
 An abstraction of BPF registers.
 -/
@@ -167,3 +169,4 @@ instance : regs_abstr (aregs β) :=
   test_reg_neq   := test_reg_neq }
 
 end nonrelational
+end absint

@@ -13,6 +13,7 @@ import sat.tactic
 import tactic.io
 
 namespace test_bpf
+open absint
 
 meta def progbits : list bool :=
 (by tactic.io.from_le_quadword_file_as_be_bits
@@ -30,22 +31,22 @@ to_pexpr program_meta
 def program : bpf.cfg.trie_program :=
 (by tactic.to_expr program_expr >>= tactic.exact)
 
-def constraints := @ai.gen_constraints pos_num (nonrelational.aregs (tnum 64)) _ _ trie _ program
+def constraints := @gen_constraints pos_num (nonrelational.aregs (tnum 64)) _ _ trie _ program
 
-meta def solution : ai.STATE :=
- @ai.solver.solve pos_num (nonrelational.aregs (tnum 64)) _ _ trie _ constraints 5000
+meta def solution : STATE :=
+ @solver.solve pos_num (nonrelational.aregs (tnum 64)) _ _ trie _ constraints 5000
 
 meta def solexpr : pexpr :=
-``(%%solution : @ai.STATE (nonrelational.aregs (tnum 64)) _ trie)
+``(%%solution : @STATE (nonrelational.aregs (tnum 64)) _ trie)
 
 /-- The solution, but reified into a concrete trie (no computation),
     by doing computation in meta-lean and serializing. -/
-def solution' : @ai.STATE (nonrelational.aregs (tnum 64)) _ trie :=
+def solution' : @STATE (nonrelational.aregs (tnum 64)) _ trie :=
 (by tactic.to_expr solexpr >>= tactic.exact)
 
-def predicates := @ai.gen_safety pos_num (nonrelational.aregs (tnum 64)) _ _ trie _ program
+def predicates := @gen_safety pos_num (nonrelational.aregs (tnum 64)) _ _ trie _ program
 
 def program_safety : bpf.cfg.safe program :=
-ai.safe_program_of_correct_approximation _ solution' dec_trivial dec_trivial
+safe_program_of_correct_approximation _ solution' dec_trivial dec_trivial
 
 end test_bpf

@@ -9,7 +9,7 @@ import bpf.cfg
 import data.domain.basic
 import misc.bool
 
-namespace ai
+namespace absint
 
 section
 parameters {CTRL REGS : Type} [regs_abstr REGS]
@@ -313,17 +313,17 @@ begin
     case bpf.cfg.step.ALU64_X : pc' regs' op dst src v next fetch' check doalu {
       rw [fetch] at fetch',
       cases fetch',
-      simp only [ai.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at secure,
+      simp only [absint.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at secure,
       exact secure.1 },
     case bpf.cfg.step.ALU64_K : pc' regs' op dst imm v next fetch' check doalu {
       rw [fetch] at fetch',
       cases fetch',
-      simp only [ai.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at secure,
+      simp only [absint.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at secure,
       exact secure.1 },
     case bpf.cfg.step.JMP_X : pc' regs' op dst src _ if_true if_false fetch' {
       rw [fetch] at fetch',
       cases fetch',
-      simp only [ai.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at secure,
+      simp only [absint.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at secure,
       cases secure with secure₁ secure₂,
       cases head_c,
       { exact secure₂ },
@@ -331,7 +331,7 @@ begin
     case bpf.cfg.step.JMP_K : pc' regs' op dst imm _ if_true if_false fetch' {
       rw [fetch] at fetch',
       cases fetch',
-      simp only [ai.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at secure,
+      simp only [absint.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at secure,
       cases secure with secure₁ secure₂,
       cases head_c,
       { exact secure₂ },
@@ -355,15 +355,15 @@ begin
   case bpf.cfg.instr.ALU64_X : op dst src next {
     cases op,
     case bpf.ALU.DIV {
-      simp only [ai.gen_one_safety, ai.gen_check, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
+      simp only [absint.gen_one_safety, absint.gen_check, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
       existsi _,
       apply bpf.cfg.step.ALU64_X fetch _ rfl,
       apply (with_bot.lift_unary_test (regs_abstr.test_reg_neq src 0)).test_sound check_tt.2 rel },
     case bpf.ALU.MOD {
-      simp only [ai.gen_one_safety, ai.gen_check, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
+      simp only [absint.gen_one_safety, absint.gen_check, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
       cases check_tt.2 },
     case bpf.ALU.END {
-      simp only [ai.gen_one_safety, ai.gen_check, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
+      simp only [absint.gen_one_safety, absint.gen_check, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
       cases check_tt.2 },
     all_goals {
       existsi _,
@@ -371,14 +371,14 @@ begin
   case bpf.cfg.instr.ALU64_K : op dst imm next {
     cases op,
     case bpf.ALU.DIV {
-      simp only [ai.gen_one_safety, ai.gen_check, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
+      simp only [absint.gen_one_safety, absint.gen_check, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
       existsi _,
       exact bpf.cfg.step.ALU64_K fetch check_tt.2 rfl },
     case bpf.ALU.MOD {
-      simp only [ai.gen_one_safety, ai.gen_check, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
+      simp only [absint.gen_one_safety, absint.gen_check, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
       cases check_tt.2 },
     case bpf.ALU.END {
-      simp only [ai.gen_one_safety, ai.gen_check, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
+      simp only [absint.gen_one_safety, absint.gen_check, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
       cases check_tt.2 },
     all_goals { existsi _,
       apply bpf.cfg.step.ALU64_K fetch rfl rfl } },
@@ -474,4 +474,4 @@ iterate l initial_state fuel
 
 end solver
 end -- section
-end ai
+end absint
