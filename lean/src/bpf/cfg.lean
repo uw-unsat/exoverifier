@@ -30,6 +30,7 @@ inductive instr (α : Type*)
 | ALU64_K : ALU → reg → lsbvector 64 → α → instr
 | JMP_X   : JMP → reg → reg → α → α → instr
 | JMP_K   : JMP → reg → lsbvector 64 → α → α → instr
+| STX     : SIZE → reg → reg → lsbvector 64 → α → instr
 | Exit    : instr
 
 namespace instr
@@ -40,6 +41,7 @@ private meta def to_pexpr' [has_to_pexpr α] : instr α → pexpr
 | (ALU64_K op dst imm next) := ``(ALU64_K %%op %%dst %%imm %%next)
 | (JMP_X op r₁ r₂ if_true if_false) := ``(JMP_X %%op %%r₁ %%r₂ %%if_true %%if_false)
 | (JMP_K op r₁ imm if_true if_false) := ``(JMP_K %%op %%r₁ %%imm %%if_true %%if_false)
+| (STX size dst src off next) := ``(STX %%size %%dst %%src %%off %%next)
 | Exit := ``(Exit)
 
 meta instance [has_to_pexpr α] : has_to_pexpr (instr α) := ⟨to_pexpr'⟩
@@ -49,6 +51,7 @@ private def repr' [has_repr α] : instr α → string
 | (ALU64_K op dst imm next)          := "ALU64_K(" ++ repr op ++ ", " ++ repr dst ++ ", " ++ repr imm ++ ", " ++ repr next ++ ")"
 | (JMP_X op r1 r2 if_true if_false)  := "JMP_X(" ++ repr op ++ ", " ++ repr r1 ++ ", " ++ repr r2 ++ ", " ++ repr if_true ++ ", " ++ repr if_false ++ ")"
 | (JMP_K op r1 imm if_true if_false) := "JMP_K(" ++ repr op ++ ", " ++ repr r1 ++ ", " ++ repr imm ++ ", " ++ repr if_true ++ ", " ++ repr if_false ++ ")"
+| (STX size dst src off next)        := "STX(" ++ repr size ++ ", " ++ repr dst ++ ", " ++ repr src ++ ", " ++ repr off ++ ", " ++ repr next ++ ")"
 | Exit                               := "Exit()"
 
 instance [has_repr α] : has_repr (instr α) := ⟨repr'⟩
@@ -125,6 +128,9 @@ the result to obtain an LSB first representation.
 private def msb_imm32_sext_to_lsb_imm64 (v : msbvector 32) : lsbvector 64 :=
 vector.append v.reverse (vector.repeat v.head 32)
 
+private def msb_imm16_sext_to_lsb_imm64 (v : msbvector 16) : lsbvector 64 :=
+@vector.append _ 16 48 v.reverse (vector.repeat v.head 48)
+
 /--
 Insert a low-level instruction at index `cur` into the trie representing the BPF program's CFG.
 Sign-extends immediates and converts to LSB-first form, rewrites relative jump targets into
@@ -137,6 +143,9 @@ private def decode_flat_instr (cur : num) (pr : trie (instr pos_num)) : bpf.inst
 | (bpf.instr.ALU64_K op dst imm) :=
   let imm64 := msb_imm32_sext_to_lsb_imm64 imm in
   pr.kinsert cur.succ' (instr.ALU64_K op dst imm64 (cur + 1).succ')
+| (bpf.instr.STX op dst src off) :=
+  let off64 := msb_imm16_sext_to_lsb_imm64 off in
+  pr.kinsert cur.succ' (instr.STX op dst src off64 (cur + 1).succ')
 | (bpf.instr.JMP_X op dst src off) :=
   let target : num := jump_off_to_jump_target cur off in
   pr.kinsert cur.succ' (instr.JMP_X op dst src target.succ' (cur + 1).succ')

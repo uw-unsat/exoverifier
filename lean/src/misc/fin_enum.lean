@@ -10,7 +10,6 @@ import data.multiset.sort
 import misc.list
 
 namespace fin_enum
-
 section to_vector
 variables (α : Type*) [fin_enum α]
 
@@ -26,7 +25,6 @@ begin
 end
 
 end to_vector
-
 end fin_enum
 
 namespace fin_enum

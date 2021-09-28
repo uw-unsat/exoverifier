@@ -157,6 +157,7 @@ def step_symeval (cfg : CFG χ η) (k : symstate β η → state γ β) : symsta
   | some (instr.JMP_K op r₁ imm if_true if_false) :=
     step_jmp64_k cfg k op r₁ imm if_true if_false s
   | some (instr.Exit) := pure s.assertions
+  | some (instr.STX size dst src imm next) := die
   | none := die
   end
 

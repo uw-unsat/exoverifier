@@ -123,6 +123,8 @@ def gen_one_safety (p : PGRM) (current : CTRL) : bpf.cfg.instr CTRL → MEM → 
   λ _, (lookup if_true p.code).is_some ∧ (lookup if_false p.code).is_some
 | (bpf.cfg.instr.JMP_K _ _ _ if_true if_false) :=
   λ _, (lookup if_true p.code).is_some ∧ (lookup if_false p.code).is_some
+| (bpf.cfg.instr.STX size dst src off next) :=
+  λ _, (lookup next p.code).is_some ∧ false
 | _ := λ _, tt
 
 /--
@@ -388,6 +390,9 @@ begin
   case bpf.cfg.instr.JMP_K {
     existsi _,
     apply bpf.cfg.step.JMP_K fetch rfl },
+  case bpf.cfg.instr.STX {
+    simp only [gen_one_safety, to_bool_false_eq_ff, and_false] at check_tt,
+    cases check_tt },
   case bpf.cfg.instr.Exit {
     existsi _,
     apply bpf.cfg.step.Exit fetch },

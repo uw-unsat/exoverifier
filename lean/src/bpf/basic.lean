@@ -272,6 +272,7 @@ inductive instr : Type
 | ALU64_K : ALU → reg → msbvector 32 → instr
 | JMP_X   : JMP → reg → reg → msbvector 16 → instr
 | JMP_K   : JMP → reg → msbvector 32 → msbvector 16 → instr
+| STX     : SIZE → reg → reg → msbvector 16 → instr
 | Exit    : instr
 
 namespace instr
@@ -281,6 +282,7 @@ private def repr' : instr → string
 | (ALU64_K op dst imm)   := "ALU64_K " ++ repr op ++ " " ++ repr dst ++ " " ++ repr imm
 | (JMP_X op dst src off) := "JMP_X " ++ repr op ++ " " ++ repr dst ++ " " ++ repr src ++ " " ++ repr off
 | (JMP_K op dst imm off) := "JMP_K " ++ repr op ++ " " ++ repr dst ++ " " ++ repr imm ++ " " ++ repr off
+| (STX size dst src off) := "STX " ++ repr size ++ " " ++ repr dst ++ " " ++ repr src ++ " " ++ repr off
 | Exit                   := "Exit"
 
 instance : has_repr instr := ⟨repr'⟩

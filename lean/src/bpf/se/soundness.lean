@@ -308,6 +308,8 @@ begin
       apply step_jmp64_x_increasing ih },
     case instr.JMP_K : op r₁ imm if_true if_false {
       apply step_jmp64_k_increasing ih },
+    case instr.STX : op dst src off next {
+      apply die_increasing },
     case instr.Exit { refl } }
 end
 
@@ -857,6 +859,8 @@ begin
     case ALU64_K { exact step_alu64_k_correct k_inc ih fetch_i pre mk },
     case JMP_X { exact step_jmp64_x_correct k_inc ih fetch_i pre mk },
     case JMP_K { exact step_jmp64_k_correct k_inc ih fetch_i pre mk },
+    case STX {
+      exact die_correct true.intro pre mk },
     case Exit {
       simp only [state_t.run_pure] at mk,
       cases mk, clear mk,

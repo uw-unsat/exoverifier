@@ -55,6 +55,7 @@ begin
     { cases h₂ },
     { cases h₂ },
     { cases h₂ },
+    { cases h₂ },
     { cases h₁ with regs h₁,
       apply cfg.safe_from_state_of_det_step,
       apply cfg.safe_from_exited,
