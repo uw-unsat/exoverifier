@@ -497,7 +497,6 @@ def invert_equality [decidable_eq β] : abstr_binary_inversion β (with_top $ id
       try{trivial}; try{assumption}; rw if_pos; try{refl}; assumption } }
 
 end with_top
-
 end
 
 /--
