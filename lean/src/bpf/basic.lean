@@ -12,6 +12,7 @@ import data.vector
 import misc.vector
 import misc.fin_enum
 import tactic.basic
+import data.equiv.basic
 import tactic.derive_fintype
 
 namespace bpf
@@ -49,19 +50,22 @@ regs R0 ::ᵥ regs R1 ::ᵥ regs R2 ::ᵥ regs R3 ::ᵥ regs R4 ::ᵥ
 regs R5 ::ᵥ regs R6 ::ᵥ regs R7 ::ᵥ regs R8 ::ᵥ regs R9 ::ᵥ
 regs FP ::ᵥ regs AX ::ᵥ vector.nil
 
-def to_fin : reg → fin nregs
-| R0 := 0
-| R1 := 1
-| R2 := 2
-| R3 := 3
-| R4 := 4
-| R5 := 5
-| R6 := 6
-| R7 := 7
-| R8 := 8
-| R9 := 9
-| FP := 10
-| AX := 11
+/-- `reg` is finite and enumerable. -/
+instance : fin_enum reg :=
+fin_enum.of_list [R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, FP, AX]
+                 (by intros x; cases x; simp)
+
+def to_fin : reg → fin nregs :=
+λ k, (fin_enum.equiv reg).to_fun k
+
+theorem to_fin_inj {r₁ r₂ : reg} :
+  (to_fin r₁) = (to_fin r₂) →
+  r₁ = r₂ :=
+begin
+  simp only [to_fin],
+  intros h₂,
+  apply equiv.injective (fin_enum.equiv reg) h₂
+end
 
 def of_vector {α : Type*} (v : vector α nregs) (r : reg) : α :=
 v.nth r.to_fin
@@ -80,11 +84,6 @@ begin
     intros i },
   exact fin.elim0 i
 end
-
-/-- `reg` is finite and enumerable. -/
-instance : fin_enum reg :=
-fin_enum.of_list [R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, FP, AX]
-                 (by intros x; cases x; simp)
 
 instance : has_repr reg :=
 ⟨λ r,

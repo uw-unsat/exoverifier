@@ -43,7 +43,7 @@ def produce_proof(verifier, program, outfile):
             LEAN_EXE,
             f"--export={outfile}",
             "--only-export=test_bpf.program_safety",
-            "--tstack=64000",
+            "--tstack=256000",
             harness_file,
         ],
         check=True,

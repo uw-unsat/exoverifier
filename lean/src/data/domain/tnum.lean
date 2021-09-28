@@ -119,14 +119,14 @@ end
 
 /-- Create a tnum for a constant. -/
 protected def const (f : fin n → bool) : tnum n :=
-⟨ vector.of_fn f, vector.of_fn 0⟩
+⟨ vector.of_fn f, vector.repeat ff _ ⟩
 
 theorem const_correct {f : fin n → bool} :
   f ∈ γ (tnum.const f) :=
 begin
   simp only [tnum.const, γ],
   intros i,
-  simp only [vector.nth_of_fn],
+  simp only [vector.nth_of_fn, vector.nth_repeat],
   cases (f i); refl
 end
 
@@ -137,7 +137,7 @@ instance : has_decidable_γ (fin n → bool) (tnum n) :=
   abstract_correct := by apply tnum.const_correct }
 
 instance : abstr_top (fin n → bool) (tnum n) :=
-{ top         := ⟨vector.of_fn 0, vector.repeat tt _⟩,
+{ top         := ⟨vector.repeat ff _, vector.repeat tt _⟩,
   top_correct := λ _ _ , by {
     simp [vector.nth_repeat],
     refl } }
