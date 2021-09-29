@@ -5,6 +5,7 @@ Authors: Luke Nelson, Xi Wang
 -/
 import bpf.basic
 import data.domain.basic
+import data.domain.bv
 
 /-!
 # Abstract domains for BPF registers
@@ -154,13 +155,47 @@ def do_alu_imm (op : bpf.ALU) (dst : bpf.reg) (imm : lsbvector 64) :
       symmetry,
       apply bpf.reg.to_fin_inj h } } }
 
+/-- Abstract transfer function for ALU operations. -/
+def transfer_JMP : ∀ (op : bpf.JMP), abstr_binary_inversion bpf.i64 β (with_bot β) (λ x y, bpf.JMP.doJMP op x y = tt)
+| bpf.JMP.JEQ := by {
+  simp only [bpf.JMP.doJMP, to_bool_iff],
+  exact abstr_meet.invert_equality }
+| _ := abstr_binary_inversion.trivial
+
 def invert_jmp_tt (op : bpf.JMP) (dst src : bpf.reg) :
   abstr_unary_inversion (bpf.reg → bpf.i64) (aregs β) (with_bot (aregs β))
     (λ (cregs : bpf.reg → bpf.i64), bpf.JMP.doJMP op (cregs dst) (cregs src) = tt) :=
-{ inv     := λ (x : aregs β), some x,
+{ inv := λ (l : aregs β),
+    (let z := (transfer_JMP op).inv (interpret l dst) (interpret l src) in do
+      dst' ← z.1,
+      src' ← z.2,
+      pure $ (l.update_nth dst.to_fin dst').update_nth src.to_fin src'),
   correct := by {
-    intros _ _ h₁ h₂,
-    exact h₁ } }
+    intros regs regs' h₁ jmp_eq,
+    simp only,
+    have h₃ := (transfer_JMP op).correct (h₁ dst) (h₁ src) jmp_eq,
+    cases ((transfer_JMP op).inv (interpret regs' dst) (interpret regs' src)).1 with dst',
+    { rcases h₃ with ⟨⟨⟩, -⟩ },
+    cases ((transfer_JMP op).inv (interpret regs' dst) (interpret regs' src)).2 with src',
+    { rcases h₃ with ⟨-, ⟨⟩⟩ },
+    simp only [option.some_bind],
+    intros r,
+    simp only [interpret],
+    by_cases h₄ : src.to_fin = r.to_fin,
+    { have h₄' := bpf.reg.to_fin_inj h₄,
+      subst h₄',
+      rw [vector.nth_update_nth_same],
+      rcases h₃ with ⟨-, h₃⟩,
+      exact h₃ },
+    rw [vector.nth_update_nth_of_ne h₄],
+    by_cases h₅ : dst.to_fin = r.to_fin,
+    { have h₅' := bpf.reg.to_fin_inj h₅,
+      subst h₅',
+      rw [vector.nth_update_nth_same],
+      rcases h₃ with ⟨h₃, -⟩,
+      exact h₃ },
+    rw [vector.nth_update_nth_of_ne h₅],
+    exact h₁ r } }
 
 instance : regs_abstr (aregs β) :=
 { do_alu         := do_alu,

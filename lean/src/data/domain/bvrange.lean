@@ -5,6 +5,7 @@ Authors: Luke Nelson, Xi Wang
 -/
 import ...data.bv.basic
 import .basic
+import .bv
 import algebra.field_power
 import data.num.basic
 import data.num.bitwise

@@ -3,10 +3,9 @@ Copyright (c) 2021 The UNSAT Group. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Luke Nelson, Xi Wang
 -/
-import ...data.bv.basic
 import misc.with_bot
 import order.bounded_lattice
-import tactic.lint.frontend
+import data.fintype.basic
 
 /-!
 # Abstract domains
@@ -20,6 +19,14 @@ Basic definitions of domains for abstract interpretation.
 * <https://hal.archives-ouvertes.fr/tel-01327023/document>
 -/
 
+/--
+has_γ β α means that the type α can serve as an abstraction of sets of concrete values of type β.
+There are two definitions that must be met:
+A function γ which maps an abstract value to its set of concrete values; and
+a function `abstract` which maps a single concrete value into an abstract value.
+
+Assume that α uniquely determines β.
+-/
 class has_γ (β : out_param Type*) (α : Type*) :=
 (γ                : α → set β)
 (abstract         : β → α)
@@ -27,23 +34,41 @@ class has_γ (β : out_param Type*) (α : Type*) :=
 
 open has_γ
 
+/--
+has_decidable_γ is has_γ when the γ relation is decidable.
+-/
 class has_decidable_γ (β : out_param Type*) (α : Type*) extends has_γ β α :=
 (dec_γ : ∀ (x : α), decidable_pred (γ x))
 
+/--
+abstr_le β α is an ordering on abstract values that respects set inclusion using γ.
+-/
 class abstr_le (β : out_param Type*) (α : Type*) [has_γ β α] extends has_le α :=
 (dec_le     : decidable_rel le)
 (le_correct : ∀ ⦃x y : α⦄, x ≤ y → γ x ⊆ γ y)
 
+/--
+abstr_top β α means there exists an element ⊤ that maps to the complete set of β.
+-/
 class abstr_top (β : out_param Type*) (α : Type*) [has_γ β α] extends has_top α :=
 (top_correct : ∀ (c : β), γ top c)
 
+/--
+abstr_bot β α means there exists an element ⊥ that maps to the empty set of β.
+-/
 class abstr_bot (β : out_param Type*) (α : Type*) [has_γ β α] extends has_bot α :=
 (bot_correct : ∀ (c : β), ¬(γ bot c))
 
+/--
+abstr_join β α means that there exists a join operation which respects set union using γ.
+-/
 class abstr_join (β : out_param Type*) (α₁ α₂ : Type*) [has_γ β α₁] [has_γ β α₂] :=
 (join         : α₁ → α₁ → α₂)
 (join_correct : ∀ ⦃x y : α₁⦄, γ x ∪ γ y ⊆ γ (join x y))
 
+/--
+abstr_meet β α means that there exists a meet operation which respects set intersection using γ.
+-/
 class abstr_meet (β : out_param Type*) (α₁ α₂ : Type*) [has_γ β α₁] [has_γ β α₂] :=
 (meet         : α₁ → α₁ → α₂)
 (meet_correct : ∀ ⦃x y : α₁⦄, γ x ∩ γ y ⊆ γ (meet x y))
@@ -481,57 +506,40 @@ def lift_binary_transfer {f : β → β → β} [has_γ β α] (g : abstr_binary
     dsimp only [γ, has_γ._match_1] at xu yv ⊢,
     apply g.correct; assumption } }
 
--- Inversion analysis for equality.
-def invert_equality [decidable_eq β] : abstr_binary_inversion β (with_top $ id β) (with_bot $ with_top $ id β) eq :=
-{ inv :=
-  λ (x y : with_top β),
-    match x, y with
-    | some x', some y' := if x' = y' then (some x, some x) else (⊥, ⊥) -- they must be equal
-    | none,    _       := (some y, some y) -- learn from y
-    | _,       none    := (some x, some x) -- learn from x
-    end,
-  correct := by {
-    intros x y u v xu yv x_eq_y,
-    subst_vars,
-    cases u; cases v; cases xu; cases yv; simp only [invert_equality._match_1]; split;
-      try{trivial}; try{assumption}; rw if_pos; try{refl}; assumption } }
-
 end with_top
 end
 
-/--
-The singleton domain. Given an arbitrary type α, we can construct an abstract domain for α
-by augmenting it with ⊥ and ⊤ and using equality for γ and ≤.
--/
-abbreviation Single (α : Type*) : Type* := with_bot $ with_top $ id α
+namespace abstr_meet
+open abstr_meet
+variables {α β : Type*} [has_γ β α] [abstr_meet β α (with_bot α)]
 
-/--
-An abstract domain for bitvector operations, for a fixed width.
-Must have decidable γ, ≤, ⊔, and ⊤.
-Additionally must implement bitvector transfer functions and inverse analyses.
--/
-class bv_abstr (n : out_param ℕ) (α : Type)
-  extends has_decidable_γ (fin n → bool) α,
-          abstr_le (fin n → bool) α,
-          abstr_top (fin n → bool) α,
-          abstr_meet (fin n → bool) α (with_bot α),
-          abstr_join (fin n → bool) α α : Type :=
-  (add : abstr_binary_transfer (fin n → bool) α α bv.add)
-  (and : abstr_binary_transfer (fin n → bool) α α bv.and)
-  (or  : abstr_binary_transfer (fin n → bool) α α bv.or)
-  (xor : abstr_binary_transfer (fin n → bool) α α bv.xor)
-  (eq  : abstr_binary_inversion (fin n → bool) α (with_bot α) eq)
+def invert_equality : abstr_binary_inversion β α (with_bot α) eq :=
+{ inv := λ (x y : α), let z : with_bot α := meet x y in (z, z),
+  correct := by {
+    intros x y u v xu yv x_eq_y,
+    subst x_eq_y,
+    simp only [and_self],
+    apply meet_correct ⟨xu, yv⟩ } }
 
-namespace bv_abstr
-variables (n : ℕ) (α : Type)
-instance [bv_abstr n α] : has_add α := ⟨bv_abstr.add.op⟩
-end bv_abstr
+end abstr_meet
+
+namespace abstr_binary_inversion
+variables {α β : Type*} [has_γ β α]
+
+/-- A trivial inversion that learns nothing. -/
+def trivial {f} : abstr_binary_inversion β α (with_bot α) f :=
+{ inv := λ x y, (some x, some y),
+  correct := by {
+    intros _ _ _ _ h₁ h₂ _,
+    exact ⟨h₁, h₂⟩ } }
+
+end abstr_binary_inversion
 
 -- Kill dangerous_instance lint warnings all at once.
 attribute [nolint dangerous_instance]
   abstr_le.to_has_le abstr_top.to_has_top abstr_bot.to_has_bot
-  abstr_join.to_has_sup abstr_meet.to_has_inf bv_abstr.has_add
+  abstr_join.to_has_sup abstr_meet.to_has_inf
 
 -- Set priorities from warnings
 attribute [priority 100]
-  abstr_join.to_has_sup abstr_meet.to_has_inf bv_abstr.has_add
+  abstr_join.to_has_sup abstr_meet.to_has_inf

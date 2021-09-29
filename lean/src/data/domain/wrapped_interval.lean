@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Luke Nelson, Xi Wang
 -/
 import .basic
+import .bv
 import data.bv.basic
 import data.bv.circuit
 
