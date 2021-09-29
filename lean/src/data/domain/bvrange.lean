@@ -5,19 +5,19 @@ Authors: Luke Nelson, Xi Wang
 -/
 import ...data.bv.basic
 import .basic
-import order.lattice
-import order.bounded_lattice
+import algebra.field_power
 import data.num.basic
-import data.num.lemmas
 import data.num.bitwise
-import tactic.rcases
-import tactic.norm_num
-import tactic.omega
-import tactic.ring
+import data.num.lemmas
+import misc.vector
+import order.bounded_lattice
+import order.lattice
 import tactic.linarith
 import tactic.lint.frontend
-import algebra.field_power
-import misc.vector
+import tactic.norm_num
+import tactic.omega
+import tactic.rcases
+import tactic.ring
 
 open has_γ
 
@@ -92,6 +92,13 @@ sorry
 instance : abstr_join (fin n → bool) range range :=
 { join         := join,
   join_correct := join_correct }
+
+def meet (x y : range) : with_bot range :=
+sorry
+
+instance : abstr_meet (fin n → bool) range (with_bot range) :=
+{ meet         := meet,
+  meet_correct := sorry }
 
 def add (x y : range) : range :=
 sorry

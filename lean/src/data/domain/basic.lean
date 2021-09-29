@@ -514,6 +514,7 @@ class bv_abstr (n : out_param ℕ) (α : Type)
   extends has_decidable_γ (fin n → bool) α,
           abstr_le (fin n → bool) α,
           abstr_top (fin n → bool) α,
+          abstr_meet (fin n → bool) α (with_bot α),
           abstr_join (fin n → bool) α α : Type :=
   (add : abstr_binary_transfer (fin n → bool) α α bv.add)
   (and : abstr_binary_transfer (fin n → bool) α α bv.and)
@@ -525,17 +526,6 @@ namespace bv_abstr
 variables (n : ℕ) (α : Type)
 instance [bv_abstr n α] : has_add α := ⟨bv_abstr.add.op⟩
 end bv_abstr
-
-section
-
-instance (n : ℕ) : bv_abstr n (with_top (id (fin n → bool))) :=
-{ add := with_top.lift_binary_transfer $ id.transfer bv.add,
-  and := with_top.lift_binary_transfer $ id.transfer bv.and,
-  or  := with_top.lift_binary_transfer $ id.transfer bv.or,
-  xor := with_top.lift_binary_transfer $ id.transfer bv.xor,
-  eq  := with_top.invert_equality }
-
-end
 
 -- Kill dangerous_instance lint warnings all at once.
 attribute [nolint dangerous_instance]

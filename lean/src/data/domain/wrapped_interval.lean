@@ -96,16 +96,16 @@ instance : abstr_join (fin n → bool) interval (with_top interval) :=
 { join := join,
   join_correct := join_correct }
 
-protected def meet (a b : interval) : with_bot interval :=
+protected def meet (a b : with_top interval) : with_bot (with_top interval) :=
 sorry
 
-theorem meet_correct ⦃a b : interval⦄ :
+theorem meet_correct ⦃a b : with_top interval⦄ :
   γ a ∩ γ b ⊆ γ (wrapped_interval.meet a b) :=
 begin
   sorry
 end
 
-instance : abstr_meet (fin n → bool) interval (with_bot interval) :=
+instance : abstr_meet (fin n → bool) (with_top interval) (with_bot (with_top interval)) :=
 { meet := meet,
   meet_correct := meet_correct }
 
