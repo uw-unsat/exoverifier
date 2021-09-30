@@ -912,22 +912,34 @@ static int dump_tests(unsigned int from, unsigned int to)
     }
 
     for (i = from; i < to; i++) {
-        char path[256];
+        char path[256], info[256];
+        const char *result;
         size_t written;
         FILE *f;
         struct bpf_test *test = &tests[i];
         struct bpf_insn *prog = test->insns;
-        printf("%d: %s\n", i, test->descr);
 
-        if (test->fill_insns) {
+        switch (test->result) {
+        case ACCEPT: result = "ACCEPT"; break;
+        case UNDEF: result = "UNDEF"; break;
+        case REJECT: result = "REJECT"; break;
+        case VERBOSE_ACCEPT: result = "VERBOSE_ACCEPT"; break;
+        default: result = "???"; break;
+        }
+
+        if (test->fill_insns || test->result == REJECT || test->result == UNDEF) {
             continue;
         } else {
             test->prog_len = probe_filter_length(prog);
         }
 
-        snprintf(path, sizeof(path), "bin/%d.bin", i);
-        fprintf(index, "%d: %s\n", i, test->descr);
+        /* Write info about this test to stdout and to the index. */
+        snprintf(info, sizeof(info), "%d (%s): %s\n", i, result, test->descr);
+        printf("%s", info);
+        fprintf(index, "%s", info);
 
+        /* Write test binary to bin/{i}.bin. */
+        snprintf(path, sizeof(path), "bin/%d.bin", i);
         if (!(f = fopen(path, "wb"))){
             fprintf(stderr, "Failed to open %s.\n", path);
             err = -1;

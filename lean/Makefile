@@ -74,6 +74,7 @@ BPF_BINS := \
     $(patsubst %.S,%.bin,$(call rwildcard,test/bpf/examples/,*.S)) \
     $(patsubst %.c,%.bin,$(call rwildcard,test/bpf/examples/ebpf-samples/src/,*.c)) \
     $(patsubst %.o,%.bin,$(call rwildcard,test/bpf/examples/,*.o)) \
+    $(call rwildcard,test/bpf/examples/test_verifier/bin/,*.bin) \
 
 FILTER_OUT = $(foreach v,$(2),$(if $(findstring $(1),$(v)),,$(v)))
 
@@ -83,8 +84,6 @@ BPF_PROOFS := $(call FILTER_OUT,fail, \
     )
 
 proofs: $(call FILTER_OUT,fail,$(BPF_PROOFS))
-
-gen-bpf-tests: bpf-examples
 
 bpf-examples: $(BPF_BINS) $(patsubst %.bin,%.asm,$(BPF_BINS)) $(patsubst %.o,%.llvmasm,$(call rwildcard,test/bpf/examples/,*.o))
 
@@ -105,4 +104,4 @@ bpf-examples: $(BPF_BINS) $(patsubst %.bin,%.asm,$(BPF_BINS)) $(patsubst %.o,%.l
 
 .PRECIOUS: %.o %.bin
 
-.PHONY: bin clean clean-deps bpf-examples gen-bpf-tests test/aig/c32sat proofs certificates
+.PHONY: bin clean clean-deps bpf-examples gen-test_verifier-tests test/aig/c32sat proofs certificates

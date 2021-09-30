@@ -20,14 +20,13 @@ build-lean:
 build-bpf:
   stage: build
   script:
-    - make -B gen-bpf-tests
+    - make -B bpf-examples
   artifacts:
     paths:
       - lean/test/bpf/examples/*.bin
       - lean/test/bpf/examples/absint/*.bin
       - lean/test/bpf/examples/symeval/*.bin
       - lean/test/bpf/examples/common/*.bin
-      - lean/test/bpf/linux/bin/*.bin
     expire_in: 1 hr
 
 generate-proofs:
