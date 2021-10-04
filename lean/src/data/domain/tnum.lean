@@ -353,6 +353,7 @@ instance : bv_abstr n (tnum n) :=
   and := { op := tnum.and, correct := tnum.and_correct },
   or  := { op := tnum.or, correct := tnum.or_correct },
   xor := { op := tnum.xor, correct := tnum.xor_correct },
-  eq  := { inv := λ x y, (some x, some y), correct := by tauto } }
+  lt  := abstr_binary_inversion.trivial,
+  eq  := abstr_meet.invert_equality }
 
 end tnum

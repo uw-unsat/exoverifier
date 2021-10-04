@@ -163,7 +163,8 @@ instance : bv_abstr n (with_top interval) :=
    { op := wrapped_interval.or, correct := wrapped_interval.or_correct },
   xor := with_top.lift_binary_transfer
    { op := wrapped_interval.xor, correct := wrapped_interval.xor_correct },
-  eq  := { inv := λ x y, (some x, some y), correct := by tauto } }
+  eq  := abstr_meet.invert_equality,
+  lt  := abstr_binary_inversion.trivial }
 
 end
 end wrapped_interval

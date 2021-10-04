@@ -524,7 +524,8 @@ def invert_equality : abstr_binary_inversion β α (with_bot α) eq :=
 end abstr_meet
 
 namespace abstr_binary_inversion
-variables {α β : Type*} [has_γ β α]
+open abstr_join
+variables {α α' β : Type*} [has_γ β α] [has_γ β α']
 
 /-- A trivial inversion that learns nothing. -/
 def trivial {f} : abstr_binary_inversion β α (with_bot α) f :=
@@ -532,6 +533,20 @@ def trivial {f} : abstr_binary_inversion β α (with_bot α) f :=
   correct := by {
     intros _ _ _ _ h₁ h₂ _,
     exact ⟨h₁, h₂⟩ } }
+
+def invert_disjunction {f g} [abstr_join β α' α']
+    (inv₁ : abstr_binary_inversion β α α' f)
+    (inv₂ : abstr_binary_inversion β α α' g) :
+  abstr_binary_inversion β α α' (λ x y, f x y ∨ g x y) :=
+{ inv := λ (x y : α), (inv₁.inv x y) ⊔ (inv₂.inv x y),
+  correct := by {
+    intros _ _ _ _ xu yv,
+    intros h₁,
+    cases h₁,
+    { obtain ⟨hl, hr⟩ := inv₁.correct xu yv h₁,
+      exact ⟨join_correct (or.inl hl), join_correct (or.inl hr)⟩ },
+    { obtain ⟨hl, hr⟩ := inv₂.correct xu yv h₁,
+      exact ⟨join_correct (or.inr hl), join_correct (or.inr hr)⟩ } } }
 
 end abstr_binary_inversion
 

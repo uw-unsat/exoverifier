@@ -115,7 +115,8 @@ instance : bv_abstr n range :=
   and := sorry,
   or  := sorry,
   xor := sorry,
-  eq  := sorry }
+  eq  := abstr_meet.invert_equality,
+  lt  := abstr_binary_inversion.trivial }
 
 end
 end bvrange
