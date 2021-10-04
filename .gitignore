@@ -4,3 +4,6 @@ __pycache__
 .codemod.bookmark
 *.rkt~
 *.lef
+*.leanchecker.out
+*.nanoda.out
+*.trepplein.out

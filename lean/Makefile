@@ -2,12 +2,13 @@ include Makefile.lib
 
 UBPF_DISASSEMBLER ?= ./pkgs/ubpf/bin/ubpf-disassembler
 PROOF_GENERATOR := ./scripts/make_proof.py
+NANODA := nanoda
 
 all:
 
 clean:
 	@find ./src -name '*.olean' -print -delete
-	@find ./test \( -name '*.bin' -or -name '*.asm' -or -name '*.llvmasm' -or -name '*.lef' \) -print -delete
+	@find ./test \( -name '*.bin' -or -name '*.asm' -or -name '*.llvmasm' -or -name '*.lef' -or -name '*.lef.nanoda.out' -or -name '*.lef.leanchecker.out' \) -print -delete
 
 clean-deps:
 	@find . -name '*.olean' -print -delete
@@ -17,6 +18,12 @@ clean-deps:
 
 %-symeval.lef: %.bin
 	$(PROOF_GENERATOR) --verifier 'se+sat' "$<" "$@"
+
+%.lef.nanoda.out: %.lef
+	$(NANODA) $(shell nproc) "$<" > "$@"
+
+%.lef.leanchecker.out: %.lef
+	leanchecker "$<" > "$@"
 
 bin: \
 	pkgs/aiger/aigtoaig \
@@ -83,7 +90,11 @@ BPF_PROOFS := $(call FILTER_OUT,fail, \
     $(patsubst %.S,%-symeval.lef,$(call rwildcard,test/bpf/examples/symeval/,*.S)) \
     )
 
-proofs: $(call FILTER_OUT,fail,$(BPF_PROOFS))
+proofs: $(BPF_PROOFS)
+
+check-proofs: \
+	$(patsubst %.lef,%.lef.leanchecker.out,$(BPF_PROOFS)) \
+	$(patsubst %.lef,%.lef.nanoda.out,$(BPF_PROOFS)) \
 
 bpf-examples: $(BPF_BINS) $(patsubst %.bin,%.asm,$(BPF_BINS)) $(patsubst %.o,%.llvmasm,$(call rwildcard,test/bpf/examples/,*.o))
 
@@ -102,6 +113,6 @@ bpf-examples: $(BPF_BINS) $(patsubst %.bin,%.asm,$(BPF_BINS)) $(patsubst %.o,%.l
 %.asm: %.bin
 	$(QUIET_GEN)$(UBPF_DISASSEMBLER) "$<" "$@"
 
-.PRECIOUS: %.o %.bin
+.PRECIOUS: %.o %.bin %.llvmasm %.asm
 
-.PHONY: bin clean clean-deps bpf-examples gen-test_verifier-tests test/aig/c32sat proofs certificates
+.PHONY: bin clean clean-deps bpf-examples test/aig/c32sat proofs check-proofs
