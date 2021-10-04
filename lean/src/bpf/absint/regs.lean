@@ -160,6 +160,22 @@ def transfer_JMP : ∀ (op : bpf.JMP), abstr_binary_inversion bpf.i64 β (with_b
 | bpf.JMP.JEQ := by {
   simp only [bpf.JMP.doJMP, to_bool_iff],
   exact abstr_meet.invert_equality }
+| bpf.JMP.JLT := by {
+  convert bv_abstr.lt,
+  ext x y,
+  simp [bpf.JMP.doJMP] }
+| bpf.JMP.JGT := by {
+  convert bv_abstr.gt,
+  ext x y,
+  simp [bpf.JMP.doJMP] }
+| bpf.JMP.JLE := by {
+  convert bv_abstr.le,
+  ext x y,
+  simp [bpf.JMP.doJMP] }
+| bpf.JMP.JGE := by {
+  convert bv_abstr.ge,
+  ext x y,
+  simp [bpf.JMP.doJMP] }
 | _ := abstr_binary_inversion.trivial
 
 def invert_jmp_tt (op : bpf.JMP) (dst src : bpf.reg) :

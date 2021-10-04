@@ -524,7 +524,7 @@ def invert_equality : abstr_binary_inversion β α (with_bot α) eq :=
 end abstr_meet
 
 namespace abstr_binary_inversion
-open abstr_join
+open abstr_join abstr_meet
 variables {α α' β : Type*} [has_γ β α] [has_γ β α']
 
 /-- A trivial inversion that learns nothing. -/
@@ -540,13 +540,32 @@ def invert_disjunction {f g} [abstr_join β α' α']
   abstr_binary_inversion β α α' (λ x y, f x y ∨ g x y) :=
 { inv := λ (x y : α), (inv₁.inv x y) ⊔ (inv₂.inv x y),
   correct := by {
-    intros _ _ _ _ xu yv,
-    intros h₁,
-    cases h₁,
+    rintros _ _ _ _ xu yv (h₁ | h₁),
     { obtain ⟨hl, hr⟩ := inv₁.correct xu yv h₁,
       exact ⟨join_correct (or.inl hl), join_correct (or.inl hr)⟩ },
     { obtain ⟨hl, hr⟩ := inv₂.correct xu yv h₁,
       exact ⟨join_correct (or.inr hl), join_correct (or.inr hr)⟩ } } }
+
+def invert_conjunction {f g} [abstr_meet β α' α']
+    (inv₁ : abstr_binary_inversion β α α' f)
+    (inv₂ : abstr_binary_inversion β α α' g) :
+  abstr_binary_inversion β α α' (λ x y, f x y ∧ g x y) :=
+{ inv := λ (x y : α), (inv₁.inv x y) ⊓ (inv₂.inv x y),
+  correct := by {
+    rintros _ _ _ _ xu yv ⟨h₁, h₂⟩,
+    obtain ⟨hl₁, hr₁⟩ := inv₁.correct xu yv h₁,
+    obtain ⟨hl₂, hr₂⟩ := inv₂.correct xu yv h₂,
+    exact ⟨meet_correct ⟨hl₁, hl₂⟩, meet_correct ⟨hr₁, hr₂⟩⟩ } }
+
+def invert_swap {f}
+    (inv : abstr_binary_inversion β α α' f) :
+  abstr_binary_inversion β α α' (function.swap f) :=
+{ inv := λ (x y : α), (inv.inv y x).swap,
+  correct := by {
+    intros _ _ _ _ xu yv h₁,
+    have h₂ := inv.correct yv xu h₁,
+    rw [and_comm],
+    exact h₂ } }
 
 end abstr_binary_inversion
 

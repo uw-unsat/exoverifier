@@ -3,6 +3,7 @@ include Makefile.lib
 UBPF_DISASSEMBLER ?= ./pkgs/ubpf/bin/ubpf-disassembler
 PROOF_GENERATOR := ./scripts/make_proof.py
 NANODA := nanoda
+LEAN_SRCS := $(call rwildcard,src/,*.lean) $(call rwildcard,test/,*.lean)
 
 all:
 
@@ -13,10 +14,10 @@ clean:
 clean-deps:
 	@find . -name '*.olean' -print -delete
 
-%-absint.lef: %.bin
+%-absint.lef: %.bin $(LEAN_SRCS)
 	$(PROOF_GENERATOR) --verifier 'absint' "$<" "$@"
 
-%-symeval.lef: %.bin
+%-symeval.lef: %.bin $(LEAN_SRCS)
 	$(PROOF_GENERATOR) --verifier 'se+sat' "$<" "$@"
 
 %.lef.nanoda.out: %.lef

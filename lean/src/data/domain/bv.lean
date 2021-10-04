@@ -22,22 +22,26 @@ class bv_abstr (n : out_param ℕ) (α : Type)
   (or  : abstr_binary_transfer (fin n → bool) α α bv.or)
   (xor : abstr_binary_transfer (fin n → bool) α α bv.xor)
   (eq  : abstr_binary_inversion (fin n → bool) α (with_bot α) eq)
-  (lt  : abstr_binary_inversion (fin n → bool) α (with_bot α) bv.ult)
+  (lt  : abstr_binary_inversion (fin n → bool) α (with_bot α) (<))
 
 namespace bv_abstr
-variables {n : ℕ} {α : Type} [abs : bv_abstr n α]
-include abs
+variables {n : ℕ} {α : Type} [self : bv_abstr n α]
+include self
 
 instance : has_add α := ⟨bv_abstr.add.op⟩
 
-def le : abstr_binary_inversion (fin n → bool) α (with_bot α) bv.ule :=
+def gt : abstr_binary_inversion (fin n → bool) α (with_bot α) (>) :=
+abstr_binary_inversion.invert_swap lt
+
+def le : abstr_binary_inversion (fin n → bool) α (with_bot α) (≤) :=
 begin
   convert abstr_binary_inversion.invert_disjunction bv_abstr.eq bv_abstr.lt,
   { ext x y,
-    change bv.ule x y with x ≤ y,
-    rw [le_iff_eq_or_lt],
-    refl },
+    rw [le_iff_eq_or_lt] },
   apply_instance
 end
+
+def ge : abstr_binary_inversion (fin n → bool) α (with_bot α) (≥) :=
+abstr_binary_inversion.invert_swap le
 
 end bv_abstr
