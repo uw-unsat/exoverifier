@@ -41,17 +41,17 @@ private def decode_alu_op : list bool → option ALU
 | _ := none
 
 private def decode_jmp_op : list bool → option JMP
-| [ff, ff, ff, tt] := some JMP.JEQ /- 0x1 -/
-| [ff, ff, tt, ff] := some JMP.JGT /- 0x2 -/
-| [ff, ff, tt, tt] := some JMP.JGE /- 0x3 -/
+| [ff, ff, ff, tt] := some JMP.JEQ  /- 0x1 -/
+| [ff, ff, tt, ff] := some JMP.JGT  /- 0x2 -/
+| [ff, ff, tt, tt] := some JMP.JGE  /- 0x3 -/
 | [ff, tt, ff, ff] := some JMP.JSET /- 0x4 -/
-| [ff, tt, ff, tt] := some JMP.JNE /- 0x5 -/
+| [ff, tt, ff, tt] := some JMP.JNE  /- 0x5 -/
 | [ff, tt, tt, ff] := some JMP.JSGT /- 0x6 -/
 | [ff, tt, tt, tt] := some JMP.JSGE /- 0x7 -/
 /- [tt, ff, ff, ff] Skip 0x8: BPF_CALL -/
 /- [tt, ff, ff, tt] Skip 0x9: BPF_EXIT -/
-| [tt, ff, tt, ff] := some JMP.JLT /- 0xa -/
-| [tt, ff, tt, tt] := some JMP.JLE /- 0xb -/
+| [tt, ff, tt, ff] := some JMP.JLT  /- 0xa -/
+| [tt, ff, tt, tt] := some JMP.JLE  /- 0xb -/
 | [tt, tt, ff, ff] := some JMP.JSLT /- 0xc -/
 | [tt, tt, ff, tt] := some JMP.JSLE /- 0xd -/
 | _                := none
@@ -67,17 +67,37 @@ private def decode_jmp_k : reg → msbvector 32 → msbvector 16 → list bool �
   op' ← decode_jmp_op op,
   pure $ instr.JMP_K op' dst imm off
 
+private def decode_mem_size : list bool → option SIZE
+| [ff, ff] := some SIZE.W  /- 0x00 >> 3 -/
+| [ff, tt] := some SIZE.H  /- 0x08 >> 3 -/
+| [tt, ff] := some SIZE.B  /- 0x10 >> 3 -/
+| [tt, tt] := some SIZE.DW /- 0x18 >> 3 -/
+| _        := none
+
 private def decode_op : msbvector 32 → msbvector 16 → reg → reg → list bool → option instr
+/- BPF_ALU64 | BPF_X -/
 | imm off dst src [op₁, op₂, op₃, op₄, tt, tt, tt, tt] := do
   op ← decode_alu_op [op₁, op₂, op₃, op₄],
   some $ instr.ALU64_X op dst src
+
+/- BPF_ALU64 | BPF_K -/
 | imm off dst src [op₁, op₂, op₃, op₄, ff, tt, tt, tt] := do
   op ← decode_alu_op [op₁, op₂, op₃, op₄],
   some $ instr.ALU64_K op dst imm
+
+/- BPF_MEM | BPF_STX -/
+| imm off dst src [ff, tt, tt, size₁, size₂, ff, tt, tt] := do
+  size ← decode_mem_size [size₁, size₂],
+  some $ instr.STX size dst src off
+
+/- BPF_JMP | BPF_X -/
 | imm off dst src [op₁, op₂, op₃, op₄, tt, tt, ff, tt] :=
   decode_jmp_x dst src off [op₁, op₂, op₃, op₄]
+
+/- BPF_JMP | BPF_K -/
 | imm off dst src [op₁, op₂, op₃, op₄, ff, tt, ff, tt] :=
   decode_jmp_k dst imm off [op₁, op₂, op₃, op₄]
+
 | _ _ _ _ _ := none
 
 private def decode_core : list bool → list instr → option (list instr)
