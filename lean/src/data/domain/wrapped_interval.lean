@@ -154,6 +154,61 @@ begin
   sorry
 end
 
+protected def udiv (a b : interval) : interval :=
+sorry
+
+theorem udiv_correct ⦃x y : fin n → bool⦄ ⦃a b : interval⦄ :
+  x ∈ γ a →
+  y ∈ γ b →
+  bv.udiv x y ∈ γ (wrapped_interval.udiv a b) :=
+begin
+  sorry
+end
+
+protected def urem (a b : interval) : interval :=
+sorry
+
+theorem urem_correct ⦃x y : fin n → bool⦄ ⦃a b : interval⦄ :
+  x ∈ γ a →
+  y ∈ γ b →
+  bv.urem x y ∈ γ (wrapped_interval.urem a b) :=
+begin
+  sorry
+end
+
+protected def shl (a b : interval) : interval :=
+sorry
+
+theorem shl_correct ⦃x y : fin n → bool⦄ ⦃a b : interval⦄ :
+  x ∈ γ a →
+  y ∈ γ b →
+  bv.shl x y ∈ γ (wrapped_interval.shl a b) :=
+begin
+  sorry
+end
+
+protected def lshr (a b : interval) : interval :=
+sorry
+
+theorem lshr_correct ⦃x y : fin n → bool⦄ ⦃a b : interval⦄ :
+  x ∈ γ a →
+  y ∈ γ b →
+  bv.lshr x y ∈ γ (wrapped_interval.lshr a b) :=
+begin
+  sorry
+end
+
+protected def ashr (a b : interval) : interval :=
+sorry
+
+theorem ashr_correct ⦃x y : fin n → bool⦄ ⦃a b : interval⦄ :
+  x ∈ γ a →
+  y ∈ γ b →
+  bv.ashr x y ∈ γ (wrapped_interval.ashr a b) :=
+begin
+  sorry
+end
+
 instance : bv_abstr n (with_top interval) :=
 { add := with_top.lift_binary_transfer
    { op := wrapped_interval.add, correct := wrapped_interval.add_correct },
@@ -163,6 +218,16 @@ instance : bv_abstr n (with_top interval) :=
    { op := wrapped_interval.or, correct := wrapped_interval.or_correct },
   xor := with_top.lift_binary_transfer
    { op := wrapped_interval.xor, correct := wrapped_interval.xor_correct },
+  udiv := with_top.lift_binary_transfer
+   { op := wrapped_interval.udiv, correct := wrapped_interval.udiv_correct },
+  urem := with_top.lift_binary_transfer
+   { op := wrapped_interval.urem, correct := wrapped_interval.urem_correct },
+  shl := with_top.lift_binary_transfer
+   { op := wrapped_interval.shl, correct := wrapped_interval.shl_correct },
+  lshr := with_top.lift_binary_transfer
+   { op := wrapped_interval.lshr, correct := wrapped_interval.lshr_correct },
+  ashr := with_top.lift_binary_transfer
+   { op := wrapped_interval.ashr, correct := wrapped_interval.ashr_correct },
   eq  := abstr_meet.invert_equality,
   lt  := abstr_binary_inversion.trivial }
 

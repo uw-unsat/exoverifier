@@ -158,24 +158,21 @@ def do_alu_imm (op : bpf.ALU) (dst : bpf.reg) (imm : lsbvector 64) :
 /-- Abstract transfer function for ALU operations. -/
 def transfer_JMP : ∀ (op : bpf.JMP), abstr_binary_inversion bpf.i64 β (with_bot β) (λ x y, bpf.JMP.doJMP op x y = tt)
 | bpf.JMP.JEQ := by {
+  convert abstr_meet.invert_equality,
   simp only [bpf.JMP.doJMP, to_bool_iff],
-  exact abstr_meet.invert_equality }
+  apply_instance }
 | bpf.JMP.JLT := by {
   convert bv_abstr.lt,
-  ext x y,
-  simp [bpf.JMP.doJMP] }
+  simp only [bpf.JMP.doJMP, to_bool_iff] }
 | bpf.JMP.JGT := by {
   convert bv_abstr.gt,
-  ext x y,
-  simp [bpf.JMP.doJMP] }
+  simp only [bpf.JMP.doJMP, to_bool_iff] }
 | bpf.JMP.JLE := by {
   convert bv_abstr.le,
-  ext x y,
-  simp [bpf.JMP.doJMP] }
+  simp only [bpf.JMP.doJMP, to_bool_iff] }
 | bpf.JMP.JGE := by {
   convert bv_abstr.ge,
-  ext x y,
-  simp [bpf.JMP.doJMP] }
+  simp only [bpf.JMP.doJMP, to_bool_iff] }
 | _ := abstr_binary_inversion.trivial
 
 def invert_jmp_tt (op : bpf.JMP) (dst src : bpf.reg) :

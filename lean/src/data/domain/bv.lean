@@ -17,12 +17,17 @@ class bv_abstr (n : out_param ℕ) (α : Type)
           abstr_top (fin n → bool) α,
           abstr_meet (fin n → bool) α (with_bot α),
           abstr_join (fin n → bool) α α : Type :=
-  (add : abstr_binary_transfer (fin n → bool) α α bv.add)
-  (and : abstr_binary_transfer (fin n → bool) α α bv.and)
-  (or  : abstr_binary_transfer (fin n → bool) α α bv.or)
-  (xor : abstr_binary_transfer (fin n → bool) α α bv.xor)
-  (eq  : abstr_binary_inversion (fin n → bool) α (with_bot α) eq)
-  (lt  : abstr_binary_inversion (fin n → bool) α (with_bot α) (<))
+  (add  : abstr_binary_transfer (fin n → bool) α α (+))
+  (and  : abstr_binary_transfer (fin n → bool) α α bv.and)
+  (or   : abstr_binary_transfer (fin n → bool) α α bv.or)
+  (xor  : abstr_binary_transfer (fin n → bool) α α bv.xor)
+  (udiv : abstr_binary_transfer (fin n → bool) α α (/))
+  (urem : abstr_binary_transfer (fin n → bool) α α (%))
+  (shl  : abstr_binary_transfer (fin n → bool) α α bv.shl)
+  (lshr : abstr_binary_transfer (fin n → bool) α α bv.lshr)
+  (ashr : abstr_binary_transfer (fin n → bool) α α bv.ashr)
+  (eq   : abstr_binary_inversion (fin n → bool) α (with_bot α) (=))
+  (lt   : abstr_binary_inversion (fin n → bool) α (with_bot α) (<))
 
 namespace bv_abstr
 variables {n : ℕ} {α : Type} [self : bv_abstr n α]

@@ -111,12 +111,17 @@ theorem add_correct (x y : fin n → bool) (a b : range) :
 sorry
 
 instance : bv_abstr n range :=
-{ add := { op := add, correct := add_correct },
-  and := sorry,
-  or  := sorry,
-  xor := sorry,
-  eq  := abstr_meet.invert_equality,
-  lt  := abstr_binary_inversion.trivial }
+{ add  := { op := add, correct := add_correct },
+  and  := sorry,
+  or   := sorry,
+  xor  := sorry,
+  udiv := sorry,
+  urem := sorry,
+  shl  := sorry,
+  lshr := sorry,
+  ashr := sorry,
+  eq   := abstr_meet.invert_equality,
+  lt   := abstr_binary_inversion.trivial }
 
 end
 end bvrange

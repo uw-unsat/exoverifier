@@ -43,33 +43,33 @@ instance : has_repr (tnum n) :=
 instance : subsingleton (tnum 0) :=
 ⟨λ x y, by { cases x, cases y, cc }⟩
 
-def rel (value mask actual : bool) : bool :=
+protected def rel (value mask actual : bool) : bool :=
 cond mask (!value) (biff value actual)
 
 /-- Concretization function. -/
 def γ (f : tnum n) : set (fin n → bool) :=
-λ f', ∀ i, rel (f.value.nth i) (f.mask.nth i) (f' i) = tt
+λ f', ∀ i, tnum.rel (f.value.nth i) (f.mask.nth i) (f' i) = tt
 
 @[reducible]
-def is_const (x : tnum n) : Prop :=
+protected def is_const (x : tnum n) : Prop :=
 x.mask = vector.repeat ff n
 
 private theorem γ_is_const {x : tnum n} {a : fin n → bool} :
   a ∈ γ x →
-  is_const x →
+  x.is_const →
   x.value = vector.of_fn a :=
 begin
   intros h₁ h₂,
   ext i,
   specialize h₁ i,
   simp only [tnum.is_const] at h₂,
-  simp only [h₂, vector.nth_repeat, rel, cond, biff_eq_tt_iff_eq] at h₁,
+  simp only [h₂, vector.nth_repeat, tnum.rel, cond, biff_eq_tt_iff_eq] at h₁,
   simp only [h₁, vector.nth_of_fn]
 end
 
 private theorem γ_cons_iff {x : tnum n} {value mask : bool} {a : fin n.succ → bool} :
   a ∈ γ (tnum.cons value mask x) ↔
-  (rel value mask (a 0) = tt ∧ fin.tail a ∈ γ x) :=
+  (tnum.rel value mask (a 0) = tt ∧ fin.tail a ∈ γ x) :=
 begin
   simp only [tnum.cons],
   split,
@@ -95,7 +95,7 @@ end
 
 private theorem γ_iff_head_tail {x : tnum n.succ} {a : fin n.succ → bool} :
   a ∈ γ x ↔
-  (rel x.value.head x.mask.head (a 0) = tt ∧ fin.tail a ∈ γ x.tail) :=
+  (tnum.rel x.value.head x.mask.head (a 0) = tt ∧ fin.tail a ∈ γ x.tail) :=
 begin
   split,
   { intros h,
@@ -122,7 +122,7 @@ end
 protected def const (f : fin n → bool) : tnum n :=
 ⟨ vector.of_fn f, vector.repeat ff _ ⟩
 
-theorem const_correct {f : fin n → bool} :
+protected theorem const_correct {f : fin n → bool} :
   f ∈ γ (tnum.const f) :=
 begin
   simp only [tnum.const, γ],
@@ -143,8 +143,7 @@ instance : abstr_top (fin n → bool) (tnum n) :=
     simp [vector.nth_repeat],
     refl } }
 
-instance : inhabited (tnum n) :=
-⟨⊤⟩
+instance : inhabited (tnum n) := ⟨⊤⟩
 
 protected def join (a b : tnum n) : tnum n :=
 let newmask := bv.circuit.or (bv.circuit.xor a.value b.value) (bv.circuit.or a.mask b.mask) in
@@ -155,11 +154,11 @@ instance : abstr_join (fin n → bool) (tnum n) (tnum n) :=
 { join         := tnum.join,
   join_correct := by {
     intros x y a h i,
-    simp only [tnum.join, bv.circuit.nth_xor, bv.circuit.nth_or, bv.or, bv.xor, rel, vector.nth_map₂,
+    simp only [tnum.join, bv.circuit.nth_xor, bv.circuit.nth_or, bv.or, bv.xor, tnum.rel, vector.nth_map₂,
               cond_eq_or_ands, bnot_eq_true_eq_eq_ff, band_eq_true_eq_eq_tt_and_eq_tt, bool.bnot_band, biff_eq_tt_iff_eq,
               bool.bnot_bor, bor, bool.band_assoc, band_ff, bnot_bnot, bor_eq_true_eq_eq_tt_or_eq_tt],
     cases h; specialize h i;
-    simp only [rel, cond_eq_or_ands, bnot_eq_true_eq_eq_ff, band_eq_true_eq_eq_tt_and_eq_tt, biff_eq_tt_iff_eq,
+    simp only [tnum.rel, cond_eq_or_ands, bnot_eq_true_eq_eq_ff, band_eq_true_eq_eq_tt_and_eq_tt, biff_eq_tt_iff_eq,
               bor_eq_true_eq_eq_tt_or_eq_tt] at h; revert h;
     cases (x.mask.nth i); cases (y.mask.nth i); cases (x.value.nth i); cases (y.value.nth i);
       cases (a i); simp } }
@@ -169,7 +168,7 @@ match value₁, mask₁, value₂, mask₂ with
 | _, tt, _, tt := some (ff, tt) -- Value unknown in both, still unknown
 | _, tt, b, ff := some (b, ff) -- Known in right, meet to known
 | a, ff, _, tt := some (a, ff) -- Known in left, meet to known
-| a, ff, b, ff := cond (biff a b) (some (a, ff)) none -- Known in both: if same known, meet to same value, otherwise ⊥.
+| a, ff, b, ff := cond (biff a b) (some (a, ff)) ⊥ -- Known in both: if same known, meet to same value, otherwise ⊥.
 end
 
 protected def meet : ∀ {n : ℕ} (_ _ : tnum n), with_bot (tnum n)
@@ -179,7 +178,7 @@ protected def meet : ∀ {n : ℕ} (_ _ : tnum n), with_bot (tnum n)
   bitrest ← meet a.tail b.tail,
   pure $ tnum.cons bitone.1 bitone.2 bitrest
 
-theorem meet_correct ⦃x y : tnum n⦄ :
+protected theorem meet_correct ⦃x y : tnum n⦄ :
   γ x ∩ γ y ⊆ has_γ.γ (tnum.meet x y) :=
 begin
   revert x y,
@@ -223,15 +222,14 @@ instance : abstr_meet (fin n → bool) (tnum n) (with_bot (tnum n)) :=
 ≤ relation on tnums. This implementation is more complicated than it would otherwise
 appear necessary in order to rule out the case where mask i = tt ∧ value i = tt.
 -/
-def subset (a b : tnum n) : Prop :=
+protected def subset (a b : tnum n) : Prop :=
 ∀ (i : fin n),
   (b.value.nth i = ff ∧ b.mask.nth i = tt) ∨
   (a.mask.nth i = ff ∧ b.mask.nth i = ff ∧ a.value.nth i = b.value.nth i)
 
-instance : has_le (tnum n) := ⟨subset⟩
-
 instance : abstr_le (fin n → bool) (tnum n) :=
-{ dec_le := by {
+{ le := tnum.subset,
+  dec_le := by {
     simp only [has_le.le],
     intros _ _,
     dsimp only [tnum.subset],
@@ -240,7 +238,7 @@ instance : abstr_le (fin n → bool) (tnum n) :=
     intros _ _ l _ h i,
     specialize h i,
     specialize l i,
-    simp only [rel] at ⊢ h,
+    simp only [tnum.rel] at ⊢ h,
     cases l,
     { simp only [l, cond],
       cases l,
@@ -248,6 +246,36 @@ instance : abstr_le (fin n → bool) (tnum n) :=
     { rcases l with ⟨l1, l2, l3⟩,
       simp only [l1, l2, l3, cond] at h,
       simp only [h, l2, cond] } } }
+
+
+private def lift2 (f : lsbvector n → lsbvector n → lsbvector n) (a b : tnum n) : tnum n :=
+if a.is_const ∧ b.is_const
+then ⟨a.mask, f a.value b.value⟩
+else ⊤
+
+private theorem lift2_correct
+    {f : lsbvector n → lsbvector n → lsbvector n}
+    {g : (fin n → bool) → (fin n → bool) → fin n → bool}
+    (f_nth : ∀ (u v : lsbvector n), (f u v).nth = g u.nth v.nth) :
+  ∀ ⦃x y : fin n → bool⦄ ⦃a b : tnum n⦄,
+    x ∈ γ a →
+    y ∈ γ b →
+    g x y ∈ γ (lift2 f a b) :=
+begin
+  intros _ _ _ _ h₁ h₂,
+  simp only [lift2],
+  split_ifs with h₃,
+  { simp only [γ_is_const h₁ h₃.1, γ_is_const h₂ h₃.2],
+    rcases h₃ with ⟨h₃, -⟩,
+    simp only [tnum.is_const] at h₃,
+    intros i,
+    simp only [h₃, vector.nth_repeat, rel, cond_eq_or_ands, bnot_eq_true_eq_eq_ff, band_eq_true_eq_eq_tt_and_eq_tt,
+               bool.bnot_false, ff_biff, band_tt, bor_eq_true_eq_eq_tt_or_eq_tt, f_nth _ _, vector.nth_of_fn_ext],
+    cases g x y i; tauto },
+  { intros i,
+    have h := @abstr_top.top_correct _ (tnum n) _ _ (g x y),
+    exact h i }
+end
 
 /-- Create the sum of two tnums. -/
 -- protected def add (a b : tnum n) : tnum n :=
@@ -258,28 +286,32 @@ instance : abstr_le (fin n → bool) (tnum n) :=
 --     mu := bv.circuit.or chi (bv.circuit.or a.mask b.mask) in
 --   ⟨bv.circuit.and sv (bv.circuit.not mu), mu⟩
 
-protected def add (a b : tnum n) : tnum n :=
-if a.is_const ∧ b.is_const
-then ⟨ vector.repeat ff n, bv.circuit.add a.value b.value ⟩
-else ⊤
+protected def add : tnum n → tnum n → tnum n :=
+lift2 bv.circuit.add
 
-theorem add_correct ⦃x y : fin n → bool⦄ ⦃a b : tnum n⦄ :
+protected theorem add_correct ⦃x y : fin n → bool⦄ ⦃a b : tnum n⦄ :
   x ∈ γ a →
   y ∈ γ b →
   x + y ∈ γ (tnum.add a b) :=
-begin
-  intros h₁ h₂,
-  simp only [tnum.add],
-  split_ifs with h₃,
-  { simp only [γ_is_const h₁ h₃.1, γ_is_const h₂ h₃.2],
-    intros i,
-    simp only [vector.nth_repeat, rel, cond_eq_or_ands, bv.circuit.nth_add, bnot_eq_true_eq_eq_ff, band_eq_true_eq_eq_tt_and_eq_tt, bool.bnot_false, ff_biff, band_tt,
-               bor_eq_true_eq_eq_tt_or_eq_tt, vector.nth_of_fn_ext],
-    cases (x + y) i; tauto },
-  { intros i,
-    have h := @abstr_top.top_correct _ (tnum n) _ _ (x + y),
-    exact h i }
-end
+by apply lift2_correct (@bv.circuit.nth_add _)
+
+protected def udiv : tnum n → tnum n → tnum n :=
+lift2 bv.circuit.udiv
+
+protected theorem udiv_correct ⦃x y : fin n → bool⦄ ⦃a b : tnum n⦄ :
+  x ∈ γ a →
+  y ∈ γ b →
+  x / y ∈ γ (tnum.udiv a b) :=
+by apply lift2_correct (@bv.circuit.nth_udiv _)
+
+protected def urem : tnum n → tnum n → tnum n :=
+lift2 bv.circuit.urem
+
+protected theorem urem_correct ⦃x y : fin n → bool⦄ ⦃a b : tnum n⦄ :
+  x ∈ γ a →
+  y ∈ γ b →
+  x % y ∈ γ (tnum.urem a b) :=
+by apply lift2_correct (@bv.circuit.nth_urem _)
 
 /-- Create the bitwise AND of two tnums. -/
 protected def and (a b : tnum n) : tnum n :=
@@ -288,7 +320,7 @@ let alpha := bv.circuit.or a.value a.mask,
     v := bv.circuit.and a.value b.value in
   ⟨v, bv.circuit.and alpha (bv.circuit.and beta (bv.circuit.not v))⟩
 
-theorem and_correct ⦃x y : fin n → bool⦄ ⦃a b : tnum n⦄ :
+protected theorem and_correct ⦃x y : fin n → bool⦄ ⦃a b : tnum n⦄ :
   x ∈ γ a →
   y ∈ γ b →
   bv.and x y ∈ γ (tnum.and a b) :=
@@ -297,7 +329,7 @@ begin
   simp only [tnum.and, bv.circuit.nth_and, bv.circuit.nth_not, bv.circuit.nth_or, bv.or, bv.and, bv.not],
   specialize h₁ i,
   specialize h₂ i,
-  simp only [rel, cond_eq_or_ands, bnot_eq_true_eq_eq_ff, band_eq_true_eq_eq_tt_and_eq_tt, bool.bnot_band, biff_eq_tt_iff_eq,
+  simp only [tnum.rel, cond_eq_or_ands, bnot_eq_true_eq_eq_ff, band_eq_true_eq_eq_tt_and_eq_tt, bool.bnot_band, biff_eq_tt_iff_eq,
              bool.bnot_bor, band_self, bool.band_assoc, bnot_bnot, bor_eq_true_eq_eq_tt_or_eq_tt] at h₁ h₂ ⊢,
   revert h₁ h₂,
   cases (a.mask.nth i); cases (b.mask.nth i); cases (a.value.nth i); cases (b.value.nth i);
@@ -310,7 +342,7 @@ let v := bv.circuit.or a.value b.value,
     mu := bv.circuit.or a.mask b.mask in
   ⟨v, bv.circuit.and mu (bv.circuit.not v)⟩
 
-theorem or_correct ⦃x y : fin n → bool⦄ ⦃a b : tnum n⦄ :
+protected theorem or_correct ⦃x y : fin n → bool⦄ ⦃a b : tnum n⦄ :
   x ∈ γ a →
   y ∈ γ b →
   bv.or x y ∈ γ (tnum.or a b) :=
@@ -319,7 +351,7 @@ begin
   simp only [tnum.or, bv.circuit.nth_and, bv.circuit.nth_not, bv.circuit.nth_or, bv.or, bv.and, bv.not],
   specialize h₁ i,
   specialize h₂ i,
-  simp only [rel, cond_eq_or_ands, bnot_eq_true_eq_eq_ff, band_eq_true_eq_eq_tt_and_eq_tt, bool.bnot_band, biff_eq_tt_iff_eq,
+  simp only [tnum.rel, cond_eq_or_ands, bnot_eq_true_eq_eq_ff, band_eq_true_eq_eq_tt_and_eq_tt, bool.bnot_band, biff_eq_tt_iff_eq,
              bool.bnot_bor, band_self, bool.band_assoc, bnot_bnot, bor_eq_true_eq_eq_tt_or_eq_tt] at h₁ h₂ ⊢,
   revert h₁ h₂,
   cases (a.mask.nth i); cases (b.mask.nth i); cases (a.value.nth i); cases (b.value.nth i);
@@ -341,7 +373,7 @@ begin
   simp only [tnum.xor, bv.circuit.nth_and, bv.circuit.nth_not, bv.circuit.nth_or, bv.circuit.nth_xor, bv.or, bv.and, bv.not, bv.xor],
   specialize h₁ i,
   specialize h₂ i,
-  simp only [rel, cond_eq_or_ands, bnot_eq_true_eq_eq_ff, band_eq_true_eq_eq_tt_and_eq_tt, bool.bnot_band, biff_eq_tt_iff_eq,
+  simp only [tnum.rel, cond_eq_or_ands, bnot_eq_true_eq_eq_ff, band_eq_true_eq_eq_tt_and_eq_tt, bool.bnot_band, biff_eq_tt_iff_eq,
              bool.bnot_bor, band_self, bool.band_assoc, bnot_bnot, bor_eq_true_eq_eq_tt_or_eq_tt] at h₁ h₂ ⊢,
   revert h₁ h₂,
   cases (a.mask.nth i); cases (b.mask.nth i); cases (a.value.nth i); cases (b.value.nth i);
@@ -349,11 +381,16 @@ begin
 end
 
 instance : bv_abstr n (tnum n) :=
-{ add := { op := tnum.add, correct := tnum.add_correct },
-  and := { op := tnum.and, correct := tnum.and_correct },
-  or  := { op := tnum.or, correct := tnum.or_correct },
-  xor := { op := tnum.xor, correct := tnum.xor_correct },
-  lt  := abstr_binary_inversion.trivial,
-  eq  := abstr_meet.invert_equality }
+{ add  := { op := tnum.add, correct := tnum.add_correct },
+  and  := { op := tnum.and, correct := tnum.and_correct },
+  or   := { op := tnum.or, correct := tnum.or_correct },
+  xor  := { op := tnum.xor, correct := tnum.xor_correct },
+  udiv := { op := tnum.udiv, correct := tnum.udiv_correct },
+  urem := { op := tnum.urem, correct := tnum.urem_correct },
+  shl  := { op := λ _ _, ⊤, correct := by { intros, apply @abstr_top.top_correct _ _ _ _ (bv.shl x y) } },
+  lshr := { op := λ _ _, ⊤, correct := by { intros, apply @abstr_top.top_correct _ _ _ _ (bv.lshr x y) } },
+  ashr := { op := λ _ _, ⊤, correct := by { intros, apply @abstr_top.top_correct _ _ _ _ (bv.ashr x y) } },
+  lt   := abstr_binary_inversion.trivial,
+  eq   := abstr_meet.invert_equality }
 
 end tnum
