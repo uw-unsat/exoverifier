@@ -120,6 +120,7 @@ instance : bv_abstr n range :=
   shl  := sorry,
   lshr := sorry,
   ashr := sorry,
+  mul  := sorry,
   eq   := abstr_meet.invert_equality,
   lt   := abstr_binary_inversion.trivial }
 

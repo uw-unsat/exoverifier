@@ -313,6 +313,15 @@ protected theorem urem_correct ⦃x y : fin n → bool⦄ ⦃a b : tnum n⦄ :
   x % y ∈ γ (tnum.urem a b) :=
 by apply lift2_correct (@bv.circuit.nth_urem _)
 
+protected def mul : tnum n → tnum n → tnum n :=
+lift2 bv.circuit.mul
+
+protected theorem mul_correct ⦃x y : fin n → bool⦄ ⦃a b : tnum n⦄ :
+  x ∈ γ a →
+  y ∈ γ b →
+  x * y ∈ γ (tnum.mul a b) :=
+by apply lift2_correct (@bv.circuit.nth_mul _)
+
 /-- Create the bitwise AND of two tnums. -/
 protected def and (a b : tnum n) : tnum n :=
 let alpha := bv.circuit.or a.value a.mask,
@@ -387,6 +396,7 @@ instance : bv_abstr n (tnum n) :=
   xor  := { op := tnum.xor, correct := tnum.xor_correct },
   udiv := { op := tnum.udiv, correct := tnum.udiv_correct },
   urem := { op := tnum.urem, correct := tnum.urem_correct },
+  mul  := { op := tnum.mul, correct := tnum.mul_correct },
   shl  := { op := λ _ _, ⊤, correct := by { intros, apply @abstr_top.top_correct _ _ _ _ (bv.shl x y) } },
   lshr := { op := λ _ _, ⊤, correct := by { intros, apply @abstr_top.top_correct _ _ _ _ (bv.lshr x y) } },
   ashr := { op := λ _ _, ⊤, correct := by { intros, apply @abstr_top.top_correct _ _ _ _ (bv.ashr x y) } },

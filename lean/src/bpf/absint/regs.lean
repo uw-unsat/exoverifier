@@ -105,21 +105,25 @@ def test_reg_neq (reg : bpf.reg) (val : bpf.i64) :
     apply gamma } }
 
 /-- Abstract transfer function for ALU operations. -/
-def transfer_ALU : ∀ (op : bpf.ALU), abstr_binary_transfer bpf.i64 β β (bpf.ALU.doALU64 op)
-| bpf.ALU.ADD := bv_abstr.add
-| bpf.ALU.AND := bv_abstr.and
-| bpf.ALU.OR  := bv_abstr.or
-| bpf.ALU.XOR := bv_abstr.xor
-| bpf.ALU.MOV :=
-  { op      := λ _ y, y,
-    correct := by { intros, assumption } }
+private def transfer_ALU : Π (op : bpf.ALU), abstr_binary_transfer bpf.i64 β β (bpf.ALU.doALU64 op)
+| bpf.ALU.ADD  := bv_abstr.add
+| bpf.ALU.AND  := bv_abstr.and
+| bpf.ALU.ARSH := bv_abstr.ashr
+| bpf.ALU.DIV  := bv_abstr.udiv
+| bpf.ALU.LSH  := bv_abstr.shl
+| bpf.ALU.MOD  := bv_abstr.urem
+| bpf.ALU.MOV  := { op := λ _ y, y, correct := by { intros, assumption } }
+| bpf.ALU.MUL  := bv_abstr.mul
+| bpf.ALU.OR   := bv_abstr.or
+| bpf.ALU.RSH  := bv_abstr.lshr
+| bpf.ALU.XOR  := bv_abstr.xor
 | _ :=
   { op      := λ _ _, ⊤,
     correct := by {
       intros,
       apply top_correct } }
 
-def do_alu (op : bpf.ALU) (dst src : bpf.reg) :
+private def do_alu (op : bpf.ALU) (dst src : bpf.reg) :
   abstr_unary_transfer (bpf.reg → bpf.i64) (aregs β)
     (λ cregs, function.update cregs dst (bpf.ALU.doALU op (cregs dst) (cregs src))) :=
 { op      := λ (l : aregs β), l.update_nth dst.to_fin ((transfer_ALU op).op (interpret l dst) (interpret l src)),

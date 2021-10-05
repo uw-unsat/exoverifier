@@ -165,6 +165,17 @@ begin
   sorry
 end
 
+protected def mul (a b : interval) : interval :=
+sorry
+
+theorem mul_correct ⦃x y : fin n → bool⦄ ⦃a b : interval⦄ :
+  x ∈ γ a →
+  y ∈ γ b →
+  bv.mul x y ∈ γ (wrapped_interval.mul a b) :=
+begin
+  sorry
+end
+
 protected def urem (a b : interval) : interval :=
 sorry
 
@@ -222,6 +233,8 @@ instance : bv_abstr n (with_top interval) :=
    { op := wrapped_interval.udiv, correct := wrapped_interval.udiv_correct },
   urem := with_top.lift_binary_transfer
    { op := wrapped_interval.urem, correct := wrapped_interval.urem_correct },
+  mul := with_top.lift_binary_transfer
+   { op := wrapped_interval.mul, correct := wrapped_interval.mul_correct },
   shl := with_top.lift_binary_transfer
    { op := wrapped_interval.shl, correct := wrapped_interval.shl_correct },
   lshr := with_top.lift_binary_transfer
