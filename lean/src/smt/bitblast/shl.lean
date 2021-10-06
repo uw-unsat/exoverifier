@@ -62,7 +62,7 @@ begin
       rw [mul_comm, mul_assoc, mul_comm],
       apply nat.modeq.mul_right,
       have h' : 2^n₁ = 2^(2^n₂) * 2^(n₁ - 2^n₂),
-      { rw [← pow_add, nat.add_sub_cancel' (nat.le_of_lt h)] },
+      { rw [← pow_add, add_sub_cancel_of_le (nat.le_of_lt h)] },
       rw h', clear h',
       apply nat.modeq.mul_left',
       symmetry, apply nat.mod_modeq } }

@@ -132,7 +132,7 @@ begin
     rw [← h₁], clear h₁,
     symmetry,
     apply nat.mod_eq_of_lt,
-    rw [nat.sub_lt_right_iff_lt_add h],
+    rw [sub_lt_iff_right h],
     have h₂ : bv.to_nat b₂ + bv.to_nat b₂ = 2 * bv.to_nat b₂,
     { ring },
     rw h₂, clear h₂,

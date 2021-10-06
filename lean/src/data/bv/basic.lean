@@ -93,8 +93,8 @@ end
 lemma pow_two_succ_sub_add_cancel :
   2^n.succ - 2 + 1 = 2^n.succ - 1 :=
 begin
-  rw ← nat.sub_sub_assoc; try { dec_trivial },
-  rw pow_succ,
+  rw [← sub_sub_assoc]; try { dec_trivial },
+  rw [pow_succ],
   apply nat.le_mul_of_pos_right,
   apply pow_pos, dec_trivial
 end
