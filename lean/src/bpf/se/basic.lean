@@ -88,8 +88,8 @@ def doALU : ∀ (op : bpf.ALU) (dst src : β), state γ β
 
 def ALU_check : ∀ (op : bpf.ALU) (dst src : β), state γ β
 | ALU.DIV  _ src := mk_redor src
+| ALU.MOD  _ src := mk_redor src
 | ALU.END  _ _   := mk_false
-| ALU.MOD  _ _   := mk_false
 | _        _ _   := mk_true
 
 /-- Step symbolic evaluation for an ALU64_X instruction. -/

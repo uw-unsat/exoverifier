@@ -165,7 +165,7 @@ instance : has_repr ALU := ⟨repr⟩
 /-- Whether a particular ALU operation is allowed. -/
 def ALU_check {n : ℕ} : ALU → (fin n → bool) → (fin n → bool) → bool
 | DIV x y  := y ≠ 0 -- Disallow division by zero.
-| MOD x y  := ff -- Disallow mod for now TODO
+| MOD x y  := y ≠ 0 -- Disallow mod by zero.
 | END x y  := ff -- Disallow endianness conversion for now TODO
 | _ x y    := tt
 

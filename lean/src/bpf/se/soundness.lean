@@ -233,6 +233,8 @@ begin
     apply le_mk_const },
   case DIV {
     apply le_mk_redor },
+  case MOD {
+    apply le_mk_redor },
   all_goals {
     apply le_mk_const }
 end
@@ -679,6 +681,11 @@ begin
   intros mk sat₁ sat₂,
   cases op,
   case DIV {
+    simp only [se.ALU_check, state_t.run_bind, state_t.run_pure, state_t.run_map, state_t.run_get] at mk,
+    convert (sat_mk_redor mk sat₂),
+    rw [bv.any_eq_to_bool_nonzero],
+    refl },
+  case MOD {
     simp only [se.ALU_check, state_t.run_bind, state_t.run_pure, state_t.run_map, state_t.run_get] at mk,
     convert (sat_mk_redor mk sat₂),
     rw [bv.any_eq_to_bool_nonzero],

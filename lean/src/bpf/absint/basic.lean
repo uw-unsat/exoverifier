@@ -103,9 +103,11 @@ def gen_check : bpf.cfg.instr CTRL → MEM → bool
 | (bpf.cfg.instr.ALU64_K bpf.ALU.DIV _ imm _) :=
   λ _, imm.nth ≠ 0
 | (bpf.cfg.instr.ALU64_X bpf.ALU.END _ _ _) := λ _, ff
-| (bpf.cfg.instr.ALU64_X bpf.ALU.MOD _ _ _) := λ _, ff
+| (bpf.cfg.instr.ALU64_X bpf.ALU.MOD _ src _) :=
+  (with_bot.lift_unary_test $ regs_abstr.test_reg_neq src 0).test
 | (bpf.cfg.instr.ALU64_K bpf.ALU.END _ _ _) := λ _, ff
-| (bpf.cfg.instr.ALU64_K bpf.ALU.MOD _ _ _) := λ _, ff
+| (bpf.cfg.instr.ALU64_K bpf.ALU.MOD _ imm _) :=
+  λ _, imm.nth ≠ 0
 | _ := λ _, tt
 
 /--
@@ -363,7 +365,9 @@ begin
       apply (with_bot.lift_unary_test (regs_abstr.test_reg_neq src 0)).test_sound check_tt.2 rel },
     case bpf.ALU.MOD {
       simp only [absint.gen_one_safety, absint.gen_check, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
-      cases check_tt.2 },
+      existsi _,
+      apply bpf.cfg.step.ALU64_X fetch _ rfl,
+      apply (with_bot.lift_unary_test (regs_abstr.test_reg_neq src 0)).test_sound check_tt.2 rel },
     case bpf.ALU.END {
       simp only [absint.gen_one_safety, absint.gen_check, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
       cases check_tt.2 },
@@ -378,7 +382,8 @@ begin
       exact bpf.cfg.step.ALU64_K fetch check_tt.2 rfl },
     case bpf.ALU.MOD {
       simp only [absint.gen_one_safety, absint.gen_check, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
-      cases check_tt.2 },
+      existsi _,
+      exact bpf.cfg.step.ALU64_K fetch check_tt.2 rfl },
     case bpf.ALU.END {
       simp only [absint.gen_one_safety, absint.gen_check, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
       cases check_tt.2 },
