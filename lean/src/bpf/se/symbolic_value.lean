@@ -25,6 +25,20 @@ inductive symvalue (β : Type u)
 
 namespace symvalue
 
+def is_scalar (x : symvalue β) : Prop :=
+∃ r, x = scalar r
+
+instance {x : symvalue β} : decidable (is_scalar x) :=
+begin
+  cases x,
+  { refine decidable.is_false _,
+    intro h, cases h, cases h_h },
+  { refine decidable.is_true _,
+    existsi x, refl },
+  { refine decidable.is_false _,
+    intro h, cases h, cases h_h }
+end
+
 inductive sat (g : γ) : (symvalue β) → bpf.value → Prop
 | sat_pointer {r : bpf.memregion} {off : β} {off_v : bpf.i64} :
   factory.sat g off (⟨64, off_v⟩ : Σ (n : ℕ), fin n → bool) →
@@ -49,15 +63,18 @@ sorry
 
 theorem sat_mk_scalar ⦃g g' : γ⦄ ⦃e₁ : symvalue β⦄ ⦃imm : lsbvector 64⦄ :
   (mk_scalar imm).run g = (e₁, g') →
-  sat g e₁ (bpf.value.scalar imm.nth) :=
+  sat g' e₁ (bpf.value.scalar imm.nth) :=
 sorry
 
 def mk_unknown (v : erased value) : state γ (symvalue β) :=
 pure (symvalue.unknown v)
 
+theorem le_mk_unknown {v : erased value} : increasing (mk_unknown v : state γ (symvalue β)) :=
+sorry
+
 theorem sat_mk_unknown ⦃g g' : γ⦄ ⦃e₁ : symvalue β⦄ ⦃v : erased bpf.value⦄ :
   (mk_unknown v).run g = (e₁, g') →
-  sat g e₁ v.out :=
+  sat g' e₁ v.out :=
 sorry
 
 -- /-- Lift a constant function on 64 bits to expressions, losing precision.
@@ -85,9 +102,9 @@ sorry
 
 theorem sat_doALU ⦃g g' : γ⦄ ⦃op : ALU⦄ ⦃e₁ e₂ e₃ : symvalue β⦄ ⦃v₁ v₂ : bpf.value⦄ :
   (doALU op e₁ e₂).run g = (e₃, g') →
-  sat g e₁ v₁ →
-  sat g e₂ v₂ →
-  sat g e₃ (bpf.ALU.doALU op v₁ v₂) :=
+  sat g  e₁ v₁ →
+  sat g  e₂ v₂ →
+  sat g' e₃ (bpf.ALU.doALU op v₁ v₂) :=
 sorry
 
 def doALU_check : Π (op : bpf.ALU) (a b : symvalue β), state γ β
@@ -100,7 +117,7 @@ theorem sat_doALU_check ⦃g g' : γ⦄ ⦃op : bpf.ALU⦄ ⦃e₁ e₂ : symval
   (doALU_check op e₁ e₂).run g = (e₃, g') →
   sat g e₁ v₁ →
   sat g e₂ v₂ →
-  factory.sat g e₃ (⟨1, λ _, bpf.ALU.doALU_check op v₁ v₂ = tt⟩ : Σ (n : ℕ), fin n → bool) :=
+  factory.sat g' e₃ (⟨1, λ _, bpf.ALU.doALU_check op v₁ v₂⟩ : Σ (n : ℕ), fin n → bool) :=
 sorry
 
 def doJMP : Π (op : JMP) (a b : symvalue β), state γ β

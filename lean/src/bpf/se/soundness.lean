@@ -283,24 +283,24 @@ begin
     assumption }
 end
 
-theorem initial_regs_increasing : ∀ {n : ℕ} {r : erased (vector i64 n)},
-  increasing (se.initial_regs r : state γ (vector β n))
+theorem initial_regs_increasing : ∀ {n : ℕ} {r : erased (vector value n)},
+  increasing (se.initial_regs r : state γ (vector (symvalue β) n))
 | 0       := λ _, by apply increasing_pure
 | (n + 1) := by {
   intro regs,
   simp only [se.initial_regs],
   apply increasing_bind,
-  { apply le_mk_var },
+  { apply symvalue.le_mk_unknown },
   intro c,
   apply increasing_bind,
   { apply @initial_regs_increasing },
   intro c',
   apply increasing_pure }
 
-theorem initial_regs_spec : ∀ {n : ℕ} {regs : erased (vector i64 n)} {regs' : vector β n} {g g' : γ},
+theorem initial_regs_spec : ∀ {n : ℕ} {regs : erased (vector value n)} {regs' : vector (symvalue β) n} {g g' : γ},
   (se.initial_regs regs).run g = (regs', g') →
   ∀ {r : fin n},
-    sat g' (regs'.nth r) (sigma.mk 64 (regs.out.nth r) : Σ n, fin n → bool)
+    sat g' (regs'.nth r) (regs.out.nth r)
 | 0       _    _     _ _  _   := fin.elim0
 | (n + 1) regs regs' g g' mk' := λ r, by {
   simp only [se.initial_regs, state_t.run_bind] at mk',
@@ -309,7 +309,7 @@ theorem initial_regs_spec : ∀ {n : ℕ} {regs : erased (vector i64 n)} {regs' 
   { simp only [vector.nth_zero, vector.cons_head],
     refine sat_of_le (by apply initial_regs_increasing) _,
     rw [← erased.out_mk (regs.out.head)],
-    apply sat_mk_var,
+    apply symvalue.sat_mk_unknown,
     simp only [vector.nth_zero, erased.map, erased.bind_eq_out, prod.mk.eta] },
   { simp only [vector.nth_cons_succ],
     intros i,
@@ -319,7 +319,7 @@ theorem initial_regs_spec : ∀ {n : ℕ} {regs : erased (vector i64 n)} {regs' 
     apply initial_regs_spec,
     simp only [erased.mk_out, erased.out_mk, prod.mk.eta] } }
 
-theorem initial_state_increasing (cfg : CFG χ η) (regs' : erased (vector i64 bpf.nregs)) :
+theorem initial_state_increasing (cfg : CFG χ η) (regs' : erased (vector value bpf.nregs)) :
   increasing (initial_symstate cfg regs' : state γ (symstate β η)) :=
 begin
   simp only [initial_symstate],
@@ -331,7 +331,7 @@ begin
 end
 
 theorem initial_symstate_spec
-  (g : γ) {g' : γ} {s : symstate β η} (cfg : CFG χ η) (regs : erased (vector i64 bpf.nregs)) :
+  (g : γ) {g' : γ} {s : symstate β η} (cfg : CFG χ η) (regs : erased (vector value bpf.nregs)) :
     (initial_symstate cfg regs).run g = (s, g') →
     concretizes g' s tt tt (bpf.reg.of_vector regs.out) :=
 begin
@@ -347,7 +347,7 @@ begin
     rw [prod.mk.eta] }
 end
 
-theorem initial_symstate_current {g : γ} {cfg : CFG χ η} {regs : erased (vector i64 bpf.nregs)} :
+theorem initial_symstate_current {g : γ} {cfg : CFG χ η} {regs : erased (vector value bpf.nregs)} :
   ((initial_symstate cfg regs : state γ (symstate β η)).run g).1.current = (CFG.entry cfg) :=
 begin
   simp only [initial_symstate, state_t.run_bind],
@@ -380,52 +380,6 @@ end
 
 open concretizes
 
-theorem doJMP_spec {g g' : γ} {dst src cond : β} {dst_c src_c : i64} {op : bpf.JMP} :
-  (doJMP op dst src).run g = (cond, g') →
-  sat g dst (bv_sig dst_c) →
-  sat g src (bv_sig src_c) →
-  sat g' cond (bv1 (bpf.JMP.doJMP op dst_c src_c)) :=
-begin
-  intros mk sat₁ sat₂,
-  cases op; simp only [doJMP, state_t.run_bind] at mk,
-  case JEQ {
-    exact sat_mk_eq mk sat₁ sat₂ },
-  case JNE {
-    convert (sat_mk_not mk (sat_mk_eq (by rw [prod.mk.eta]) sat₁ sat₂)),
-    simp only [bv1, bv.not, bpf.JMP.doJMP],
-    congr, funext i,
-    simp only [bool.to_bool_not] },
-  case JSET {
-    convert (sat_mk_redor mk _),
-    { rw [bv.any_eq_to_bool_nonzero], refl },
-    exact sat_mk_and (by rw [prod.mk.eta]) sat₁ sat₂ },
-  case JLT {
-    exact sat_mk_ult mk sat₁ sat₂ },
-  case JGT {
-    exact sat_mk_ult mk sat₂ sat₁ },
-  case JLE {
-    exact sat_mk_ule mk sat₁ sat₂ },
-  case JGE {
-    exact sat_mk_ule mk sat₂ sat₁ },
-  case JSLT {
-    exact sat_mk_slt mk sat₁ sat₂ },
-  case JSGT {
-    exact sat_mk_slt mk sat₂ sat₁ },
-  case JSLE {
-    exact sat_mk_sle mk sat₁ sat₂ },
-  case JSGE {
-    exact sat_mk_sle mk sat₂ sat₁ },
-  -- all_goals {
-  --   simp only [doJMP] at mk,
-  --   rw [prod.eq_iff_fst_eq_snd_eq] at mk, simp only at mk, cases mk with m₁ m₂,
-  --   subst m₁, subst m₂,
-  --   simp only [bv1, bv_sig],
-  --   rw [denote64_sound sat₁, denote64_sound sat₂],
-  --   rw [← vector.nth_of_fn_ext (λ (x : fin 1), bpf.JMP.doJMP _ dst_c src_c)],
-  --   apply sat_mk_var,
-  --   simp only [prod.mk.eta, vector.of_fn_nth] }
-end
-
 /--
   step_jmp64_x is a correct symbolic evaluator when the current instruction is JMP_X and
   the continuation is correct for any state.
@@ -439,7 +393,7 @@ theorem step_jmp64_x_correct
 begin
   intros _ _ vc _ _ _ _ fetch_i pre mk,
   simp only [step_jmp64_x, state_t.run_bind] at mk,
-  cases f₁ : (doJMP op (abs.regs dst) (abs.regs src)).run g with eq g₁,
+  cases f₁ : (symvalue.doJMP op (abs.regs dst) (abs.regs src)).run g with eq g₁,
   cases f₂ : (mk_not eq).run g₁ with neq g₂,
   cases f₃ : (assume_ eq abs).run g₂ with truestate g₃,
   cases f₄ : (k {current := if_true, ..truestate}).run g₃ with true_condition g₄,
@@ -532,7 +486,7 @@ begin
   intros _ _ vc _ _ _ _ fetch_i pre mk,
   simp only [step_jmp64_k, state_t.run_bind] at mk,
   cases f₀ : (mk_const imm : state γ β).run g with const g₀,
-  cases f₁ : (doJMP op (abs.regs dst) const).run g₀ with eq g₁,
+  cases f₁ : (symvalue.doJMP op (abs.regs dst) const).run g₀ with eq g₁,
   cases f₂ : (mk_not eq).run g₁ with neq g₂,
   cases f₃ : (assume_ eq abs).run g₂ with truestate g₃,
   cases f₄ : (k {current := if_true, ..truestate}).run g₃ with true_condition g₄,
@@ -630,64 +584,18 @@ begin
       exact step } }
 end
 
-theorem ALU_check_spec {g g' : γ} {dst src cond : β} {dst_c src_c : i64} {op : bpf.ALU} :
-  (ALU_check op dst src).run g = (cond, g') →
-  sat g dst (bv_sig dst_c) →
-  sat g src (bv_sig src_c) →
-  sat g' cond (bv1 (bpf.ALU.ALU_check op dst_c src_c)) :=
-begin
-  intros mk sat₁ sat₂,
-  cases op,
-  case DIV {
-    simp only [se.ALU_check, state_t.run_bind, state_t.run_pure, state_t.run_map, state_t.run_get] at mk,
-    convert (sat_mk_redor mk sat₂),
-    rw [bv.any_eq_to_bool_nonzero],
-    refl },
-  case MOD {
-    simp only [se.ALU_check, state_t.run_bind, state_t.run_pure, state_t.run_map, state_t.run_get] at mk,
-    convert (sat_mk_redor mk sat₂),
-    rw [bv.any_eq_to_bool_nonzero],
-    refl },
-  all_goals {
-    simp only [ALU_check, state_t.run_map] at mk,
-    apply sat_mk_true mk <|> apply sat_mk_false mk }
-end
-
-theorem lift2_denote_sound {g g' : γ} {e₁ e₂ e₃ : β} {v₁ v₂ : i64} {f : i64 → i64 → i64} :
-  (lift2_denote f e₁ e₂).run g = (e₃, g') →
-  sat g  e₁ (⟨64, v₁⟩ : Σ n, fin n → bool) →
-  sat g  e₂ (⟨64, v₂⟩ : Σ n, fin n → bool) →
-  sat g' e₃ (⟨64, f v₁ v₂⟩ : Σ n, fin n → bool) :=
-begin
-  intros mk sat₁ sat₂,
-  simp only [lift2_denote, denote_sound sat₁, denote_sound sat₂, erased.bind_eq_out, erased.out_mk] at mk,
-  have sat₃ := sat_mk_var mk,
-  simp only [erased.out_mk] at sat₃,
-  exact sat₃
-end
-
-theorem doALU_spec {g g' : γ} {dst src val : β} {dst_c src_c : i64} {op : bpf.ALU} :
-  (doALU op dst src).run g = (val, g') →
-  sat g dst (bv_sig dst_c) →
-  sat g src (bv_sig src_c) →
-  sat g' val (bv_sig (bpf.ALU.doALU64 op dst_c src_c)) :=
-begin
-  intros mk sat₁ sat₂,
-  cases op; simp only [doALU, state_t.run_map] at mk,
-  case NEG { exact sat_mk_neg mk sat₁ },
-  case ADD { exact sat_mk_add mk sat₁ sat₂ },
-  case MOV { cases mk, exact sat₂ },
-  case OR  { exact sat_mk_or mk sat₁ sat₂ },
-  case AND { exact sat_mk_and mk sat₁ sat₂ },
-  case DIV { exact sat_mk_udiv mk sat₁ sat₂ },
-  case XOR { exact sat_mk_xor mk sat₁ sat₂ },
-  case SUB { exact sat_mk_sub mk sat₁ sat₂ },
-  case MUL { exact sat_mk_mul mk sat₁ sat₂ },
-  case LSH { exact sat_mk_shl mk sat₁ sat₂ },
-  case RSH { exact sat_mk_lshr mk sat₁ sat₂ },
-  case ARSH { exact sat_mk_ashr mk sat₁ sat₂ },
-  all_goals { exact lift2_denote_sound mk sat₁ sat₂ }
-end
+-- theorem lift2_denote_sound {g g' : γ} {e₁ e₂ e₃ : β} {v₁ v₂ : i64} {f : i64 → i64 → i64} :
+--   (lift2_denote f e₁ e₂).run g = (e₃, g') →
+--   sat g  e₁ (⟨64, v₁⟩ : Σ n, fin n → bool) →
+--   sat g  e₂ (⟨64, v₂⟩ : Σ n, fin n → bool) →
+--   sat g' e₃ (⟨64, f v₁ v₂⟩ : Σ n, fin n → bool) :=
+-- begin
+--   intros mk sat₁ sat₂,
+--   simp only [lift2_denote, denote_sound sat₁, denote_sound sat₂, erased.bind_eq_out, erased.out_mk] at mk,
+--   have sat₃ := sat_mk_var mk,
+--   simp only [erased.out_mk] at sat₃,
+--   exact sat₃
+-- end
 
 /--
   step_alu64_x is a correct symbolic evaluator when the current instruction is ALU64_X and
@@ -702,9 +610,9 @@ theorem step_alu64_x_correct
 begin
   intros g g' c abs asserts assumes regs fetch_i pre mk,
   simp only [step_alu64_x, state_t.run_bind] at mk,
-  rcases f₁ : (ALU_check op (abs.regs dst) (abs.regs src)).run g with ⟨check, g₁⟩,
+  rcases f₁ : (symvalue.doALU_check op (abs.regs dst) (abs.regs src)).run g with ⟨check, g₁⟩,
   cases f₂ : (assert check abs).run g₁ with s' g₂,
-  rcases f₃ : (doALU op (abs.regs dst) (abs.regs src)).run g₂ with ⟨val, g₃⟩,
+  rcases f₃ : (symvalue.doALU op (abs.regs dst) (abs.regs src)).run g₂ with ⟨val, g₃⟩,
   cases f₄ : (k {regs := function.update abs.regs dst val,
                  current := next, ..s'}).run g₃ with vc' g₄,
   simp only [(>>=), id_bind] at mk,
@@ -712,19 +620,19 @@ begin
 
   have l₁ : g ≤ g₁,
   { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₁, simp only at r, rw [← r],
-    apply ALU_check_increasing },
+    apply symvalue.doALU_check_increasing },
   have l₂ : g₁ ≤ g₂,
   { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₂, simp only at r, rw [← r],
     apply assert_increasing },
   have l₃ : g₂ ≤ g₃,
   { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₃, simp only at r, rw [← r],
-    apply doALU_increasing },
+    apply symvalue.doALU_increasing },
 
-  have h₁ := ALU_check_spec f₁ (pre.regs_ok dst) (pre.regs_ok src),
+  have h₁ := symvalue.sat_doALU_check f₁ (pre.regs_ok dst) (pre.regs_ok src),
   have h₂ := assert_spec (of_le l₁ pre) h₁ f₂,
-  have h₃ := doALU_spec f₃ (factory.sat_of_le (le_trans l₁ l₂) (pre.regs_ok dst))
+  have h₃ := symvalue.sat_doALU f₃ (factory.sat_of_le (le_trans l₁ l₂) (pre.regs_ok dst))
                            (factory.sat_of_le (le_trans l₁ l₂) (pre.regs_ok src)),
-  specialize @ih _ _ c _ (asserts && (bimplies assumes (bpf.ALU.ALU_check op (regs dst) (regs src)))) assumes (function.update regs dst (bpf.ALU.doALU op (regs dst) (regs src))) true.intro _ f₄,
+  specialize @ih _ _ c _ (asserts && (bimplies assumes (bpf.ALU.doALU_check op (regs dst) (regs src)))) assumes (function.update regs dst (bpf.ALU.doALU op (regs dst) (regs src))) true.intro _ f₄,
   { apply concretizes.mk,
     { exact sat_of_le l₃ h₂.asserts_ok },
     { exact sat_of_le l₃ h₂.assumes_ok },
@@ -756,10 +664,10 @@ theorem step_alu64_k_correct
 begin
   intros g g' c abs asserts assumes regs fetch_i pre mk,
   simp only [step_alu64_k, state_t.run_bind] at mk,
-  cases f₁ : (mk_const imm : state γ β).run g with const g₁,
-  rcases f₂ : (ALU_check op (abs.regs dst) const).run g₁ with ⟨check, g₂⟩,
+  cases f₁ : (symvalue.mk_scalar imm : state γ (symvalue β)).run g with const g₁,
+  rcases f₂ : (symvalue.doALU_check op (abs.regs dst) const).run g₁ with ⟨check, g₂⟩,
   cases f₃ : (assert check abs).run g₂ with s' g₃,
-  rcases f₄ : (doALU op (abs.regs dst) const).run g₃ with ⟨val, g₄⟩,
+  rcases f₄ : (symvalue.doALU op (abs.regs dst) const).run g₃ with ⟨val, g₄⟩,
   cases f₅ : (k {regs := function.update abs.regs dst val,
                  current := next, ..s'}).run g₄ with vc' g₅,
   simp only [(>>=), id_bind] at mk,
@@ -767,23 +675,23 @@ begin
 
   have l₁ : g ≤ g₁,
   { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₁, simp only at r, rw [← r],
-    apply le_mk_const },
+    apply symvalue.le_mk_scalar },
   have l₂ : g₁ ≤ g₂,
   { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₂, simp only at r, rw [← r],
-    apply ALU_check_increasing },
+    apply symvalue.doALU_check_increasing },
   have l₃ : g₂ ≤ g₃,
   { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₃, simp only at r, rw [← r],
     apply assert_increasing },
   have l₄ : g₃ ≤ g₄,
   { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₄, simp only at r, rw [← r],
-    apply doALU_increasing },
+    apply symvalue.doALU_increasing },
 
-  have h₂ := ALU_check_spec f₂ (sat_of_le l₁ $ pre.regs_ok dst) (sat_mk_const f₁),
+  have h₂ := symvalue.sat_doALU_check f₂ (sat_of_le l₁ $ pre.regs_ok dst) (symvalue.sat_mk_scalar f₁),
   have h₃ := assert_spec (of_le (le_trans l₁ l₂) pre) h₂ f₃,
-  have h₄ := doALU_spec f₄ (factory.sat_of_le (le_trans l₁ (le_trans l₂ l₃)) (pre.regs_ok dst))
-                           (factory.sat_of_le (le_trans l₂ l₃) (sat_mk_const f₁)),
+  have h₄ := symvalue.sat_doALU f₄ (factory.sat_of_le (le_trans l₁ (le_trans l₂ l₃)) (pre.regs_ok dst))
+                           (factory.sat_of_le (le_trans l₂ l₃) (symvalue.sat_mk_scalar f₁)),
 
-  specialize @ih _ _ c _ (asserts && (bimplies assumes (bpf.ALU.ALU_check op (regs dst) imm.nth))) assumes (function.update regs dst (bpf.ALU.doALU op (regs dst) imm.nth)) true.intro _ f₅,
+  specialize @ih _ _ c _ (asserts && (bimplies assumes (bpf.ALU.doALU_check op (regs dst) (bpf.value.scalar imm.nth)))) assumes (function.update regs dst (bpf.ALU.doALU op (regs dst) (bpf.value.scalar imm.nth))) true.intro _ f₅,
   { constructor,
     { exact sat_of_le l₄ h₃.asserts_ok },
     { exact sat_of_le l₄ h₃.assumes_ok },
@@ -844,7 +752,7 @@ begin
 end
 
 /-- If the verification conditions evaluate to tt, then the program is safe. -/
-theorem vcgen_spec {cfg : CFG χ η} {fuel : ℕ} {g g' : γ} {vc : β} {regs : erased (vector i64 bpf.nregs)} :
+theorem vcgen_spec {cfg : CFG χ η} {fuel : ℕ} {g g' : γ} {vc : β} {regs : erased (vector value bpf.nregs)} :
   (@vcgen χ η β γ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ cfg fuel regs).run g = (vc, g') →
   ∃ (vc_b : bool),
     sat g' vc (bv1 vc_b) ∧

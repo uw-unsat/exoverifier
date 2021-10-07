@@ -11,14 +11,14 @@ import data.erased
 
 namespace bpf
 
-def trie_safe_with_regs (r : vector i64 nregs) (p : cfg.trie_program) : Prop :=
+def trie_safe_with_regs (r : vector value nregs) (p : cfg.trie_program) : Prop :=
 cfg.safe_with_regs p (bpf.reg.of_vector r)
 
 def trie_safe (p : cfg.trie_program) : Prop :=
 bpf.cfg.safe p
 
 theorem trie_safe_of_erased_regs {p : cfg.trie_program} :
-  (∀ (r : erased (vector i64 nregs)), trie_safe_with_regs r.out p) →
+  (∀ (r : erased (vector value nregs)), trie_safe_with_regs r.out p) →
   trie_safe p :=
 begin
   intros h,
@@ -29,7 +29,7 @@ begin
   exact h
 end
 
-def binary_safe_with_regs (r : vector i64 nregs) (b : list bool) : Prop :=
+def binary_safe_with_regs (r : vector value nregs) (b : list bool) : Prop :=
 ∃ (p : cfg.trie_program),
   (decode b).map cfg.trie_program.decode_from_flat = some p ∧
   cfg.safe_with_regs p (bpf.reg.of_vector r)
@@ -42,7 +42,7 @@ def binary_safe (b : list bool) : Prop :=
 ∀ r, binary_safe_with_regs r b
 
 theorem safe_of_erased_regs {b : list bool} :
-  (∀ (r : erased (vector i64 nregs)), binary_safe_with_regs r.out b) →
+  (∀ (r : erased (vector value nregs)), binary_safe_with_regs r.out b) →
   binary_safe b :=
 begin
   intros h r,

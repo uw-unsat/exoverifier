@@ -114,7 +114,10 @@ def step_symeval (cfg : CFG χ η) (k : symstate β η → state γ β) : symsta
     step_jmp64_x cfg k op r₁ r₂ if_true if_false s
   | some (instr.JMP_K op r₁ imm if_true if_false) :=
     step_jmp64_k cfg k op r₁ imm if_true if_false s
-  | some (instr.Exit) := pure s.assertions
+  | some (instr.Exit) := do
+    (noleak : β) ← mk_const1 (s.regs reg.R0).is_scalar,
+    s ← assert noleak s,
+    pure s.assertions
   | some (instr.STX size dst src imm next) := die
   | none := die
   end
