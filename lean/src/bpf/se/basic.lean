@@ -60,39 +60,6 @@ def die : state γ β := mk_false
 def infeasible (s : symstate β η) : state γ β :=
 mk_not s.assumptions
 
-/-- Lift a constant function on 64 bits to expressions, losing precision.
-    Computationally, this is just `mk_var`. -/
-def lift2_denote (f : i64 → i64 → i64) (e₁ e₂ : β) : state γ β :=
-mk_var $
-(factory.denote γ e₁).bind (λ (v₁ : Σ n, fin n → bool),
-  (factory.denote γ e₂).bind (λ (v₂ : Σ n, fin n → bool),
-    erased.mk $
-      match v₁, v₂ with
-      | ⟨64, b₁⟩, ⟨64, b₂⟩ := f b₁ b₂
-      | _,        _        := default _
-      end))
-
-def doALU : ∀ (op : bpf.ALU) (dst src : β), state γ β
-| ALU.MOV  dst src := pure src
-| ALU.OR   dst src := mk_or dst src
-| ALU.AND  dst src := mk_and dst src
-| ALU.NEG  dst _   := mk_neg dst
-| ALU.ADD  dst src := mk_add dst src
-| ALU.DIV  dst src := mk_udiv dst src
-| ALU.XOR  dst src := mk_xor dst src
-| ALU.SUB  dst src := mk_sub dst src
-| ALU.MUL  dst src := mk_mul dst src
-| ALU.LSH  dst src := mk_shl dst src
-| ALU.RSH  dst src := mk_lshr dst src
-| ALU.ARSH dst src := mk_ashr dst src
-| op dst src       := lift2_denote (bpf.ALU.doALU_scalar op) dst src
-
-def ALU_check : ∀ (op : bpf.ALU) (dst src : β), state γ β
-| ALU.DIV  _ src := mk_redor src
-| ALU.MOD  _ src := mk_redor src
-| ALU.END  _ _   := mk_false
-| _        _ _   := mk_true
-
 /-- Step symbolic evaluation for an ALU64_X instruction. -/
 def step_alu64_x (cfg : CFG χ η) (k : symstate β η → state γ β) (op : ALU) (dst src : reg) (next : η) (s : symstate β η) : state γ β := do
 check ← symvalue.doALU_check op (s.regs dst) (s.regs src),

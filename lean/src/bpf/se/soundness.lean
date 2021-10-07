@@ -51,11 +51,11 @@ end
 structure concretizes (g : γ) (abs : symstate β η) (asserts assumes : bool) (regs : reg → value) : Prop :=
 (asserts_ok : sat g abs.assertions (bv1 asserts))
 (assumes_ok : sat g abs.assumptions (bv1 assumes))
-(regs_ok    : ∀ (r : reg), sat g (abs.regs r) (bv_sig (regs r)))
+(regs_ok    : ∀ (r : reg), sat g (abs.regs r) (regs r))
 
 namespace concretizes
 
-theorem of_le {abs : symstate β η} {asserts assumes : bool} {regs : reg → i64} {g₁ g₂ : γ} :
+theorem of_le {abs : symstate β η} {asserts assumes : bool} {regs : reg → value} {g₁ g₂ : γ} :
   g₁ ≤ g₂ →
   concretizes g₁ abs asserts assumes regs →
   concretizes g₂ abs asserts assumes regs :=
@@ -63,10 +63,8 @@ begin
   intros l c,
   cases c,
   constructor,
-  { apply sat_of_le l,
-    tauto },
-  { apply sat_of_le l,
-    tauto },
+  { exact sat_of_le l c_asserts_ok },
+  { exact sat_of_le l c_assumes_ok },
   { intros r,
     apply sat_of_le l,
     tauto }
@@ -103,7 +101,7 @@ theorem assert_assumptions_eq {s : symstate β η} {g : γ} {c : β} :
   ((assert c s).run g).fst.assumptions = s.assumptions :=
 by simpa only [assert, state_t.run_bind]
 
-theorem assert_spec {s s' : symstate β η} {g g' : γ} {c : β} {as asserts assumes : bool} {regs : reg → i64} :
+theorem assert_spec {s s' : symstate β η} {g g' : γ} {c : β} {as asserts assumes : bool} {regs : reg → value} :
   concretizes g s asserts assumes regs →
   sat g c (bv1 as) →
   (assert c s).run g = (s', g') →
@@ -122,7 +120,7 @@ begin
   { exact λ r, sat_of_le inc (pre.regs_ok r) }
 end
 
-theorem assume_spec {s s' : symstate β η} {g g' : γ} {c : β} {as asserts assumes : bool} {regs : reg → i64} :
+theorem assume_spec {s s' : symstate β η} {g g' : γ} {c : β} {as asserts assumes : bool} {regs : reg → value} :
   concretizes g s asserts assumes regs →
   sat g c (bv1 as) →
   (assume_ c s).run g = (s', g') →
@@ -171,27 +169,16 @@ theorem weaken {cfg : CFG χ η} {p p' : set (symstate β η)} {k : symstate β 
 
 end se_correct
 
-theorem doJMP_increasing {op : bpf.JMP} {dst src : β} : increasing (doJMP op dst src : state γ β) :=
-begin
-  cases op,
-  case JEQ { apply le_mk_eq },
-  case JNE {
-    apply increasing_bind,
-    apply le_mk_eq,
-    intros, apply le_mk_not },
-  case JSET {
-    apply increasing_bind,
-    apply le_mk_and,
-    intros, apply le_mk_redor },
-  all_goals { apply le_mk_slt <|> apply le_mk_sle <|> apply le_mk_ult <|> apply le_mk_ule }
-end
-
 theorem step_jmp64_x_increasing {cfg : CFG χ η} {k : symstate β η → state γ β} (ih : ∀ s, increasing (k s)) :
   ∀ op dst src if_true if_false s,
     increasing (step_jmp64_x cfg k op dst src if_true if_false s)
 | op dst src if_true if_false s := by {
   apply increasing_bind; intros,
-  apply doJMP_increasing,
+  apply symvalue.doJMP_check_increasing,
+  apply increasing_bind; intros,
+  apply assert_increasing,
+  apply increasing_bind; intros,
+  apply symvalue.doJMP_increasing,
   apply increasing_bind; intros,
   apply le_mk_not,
   apply increasing_bind; intros,
@@ -209,9 +196,13 @@ theorem step_jmp64_k_increasing {cfg : CFG χ η} {k : symstate β η → state 
     increasing (step_jmp64_k cfg k op dst imm if_true if_false s)
 | op dst imm if_true if_false s := by {
   apply increasing_bind; intros,
-  apply le_mk_const,
+  apply symvalue.le_mk_scalar,
   apply increasing_bind; intros,
-  apply doJMP_increasing,
+  apply symvalue.doJMP_check_increasing,
+  apply increasing_bind; intros,
+  apply assert_increasing,
+  apply increasing_bind; intros,
+  apply symvalue.doJMP_increasing,
   apply increasing_bind; intros,
   apply le_mk_not,
   apply increasing_bind; intros,
@@ -223,39 +214,6 @@ theorem step_jmp64_k_increasing {cfg : CFG χ η} {k : symstate β η → state 
   apply increasing_bind; intros,
   apply ih,
   apply le_mk_and }
-
-theorem ALU_check_increasing {op : bpf.ALU} {dst src : β} : increasing (ALU_check op dst src : state γ β) :=
-begin
-  cases op,
-  case ADD {
-    apply le_mk_const },
-  case MOV {
-    apply le_mk_const },
-  case DIV {
-    apply le_mk_redor },
-  case MOD {
-    apply le_mk_redor },
-  all_goals {
-    apply le_mk_const }
-end
-
-theorem doALU_increasing {op : bpf.ALU} {dst src : β} : increasing (doALU op dst src : state γ β) :=
-begin
-  cases op,
-  case NEG { apply le_mk_neg },
-  case ADD { apply le_mk_add },
-  case MOV { intro r, refl },
-  case AND { apply le_mk_and },
-  case OR { apply le_mk_or },
-  case DIV { apply le_mk_udiv },
-  case XOR { apply le_mk_xor },
-  case SUB { apply le_mk_sub },
-  case MUL { apply le_mk_mul },
-  case LSH { apply le_mk_shl },
-  case RSH { apply le_mk_lshr },
-  case ARSH { apply le_mk_ashr },
-  all_goals { apply le_mk_var }
-end
 
 theorem step_alu64_x_increasing {cfg : CFG χ η} {k : symstate β η → state γ β} (k_mon : ∀ s, increasing (k s)) :
   ∀ op dst src next s,
