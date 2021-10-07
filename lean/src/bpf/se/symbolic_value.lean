@@ -75,12 +75,15 @@ sorry
 -- def doALU : ∀ (op : bpf.ALU) (dst src : β), state γ β
 -- | op dst src       := lift2_denote (bpf.ALU.doALU_scalar op) dst src
 
-def doALU : Π (op : bpf.ALU) (a b : symvalue β), state γ (symvalue β)
-| bpf.ALU.ADD (symvalue.scalar x) (symvalue.scalar y) :=
+def doALU : Π (op : ALU) (a b : symvalue β), state γ (symvalue β)
+| ALU.ADD (symvalue.scalar x) (symvalue.scalar y) :=
   symvalue.scalar <$> mk_add x y
 | _ _ _ := pure (symvalue.unknown $ erased.mk $ value.scalar 0)
 
-theorem sat_doALU ⦃g g' : γ⦄ ⦃op : bpf.ALU⦄ ⦃e₁ e₂ e₃ : symvalue β⦄ ⦃v₁ v₂ : bpf.value⦄ :
+theorem doALU_increasing {op : ALU} {a b : symvalue β} : increasing (doALU op a b : state γ (symvalue β)) :=
+sorry
+
+theorem sat_doALU ⦃g g' : γ⦄ ⦃op : ALU⦄ ⦃e₁ e₂ e₃ : symvalue β⦄ ⦃v₁ v₂ : bpf.value⦄ :
   (doALU op e₁ e₂).run g = (e₃, g') →
   sat g e₁ v₁ →
   sat g e₂ v₂ →
@@ -89,6 +92,9 @@ sorry
 
 def doALU_check : Π (op : bpf.ALU) (a b : symvalue β), state γ β
 | _ _ _ := mk_false
+
+theorem doALU_check_increasing {op : ALU} {a b : symvalue β} : increasing (doALU_check op a b : state γ β) :=
+sorry
 
 theorem sat_doALU_check ⦃g g' : γ⦄ ⦃op : bpf.ALU⦄ ⦃e₁ e₂ : symvalue β⦄ ⦃e₃ : β⦄ ⦃v₁ v₂ : bpf.value⦄ :
   (doALU_check op e₁ e₂).run g = (e₃, g') →

@@ -220,12 +220,12 @@ theorem step_alu64_x_increasing {cfg : CFG χ η} {k : symstate β η → state 
     increasing (step_alu64_x cfg k op dst src next s) :=
 begin
   intros op dst src next s,
-  apply increasing_bind,
-  apply ALU_check_increasing, intros,
+  apply increasing_bind, intros,
+  apply symvalue.doALU_check_increasing, intros,
   apply increasing_bind,
   apply assert_increasing, intros,
   apply increasing_bind,
-  apply doALU_increasing, intros,
+  apply symvalue.doALU_increasing, intros,
   apply k_mon
 end
 
@@ -235,16 +235,16 @@ theorem step_alu64_k_increasing {cfg : CFG χ η} {k : symstate β η → state 
 begin
   intros op dst imm next s,
   apply increasing_bind,
-  apply le_mk_const,
+  apply symvalue.le_mk_scalar,
   intro c,
   apply increasing_bind,
-  apply ALU_check_increasing,
+  apply symvalue.doALU_check_increasing,
   intro c,
   apply increasing_bind,
   apply assert_increasing,
   intro c,
   apply increasing_bind,
-  apply doALU_increasing,
+  apply symvalue.doALU_increasing,
   intro c,
   apply k_mon
 end
