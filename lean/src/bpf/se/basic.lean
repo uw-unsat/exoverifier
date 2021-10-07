@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Luke Nelson, Xi Wang
 -/
 import ..basic
+import .symbolic_value
 import ..cfg
 import smt.factory
 
@@ -27,7 +28,7 @@ open unordered_map
 structure symstate (β η : Type*) :=
 (assumptions assertions : β)
 (current : η)
-(regs : reg → β)
+(regs : reg → symvalue β)
 
 section impl
 
@@ -84,7 +85,7 @@ def doALU : ∀ (op : bpf.ALU) (dst src : β), state γ β
 | ALU.LSH  dst src := mk_shl dst src
 | ALU.RSH  dst src := mk_lshr dst src
 | ALU.ARSH dst src := mk_ashr dst src
-| op dst src       := lift2_denote (bpf.ALU.doALU64 op) dst src
+| op dst src       := lift2_denote (bpf.ALU.doALU_scalar op) dst src
 
 def ALU_check : ∀ (op : bpf.ALU) (dst src : β), state γ β
 | ALU.DIV  _ src := mk_redor src
@@ -94,49 +95,39 @@ def ALU_check : ∀ (op : bpf.ALU) (dst src : β), state γ β
 
 /-- Step symbolic evaluation for an ALU64_X instruction. -/
 def step_alu64_x (cfg : CFG χ η) (k : symstate β η → state γ β) (op : ALU) (dst src : reg) (next : η) (s : symstate β η) : state γ β := do
-check ← ALU_check op (s.regs dst) (s.regs src),
+check ← symvalue.doALU_check op (s.regs dst) (s.regs src),
 s' ← assert check s,
-val ← doALU op (s.regs dst) (s.regs src),
+val ← symvalue.doALU op (s.regs dst) (s.regs src),
 k {regs        := function.update s.regs dst val,
    current     := next, ..s'}
 
 /-- Step symbolic evaluation for an ALU64_K instruction. -/
 def step_alu64_k (cfg : CFG χ η) (k : symstate β η → state γ β) (op : ALU) (dst : reg) (imm : lsbvector 64) (next : η) (s : symstate β η) : state γ β := do
-(const : β) ← mk_const imm,
-check ← ALU_check op (s.regs dst) const,
+(const : symvalue β) ← symvalue.mk_scalar imm,
+check ← symvalue.doALU_check op (s.regs dst) const,
 s' ← assert check s,
-val ← doALU op (s.regs dst) const,
+val ← symvalue.doALU op (s.regs dst) const,
 k {regs        := function.update s.regs dst val,
    current     := next, ..s'}
 
-def doJMP : ∀ (op : bpf.JMP) (dst src : β), state γ β
-| JMP.JEQ  dst src := mk_eq dst src
-| JMP.JNE  dst src := mk_eq dst src >>= mk_not
-| JMP.JSET dst src := mk_and dst src >>= mk_redor
-| JMP.JLT  dst src := mk_ult dst src
-| JMP.JGT  dst src := mk_ult src dst
-| JMP.JLE  dst src := mk_ule dst src
-| JMP.JGE  dst src := mk_ule src dst
-| JMP.JSLT dst src := mk_slt dst src
-| JMP.JSGT dst src := mk_slt src dst
-| JMP.JSLE dst src := mk_sle dst src
-| JMP.JSGE dst src := mk_sle src dst
--- | op       dst src := mk_var (λ (x : fin 1), bpf.JMP.doJMP op (denote64 dst) (denote64 src))
-
 /-- Step symbolic evaluation for a JMP_X instruction. -/
 def step_jmp64_x (cfg : CFG χ η) (k : symstate β η → state γ β) (op : JMP) (dst src : reg) (if_true if_false : η) (s : symstate β η) : state γ β := do
-cond ← doJMP op (s.regs dst) (s.regs src),
+check ← symvalue.doJMP_check op (s.regs dst) (s.regs src),
+s' ← assert check s,
+cond ← symvalue.doJMP op (s.regs dst) (s.regs src),
 ncond ← mk_not cond,
-truestate ← assume_ cond s,
+truestate ← assume_ cond s',
 true_condition ← k {current := if_true, ..truestate},
-falsestate ← assume_ ncond s,
+falsestate ← assume_ ncond s',
 false_condition ← k {current := if_false, ..falsestate},
 mk_and true_condition false_condition
 
 /-- Step symbolic evaluation for a JMP_K instruction. -/
 def step_jmp64_k (cfg : CFG χ η) (k : symstate β η → state γ β) (op : JMP) (dst : reg) (imm : lsbvector 64) (if_true if_false : η) (s : symstate β η) : state γ β := do
-(const : β) ← mk_const imm,
-cond ← doJMP op (s.regs dst) const,
+(const : symvalue β) ← symvalue.mk_scalar imm,
+check ← symvalue.doJMP_check op (s.regs dst) const,
+s' ← assert check s,
+cond ← symvalue.doJMP op (s.regs dst) const,
 ncond ← mk_not cond,
 truestate ← assume_ cond s,
 true_condition ← k {current := if_true, ..truestate},
@@ -166,24 +157,24 @@ def symeval (cfg : CFG χ η) : ∀ (fuel : ℕ), symstate β η → state γ β
 | 0       := infeasible
 | (n + 1) := step_symeval cfg (symeval n)
 
-protected def initial_regs : ∀ {n : ℕ}, erased (vector i64 n) → state γ (vector β n)
+protected def initial_regs : ∀ {n : ℕ}, erased (vector value n) → state γ (vector (symvalue β) n)
 | 0 _ := pure vector.nil
 | (n + 1) regs := do
-  (x : β) ← mk_var $ regs.map vector.head,
+  (x : symvalue β) ← symvalue.mk_unknown (regs.map vector.head),
   xs ← @initial_regs n $ regs.map vector.tail,
   pure $ vector.cons x xs
 
 /-- Construct the initial symbolic state from cfg and registers. -/
-def initial_symstate (cfg : CFG χ η) (regs' : erased (vector i64 nregs)) : state γ (symstate β η) := do
+def initial_symstate (cfg : CFG χ η) (regs' : erased (vector value nregs)) : state γ (symstate β η) := do
 truthy : β ← mk_true,
-(regs : vector β nregs) ← se.initial_regs regs',
+(regs : vector (symvalue β) nregs) ← se.initial_regs regs',
 pure { assumptions := truthy,
        assertions  := truthy,
        regs        := bpf.reg.of_vector regs,
        current     := cfg.entry }
 
 /-- Generate verification conditions for the safety of "cfg" given some fuel and initial registers. -/
-def vcgen (cfg : CFG χ η) (fuel : ℕ) (regs : erased (vector i64 nregs)) : state γ β := do
+def vcgen (cfg : CFG χ η) (fuel : ℕ) (regs : erased (vector value nregs)) : state γ β := do
 init : symstate β η ← initial_symstate cfg regs,
 symeval cfg fuel init
 

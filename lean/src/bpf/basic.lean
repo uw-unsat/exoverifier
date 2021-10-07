@@ -142,6 +142,23 @@ inductive ALU : Type
 | ARSH
 | END
 
+/- Opaque memory region. -/
+@[derive [decidable_eq, has_reflect, inhabited]]
+structure memregion : Type
+
+/- A value is either a 64-bit scalar, or a memory region + offset. -/
+@[derive [decidable_eq]]
+inductive value : Type
+| scalar : i64 → value
+| pointer : memregion → i64 → value
+
+namespace value
+
+abbreviation is_scalar (v : value) : Prop :=
+∃ r, v = scalar r
+
+end value
+
 namespace ALU
 
 def repr : ALU → string
@@ -163,16 +180,18 @@ def repr : ALU → string
 instance : has_repr ALU := ⟨repr⟩
 
 /-- Whether a particular ALU operation is allowed. -/
-def ALU_check {n : ℕ} : ALU → (fin n → bool) → (fin n → bool) → bool
+def doALU_scalar_check {n : ℕ} : ALU → (fin n → bool) → (fin n → bool) → bool
 | DIV x y  := y ≠ 0 -- Disallow division by zero.
 | MOD x y  := y ≠ 0 -- Disallow mod by zero.
 | END x y  := ff -- Disallow endianness conversion for now TODO
 | _ x y    := tt
 
-abbreviation ALU64_check : ALU → i64 → i64 → bool := ALU_check
+def doALU_check : ALU → value → value → bool
+| op (value.scalar x) (value.scalar y) := doALU_scalar_check op x y
+| _ _ _ := ff
 
 /-- The result of an ALU operation. -/
-def doALU {n : ℕ} : ALU → (fin n → bool) → (fin n → bool) → (fin n → bool)
+def doALU_scalar {n : ℕ} : ALU → (fin n → bool) → (fin n → bool) → (fin n → bool)
 | ADD x y  := x + y
 | SUB x y  := x - y
 | MUL x y  := x * y
@@ -188,16 +207,17 @@ def doALU {n : ℕ} : ALU → (fin n → bool) → (fin n → bool) → (fin n �
 | ARSH x y := bv.ashr x y
 | END x y  := 0 -- TODO
 
-/-- 64-bit ALU operation abbreviation. -/
-abbreviation doALU64 : ALU → i64 → i64 → i64 := doALU
+def doALU : ALU → value → value → value
+| op (value.scalar x) (value.scalar y) := value.scalar (doALU_scalar op x y)
+| _ _ _ := value.scalar 0
 
 /--
 Perform a 32-bit ALU operation by truncating registers to 32 bits and zero-extending
 the result back to 64 bits.
 -/
 @[reducible]
-def doALU32 (op : ALU) (x y : i64) : i64 :=
-bv.concat (0 : i32) (doALU op (trunc32 x) (trunc32 y))
+def doALU32_scalar (op : ALU) (x y : i64) : i64 :=
+bv.concat (0 : i32) (doALU_scalar op (trunc32 x) (trunc32 y))
 
 end ALU
 
@@ -232,8 +252,13 @@ def repr : JMP → string
 
 instance : has_repr JMP := ⟨repr⟩
 
+/- Whether a JMP operation between two operands is allowed. -/
+def doJMP_check : JMP → value → value → bool
+| _ (value.scalar _) (value.scalar _) := tt
+| _ _ _ := ff
+
 /-- Evaluate a JMP condition on two concrete bitvectors. -/
-def doJMP {n : ℕ} : JMP → (fin n → bool) → (fin n → bool) → bool
+def doJMP_scalar {n : ℕ} : JMP → (fin n → bool) → (fin n → bool) → bool
 | JEQ x y  := x = y
 | JNE x y  := x ≠ y
 | JLE x y  := x ≤ y
@@ -246,13 +271,14 @@ def doJMP {n : ℕ} : JMP → (fin n → bool) → (fin n → bool) → bool
 | JSGT x y := bv.sgt x y
 | JSET x y := bv.and x y ≠ 0
 
-/-- 64-bit JMP operation abbreviation. -/
-abbreviation doJMP64 : JMP → i64 → i64 → bool := @doJMP 64
+def doJMP : JMP → value → value → bool
+| op (value.scalar x) (value.scalar y) := doJMP_scalar op x y
+| _ _ _ := ff
 
 /-- Evaluate a 32-bit JMP operation on 64-bit operands taking the lower 32 bits of inputs. -/
 @[reducible]
-def doJMP32 (op : JMP) (x y : i64) : bool :=
-@doJMP 32 op (trunc32 x) (trunc32 y)
+def doJMP32_scalar (op : JMP) (x y : i64) : bool :=
+@doJMP_scalar 32 op (trunc32 x) (trunc32 y)
 
 end JMP
 

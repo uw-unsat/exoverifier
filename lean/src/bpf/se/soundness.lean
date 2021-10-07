@@ -48,7 +48,7 @@ end
 
 /-- `concretizes` relates symbolic states to concrete state in some SMT factory. -/
 @[mk_iff]
-structure concretizes (g : γ) (abs : symstate β η) (asserts assumes : bool) (regs : reg → i64) : Prop :=
+structure concretizes (g : γ) (abs : symstate β η) (asserts assumes : bool) (regs : reg → value) : Prop :=
 (asserts_ok : sat g abs.assertions (bv1 asserts))
 (assumes_ok : sat g abs.assumptions (bv1 assumes))
 (regs_ok    : ∀ (r : reg), sat g (abs.regs r) (bv_sig (regs r)))
@@ -143,7 +143,7 @@ end
     correctness of one of these functions inductively depends on the correctness
     of the continuation. -/
 def se_correct (cfg : CFG χ η) (p : set (symstate β η)) (k : symstate β η → state γ β) : Prop :=
-∀ ⦃g g' : γ⦄ ⦃c : β⦄ ⦃abs : symstate β η⦄ ⦃asserts assumes : bool⦄ ⦃regs : reg → i64⦄,
+∀ ⦃g g' : γ⦄ ⦃c : β⦄ ⦃abs : symstate β η⦄ ⦃asserts assumes : bool⦄ ⦃regs : reg → value⦄,
   -- If the abstract state is one we care about, and
   abs ∈ p →
   -- the abstract state concretizes to a legitimate state, and

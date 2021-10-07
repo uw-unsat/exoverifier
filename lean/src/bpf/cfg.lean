@@ -170,7 +170,7 @@ variables {α χ : Type*} [unordered_map α (instr α) χ]
 
 @[derive [decidable_eq]]
 inductive state (α : Type*)
-| running : Π (pc : α) (regs : reg → i64), state
+| running : Π (pc : α) (regs : reg → value), state
 | exited  : Π (return : i64), state
 
 instance : inhabited (state α) := ⟨state.exited 0⟩
@@ -181,31 +181,34 @@ variable [decidable_eq α]
 @[mk_iff]
 inductive step (cfg : CFG χ α) : state α → state α → Prop
 | ALU64_X :
-  ∀ {pc : α} {regs : reg → i64} {op : ALU} {dst src : reg} {v : i64} {next : α},
+  ∀ {pc : α} {regs : reg → value} {op : ALU} {dst src : reg} {v : value} {next : α},
     lookup pc cfg.code = some (instr.ALU64_X op dst src next) →
-    ALU.ALU_check op (regs dst) (regs src) = tt →
+    ALU.doALU_check op (regs dst) (regs src) = tt →
     ALU.doALU op (regs dst) (regs src) = v →
     step (state.running pc regs) (state.running next (function.update regs dst v))
 | ALU64_K :
-  ∀ {pc : α} {regs : reg → i64} {op : ALU} {dst : reg} {imm : lsbvector 64} {v : i64} {next : α},
+  ∀ {pc : α} {regs : reg → value} {op : ALU} {dst : reg} {imm : lsbvector 64} {v : value} {next : α},
     lookup pc cfg.code = some (instr.ALU64_K op dst imm next) →
-    ALU.ALU_check op (regs dst) imm.nth = tt →
-    ALU.doALU op (regs dst) imm.nth = v →
+    ALU.doALU_check op (regs dst) (value.scalar imm.nth) = tt →
+    ALU.doALU op (regs dst) (value.scalar imm.nth) = v →
     step (state.running pc regs) (state.running next (function.update regs dst v))
 | JMP_X :
-  ∀ {pc : α} {regs : reg → i64} {op : JMP} {r₁ r₂ : reg} {c : bool} {if_true if_false : α},
+  ∀ {pc : α} {regs : reg → value} {op : JMP} {r₁ r₂ : reg} {c : bool} {if_true if_false : α},
     lookup pc cfg.code = some (instr.JMP_X op r₁ r₂ if_true if_false) →
+    JMP.doJMP_check op (regs r₁) (regs r₂) = tt →
     c = JMP.doJMP op (regs r₁) (regs r₂) →
     step (state.running pc regs) (state.running (if c then if_true else if_false) regs)
 | JMP_K :
-  ∀ {pc : α} {regs : reg → i64} {op : JMP} {r₁ : reg} {imm : lsbvector 64} {c : bool} {if_true if_false : α},
+  ∀ {pc : α} {regs : reg → value} {op : JMP} {r₁ : reg} {imm : lsbvector 64} {c : bool} {if_true if_false : α},
     lookup pc cfg.code = some (instr.JMP_K op r₁ imm if_true if_false) →
-    c = JMP.doJMP op (regs r₁) imm.nth →
+    JMP.doJMP_check op (regs r₁) (value.scalar imm.nth) = tt →
+    c = JMP.doJMP op (regs r₁) (value.scalar imm.nth) →
     step (state.running pc regs) (state.running (if c then if_true else if_false) regs)
 | Exit :
-  ∀ {pc : α} {regs : reg → i64},
+  ∀ {pc : α} {regs : reg → value} {ret : i64},
     lookup pc cfg.code = some instr.Exit →
-    step (state.running pc regs) (state.exited $ regs reg.R0)
+    regs reg.R0 = value.scalar ret →
+    step (state.running pc regs) (state.exited ret)
 
 theorem do_step_alu64_x {cfg : CFG χ α} :
   ∀ {pc regs op dst src next},
@@ -229,7 +232,7 @@ begin
   case JMP_K : _ _ _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
-  case Exit : _ _ fetch' {
+  case Exit : _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
 end
@@ -248,7 +251,7 @@ theorem do_step_alu64_k {cfg : CFG χ α} :
     lookup pc cfg.code = some (instr.ALU64_K op dst imm next) →
     ∀ {s : state α},
       step cfg (state.running pc regs) s →
-      s = state.running next (function.update regs dst (ALU.doALU op (regs dst) imm.nth)) :=
+      s = state.running next (function.update regs dst (ALU.doALU op (regs dst) (value.scalar imm.nth))) :=
 begin
   intros _ _ _ _ _ _ fetch _ step₁,
   cases step₁,
@@ -265,7 +268,7 @@ begin
   case JMP_K : _ _ _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
-  case Exit : _ _ fetch' {
+  case Exit : _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
 end
@@ -301,7 +304,7 @@ begin
   case JMP_K : _ _ _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
-  case Exit : _ _ fetch' {
+  case Exit : _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
 end
@@ -320,7 +323,7 @@ theorem do_step_jmp_k {cfg : CFG χ α} :
     lookup pc cfg.code = some (instr.JMP_K op r₁ imm if_true if_false) →
     ∀ {s : state α},
       step cfg (state.running pc regs) s →
-      s = state.running (if JMP.doJMP op (regs r₁) imm.nth then if_true else if_false) regs :=
+      s = state.running (if JMP.doJMP op (regs r₁) (value.scalar imm.nth) then if_true else if_false) regs :=
 begin
   intros _ _ _ _ _ _ _ fetch _ step₁,
   cases step₁,
@@ -337,7 +340,7 @@ begin
     rw [fetch] at fetch',
     cases fetch',
     subst_vars },
-  case Exit : _ _ fetch' {
+  case Exit : _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
 end
@@ -356,7 +359,9 @@ theorem do_step_exit {cfg : CFG χ α} :
     lookup pc cfg.code = some instr.Exit →
     ∀ {s : state α},
       step cfg (state.running pc regs) s →
-      s = state.exited (regs reg.R0) :=
+      ∃ (ret : i64),
+        regs reg.R0 = value.scalar ret ∧
+        s = state.exited ret :=
 begin
   intros _ _ fetch _ step₁,
   cases step₁,
@@ -372,8 +377,9 @@ begin
   case JMP_K : _ _ _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
-  case Exit : _ _ fetch' {
-    rw [fetch] at fetch' },
+  case Exit : _ _ step₁_ret fetch' {
+    existsi step₁_ret,
+    tauto },
 end
 
 theorem step_exit_det {cfg : CFG χ α} :
@@ -382,7 +388,11 @@ theorem step_exit_det {cfg : CFG χ α} :
     set.subsingleton (step cfg (state.running pc regs)) :=
 begin
   intros _ _ fetch s₁ step₁ s₂ step₂,
-  rw [do_step_exit fetch step₁, do_step_exit fetch step₂]
+  obtain ⟨h₁, h₁', h₁''⟩ := do_step_exit fetch step₁,
+  obtain ⟨h₂, h₂', h₂''⟩ := do_step_exit fetch step₂,
+  rw [h₁'] at h₂',
+  cases h₂',
+  rw [h₁'', h₂'']
 end
 
 theorem running_backwards (cfg : CFG χ α) (s : state α) :
@@ -397,7 +407,7 @@ end
 
 inductive initial_state (cfg : CFG χ α) : state α → Prop
 | intro :
-  ∀ (regs : reg → i64),
+  ∀ (regs : reg → value),
     initial_state (state.running (CFG.entry cfg) regs)
 
 @[reducible]
@@ -417,7 +427,7 @@ def safe_from_state (cfg : CFG χ α) (s : state α) : Prop :=
   star cfg s s' →
   safe_state cfg s'
 
-def safe_with_regs (cfg : CFG χ α) (regs : reg → i64) : Prop :=
+def safe_with_regs (cfg : CFG χ α) (regs : reg → value) : Prop :=
 safe_from_state cfg (state.running cfg.entry regs)
 
 /-- A cfg being safe is defined as all states reachable from all initial states being safe. -/

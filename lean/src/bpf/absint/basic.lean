@@ -93,41 +93,30 @@ begin
 end
 
 /--
-Generate the "check" whether the current state can step,
-for example, DIV instructions are unsafe when the source register
-can be zero.
--/
-def gen_check : bpf.cfg.instr CTRL → MEM → bool
-| (bpf.cfg.instr.ALU64_X bpf.ALU.DIV _ src _) :=
-  (with_bot.lift_unary_test $ regs_abstr.test_reg_neq src 0).test
-| (bpf.cfg.instr.ALU64_K bpf.ALU.DIV _ imm _) :=
-  λ _, imm.nth ≠ 0
-| (bpf.cfg.instr.ALU64_X bpf.ALU.END _ _ _) := λ _, ff
-| (bpf.cfg.instr.ALU64_X bpf.ALU.MOD _ src _) :=
-  (with_bot.lift_unary_test $ regs_abstr.test_reg_neq src 0).test
-| (bpf.cfg.instr.ALU64_K bpf.ALU.END _ _ _) := λ _, ff
-| (bpf.cfg.instr.ALU64_K bpf.ALU.MOD _ imm _) :=
-  λ _, imm.nth ≠ 0
-| _ := λ _, tt
-
-/--
 Generate the safety predicate for a single instruction.
 Asserts that the next instruction is legal and any specific predicates
 that must hold for the state to step (i.e., not error).
 -/
 def gen_one_safety (p : PGRM) (current : CTRL) : bpf.cfg.instr CTRL → MEM → bool
-| i@(bpf.cfg.instr.ALU64_X _ dst src next) :=
+| i@(bpf.cfg.instr.ALU64_X op dst src next) :=
   λ mem,
-    (lookup next p.code).is_some ∧ gen_check i mem
-| i@(bpf.cfg.instr.ALU64_K _ dst imm next) :=
-  λ mem, (lookup next p.code).is_some ∧ gen_check i mem
-| (bpf.cfg.instr.JMP_X _ _ _ if_true if_false) :=
-  λ _, (lookup if_true p.code).is_some ∧ (lookup if_false p.code).is_some
+    (lookup next p.code).is_some ∧
+    (with_bot.lift_unary_test (regs_abstr.do_alu_check op dst src)).test mem = tt
+| i@(bpf.cfg.instr.ALU64_K op dst imm next) :=
+  λ mem,
+    (lookup next p.code).is_some ∧
+    (with_bot.lift_unary_test (regs_abstr.do_alu_imm_check op dst imm)).test mem = tt
+| (bpf.cfg.instr.JMP_X op dst src if_true if_false) :=
+  λ mem,
+    (lookup if_true p.code).is_some ∧
+    (lookup if_false p.code).is_some ∧
+    (with_bot.lift_unary_test (regs_abstr.do_jmp_check op dst src)).test mem = tt
 | (bpf.cfg.instr.JMP_K _ _ _ if_true if_false) :=
-  λ _, (lookup if_true p.code).is_some ∧ (lookup if_false p.code).is_some
+  λ _, (lookup if_true p.code).is_some ∧ (lookup if_false p.code).is_some ∧ false
 | (bpf.cfg.instr.STX size dst src off next) :=
   λ _, (lookup next p.code).is_some ∧ false
-| _ := λ _, tt
+| bpf.cfg.instr.Exit :=
+  (with_bot.lift_unary_test (regs_abstr.is_scalar bpf.reg.R0)).test
 
 /--
 Generate the safety conditions for a BPF program. It consists of a
@@ -208,7 +197,7 @@ for the BPF semantics.
 -/
 theorem correct_approximation (p : PGRM) (s : STATE) :
   approximates p s →
-  ∀ (pc : CTRL) (regs : bpf.reg → bpf.i64),
+  ∀ (pc : CTRL) (regs : bpf.reg → bpf.value),
     bpf.cfg.state.running pc regs ∈ collect p →
     regs ∈ γ (interpret s pc) :=
 begin
@@ -241,7 +230,7 @@ begin
       simp only [constraint_holds, gen_one_constraint, list.nth_le] at approx,
       apply le_correct approx,
       apply (with_bot.lift_unary_transfer (regs_abstr.do_alu_imm op dst imm)).correct ih },
-    case bpf.cfg.step.JMP_X : pc' regs' op dst src v if_true if_false fetch dojmp {
+    case bpf.cfg.step.JMP_X : pc' regs' op dst src v if_true if_false fetch jmpcheck dojmp {
       specialize ih pc' regs' rfl,
       clear tail,
       rw [← option.mem_def, mem_lookup_iff] at fetch,
@@ -328,7 +317,7 @@ begin
       rw [fetch] at fetch',
       cases fetch',
       simp only [absint.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at secure,
-      cases secure with secure₁ secure₂,
+      rcases secure with ⟨secure₁, secure₂, -⟩,
       cases head_c,
       { exact secure₂ },
       { exact secure₁ } },
@@ -336,7 +325,7 @@ begin
       rw [fetch] at fetch',
       cases fetch',
       simp only [absint.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at secure,
-      cases secure with secure₁ secure₂,
+      rcases secure with ⟨secure₁, secure₂, -⟩,
       cases head_c,
       { exact secure₂ },
       { exact secure₁ } } }
@@ -347,7 +336,7 @@ If a safety predicate holds for an instruction in the program and some abstract 
 and that abstract state models some concrete state, then the concrete state will be
 able to take at least one step.
 -/
-theorem can_step_of_safety {p : PGRM} {s : STATE} {regs : bpf.reg → bpf.i64} {pc : CTRL} {i : bpf.cfg.instr CTRL} :
+theorem can_step_of_safety {p : PGRM} {s : STATE} {regs : bpf.reg → bpf.value} {pc : CTRL} {i : bpf.cfg.instr CTRL} :
   gen_one_safety p pc i (interpret s pc) = tt →
   lookup pc p.code = some i →
   regs ∈ γ (interpret s pc) →
@@ -357,50 +346,45 @@ begin
   intros check_tt fetch rel,
   cases i,
   case bpf.cfg.instr.ALU64_X : op dst src next {
-    cases op,
-    case bpf.ALU.DIV {
-      simp only [absint.gen_one_safety, absint.gen_check, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
-      existsi _,
-      apply bpf.cfg.step.ALU64_X fetch _ rfl,
-      apply (with_bot.lift_unary_test (regs_abstr.test_reg_neq src 0)).test_sound check_tt.2 rel },
-    case bpf.ALU.MOD {
-      simp only [absint.gen_one_safety, absint.gen_check, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
-      existsi _,
-      apply bpf.cfg.step.ALU64_X fetch _ rfl,
-      apply (with_bot.lift_unary_test (regs_abstr.test_reg_neq src 0)).test_sound check_tt.2 rel },
-    case bpf.ALU.END {
-      simp only [absint.gen_one_safety, absint.gen_check, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
-      cases check_tt.2 },
-    all_goals {
-      existsi _,
-      apply bpf.cfg.step.ALU64_X fetch rfl rfl } },
+    simp only [absint.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
+    existsi _,
+    apply bpf.cfg.step.ALU64_X fetch _ rfl,
+    cases check_tt with _ check_tt,
+    have h_ok := (with_bot.lift_unary_test (regs_abstr.do_alu_check _ dst src)).test_sound check_tt rel,
+    simp only [bool.to_bool_coe] at h_ok,
+    exact h_ok },
   case bpf.cfg.instr.ALU64_K : op dst imm next {
-    cases op,
-    case bpf.ALU.DIV {
-      simp only [absint.gen_one_safety, absint.gen_check, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
-      existsi _,
-      exact bpf.cfg.step.ALU64_K fetch check_tt.2 rfl },
-    case bpf.ALU.MOD {
-      simp only [absint.gen_one_safety, absint.gen_check, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
-      existsi _,
-      exact bpf.cfg.step.ALU64_K fetch check_tt.2 rfl },
-    case bpf.ALU.END {
-      simp only [absint.gen_one_safety, absint.gen_check, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
-      cases check_tt.2 },
-    all_goals { existsi _,
-      apply bpf.cfg.step.ALU64_K fetch rfl rfl } },
-  case bpf.cfg.instr.JMP_X {
+    simp only [absint.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
     existsi _,
-    apply bpf.cfg.step.JMP_X fetch rfl },
+    apply bpf.cfg.step.ALU64_K fetch _ rfl,
+    cases check_tt with _ check_tt,
+    have h_ok := (with_bot.lift_unary_test (regs_abstr.do_alu_imm_check _ dst imm)).test_sound check_tt rel,
+    simp only [bool.to_bool_coe] at h_ok,
+    exact h_ok },
+  case bpf.cfg.instr.JMP_X : op dst src if_true if_false {
+    simp only [absint.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
+    rcases check_tt with ⟨-, -, check_tt⟩,
+    existsi _,
+    apply bpf.cfg.step.JMP_X fetch _ rfl,
+    have h_ok := (with_bot.lift_unary_test (regs_abstr.do_jmp_check _ dst src)).test_sound check_tt rel,
+    simp only [bool.to_bool_coe] at h_ok,
+    exact h_ok },
   case bpf.cfg.instr.JMP_K {
-    existsi _,
-    apply bpf.cfg.step.JMP_K fetch rfl },
+    simp only [absint.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
+    rcases check_tt with ⟨-, -, check_tt⟩,
+    cases check_tt,
+    /- existsi _,
+    apply bpf.cfg.step.JMP_K fetch rfl -/ },
   case bpf.cfg.instr.STX {
     simp only [gen_one_safety, to_bool_false_eq_ff, and_false] at check_tt,
     cases check_tt },
   case bpf.cfg.instr.Exit {
+    simp only [absint.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
+    have h_ok := (with_bot.lift_unary_test (regs_abstr.is_scalar _)).test_sound check_tt rel,
+    simp only [to_bool_iff] at h_ok,
+    cases h_ok with retval retval_h,
     existsi _,
-    apply bpf.cfg.step.Exit fetch },
+    apply bpf.cfg.step.Exit fetch retval_h },
 end
 
 /--
