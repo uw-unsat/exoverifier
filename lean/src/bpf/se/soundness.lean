@@ -270,7 +270,12 @@ begin
       apply step_jmp64_k_increasing ih },
     case instr.STX : op dst src off next {
       apply die_increasing },
-    case instr.Exit { refl } }
+    case instr.Exit {
+      apply increasing_bind; intros,
+      apply le_mk_const,
+      apply increasing_bind; intros,
+      apply assert_increasing,
+      apply increasing_pure } }
 end
 
 theorem symeval_increasing {cfg : CFG χ η} {fuel : ℕ} :
@@ -393,20 +398,28 @@ theorem step_jmp64_x_correct
 begin
   intros _ _ vc _ _ _ _ fetch_i pre mk,
   simp only [step_jmp64_x, state_t.run_bind] at mk,
-  cases f₁ : (symvalue.doJMP op (abs.regs dst) (abs.regs src)).run g with eq g₁,
+  cases f₁₀ : (symvalue.doJMP_check op (abs.regs dst) (abs.regs src)).run g with check g₁₀,
+  cases f₁₁ : (assert check abs).run g₁₀ with s' g₁₁,
+  cases f₁ : (symvalue.doJMP op (s'.regs dst) (s'.regs src)).run g₁₁ with eq g₁,
   cases f₂ : (mk_not eq).run g₁ with neq g₂,
-  cases f₃ : (assume_ eq abs).run g₂ with truestate g₃,
+  cases f₃ : (assume_ eq s').run g₂ with truestate g₃,
   cases f₄ : (k {current := if_true, ..truestate}).run g₃ with true_condition g₄,
-  cases f₅ : (assume_ neq abs).run g₄ with falsestate g₅,
+  cases f₅ : (assume_ neq s').run g₄ with falsestate g₅,
   cases f₆ : (k {current := if_false, ..falsestate}).run g₅ with false_condition g₆,
   cases f₇ : (mk_and true_condition false_condition).run g₆ with result g₆,
   simp only [has_bind.bind, id_bind] at mk,
-  rw [f₁, f₂, f₃, f₄, f₅, f₆, f₇] at mk,
+  rw [f₁₀, f₁₁, f₁, f₂, f₃, f₄, f₅, f₆, f₇] at mk,
   cases mk, clear mk,
 
-  have l₁ : g ≤ g₁,
+  have l₁₀ : g ≤ g₁₀,
+  { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₁₀, simp only at r, rw [← r],
+    apply symvalue.doJMP_check_increasing },
+  have l₁₁ : g₁₀ ≤ g₁₁,
+  { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₁₁, simp only at r, rw [← r],
+    apply assert_increasing },
+  have l₁ : g₁₁ ≤ g₁,
   { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₁, simp only at r, rw [← r],
-    apply doJMP_increasing },
+    apply symvalue.doJMP_increasing },
   have l₂ : g₁ ≤ g₂,
   { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₂, simp only at r, rw [← r],
     apply le_mk_not },
@@ -426,25 +439,28 @@ begin
   { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₇, simp only at r, rw [← r],
     apply le_mk_and },
 
+  have h₁₀ := symvalue.sat_doJMP_check f₁₀ (pre.regs_ok dst) (pre.regs_ok src),
+  have h₁₁ := assert_spec (of_le l₁₀ pre) h₁₀ f₁₁,
+
   rename ih → ih₁,
   have ih₂ := ih₁,
-  specialize @ih₁ g₃ g₄ true_condition {current := if_true, ..truestate} asserts ((bpf.JMP.doJMP op (regs dst) (regs src)) && assumes) regs true.intro _ f₄,
+  specialize @ih₁ g₃ g₄ true_condition {current := if_true, ..truestate} (asserts && bimplies assumes (op.doJMP_check (regs dst) (regs src))) ((bpf.JMP.doJMP op (regs dst) (regs src)) && assumes) regs true.intro _ f₄,
   { convert (assume_spec _ _ f₃) using 0,
     { simp only [concretizes_iff] },
-    { refine of_le (le_trans l₁ l₂) pre },
+    { refine of_le (le_trans l₁ l₂) h₁₁ },
     { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₂, simp only at r, rw [← r], clear r,
       obtain ⟨l, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₁, simp only at l r, rw [← l, ← r], clear l, clear r,
       refine sat_of_le le_mk_not _,
-      exact doJMP_spec (by rw [prod.mk.eta]) (pre.regs_ok dst) (pre.regs_ok src) } },
-  specialize @ih₂ g₅ g₆ false_condition {current := if_false, ..falsestate} asserts (!(bpf.JMP.doJMP op (regs dst) (regs src)) && assumes) regs true.intro _ f₆,
+      exact symvalue.sat_doJMP (by rw [prod.mk.eta]) (h₁₁.regs_ok dst) (h₁₁.regs_ok src) } },
+  specialize @ih₂ g₅ g₆ false_condition {current := if_false, ..falsestate} (asserts && bimplies assumes (op.doJMP_check (regs dst) (regs src))) (!(bpf.JMP.doJMP op (regs dst) (regs src)) && assumes) regs true.intro _ f₆,
   { convert (assume_spec _ _ f₅) using 0,
     { simp only [concretizes_iff] },
-    { refine of_le (le_trans (le_trans l₁ l₂) (le_trans l₃ l₄)) pre },
+    { refine of_le (le_trans (le_trans l₁ l₂) (le_trans l₃ l₄)) h₁₁ },
     { refine sat_of_le (le_trans l₃ l₄) _,
       obtain ⟨l, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₂, simp only at l r, rw [← l, ← r], clear l, clear r,
       refine sat_mk_not (by rw [prod.mk.eta]) _,
       obtain ⟨l, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₁, simp only at l r, rw [← l, ← r], clear l, clear r,
-      refine doJMP_spec (by rw [prod.mk.eta]) (pre.regs_ok dst) (pre.regs_ok src) } },
+      refine symvalue.sat_doJMP (by rw [prod.mk.eta]) (h₁₁.regs_ok dst) (h₁₁.regs_ok src) } },
   rcases ih₁ with ⟨vc₁, vc₁_sat, vc₁_sound⟩,
   rcases ih₂ with ⟨vc₂, vc₂_sat, vc₂_sound⟩,
   existsi (vc₁ && vc₂),
@@ -461,17 +477,19 @@ begin
     case tt {
       clear vc₂_sound,
       obtain ⟨as_ok, tail⟩ := vc₁_sound cond,
-      refine ⟨as_ok, _⟩,
+      simp only [band_eq_true_eq_eq_tt_and_eq_tt, bimplies] at as_ok,
+      refine ⟨as_ok.1, _⟩,
       apply bpf.cfg.safe_from_state_of_det_step tail _ (bpf.cfg.step_jmp_x_det fetch_i),
-      have step := bpf.cfg.step.JMP_X fetch_i rfl,
+      have step := bpf.cfg.step.JMP_X fetch_i as_ok.2 rfl,
       rw [cond] at step,
       exact step },
     case ff {
       clear vc₁_sound,
       obtain ⟨as_ok, tail⟩ := vc₂_sound cond,
-      refine ⟨as_ok, _⟩,
+      simp only [band_eq_true_eq_eq_tt_and_eq_tt, bimplies] at as_ok,
+      refine ⟨as_ok.1, _⟩,
       apply bpf.cfg.safe_from_state_of_det_step tail _ (bpf.cfg.step_jmp_x_det fetch_i),
-      have step := bpf.cfg.step.JMP_X fetch_i rfl,
+      have step := bpf.cfg.step.JMP_X fetch_i as_ok.2 rfl,
       rw [cond] at step,
       exact step } }
 end
@@ -485,24 +503,34 @@ theorem step_jmp64_k_correct
 begin
   intros _ _ vc _ _ _ _ fetch_i pre mk,
   simp only [step_jmp64_k, state_t.run_bind] at mk,
-  cases f₀ : (mk_const imm : state γ β).run g with const g₀,
-  cases f₁ : (symvalue.doJMP op (abs.regs dst) const).run g₀ with eq g₁,
+  cases f₀₀ : (symvalue.mk_scalar imm : state γ (symvalue β)).run g with const g₀₀,
+  cases f₁₀ : (symvalue.doJMP_check op (abs.regs dst) const).run g₀₀ with check g₁₀,
+  cases f₁₁ : (assert check abs).run g₁₀ with s' g₁₁,
+  cases f₁ : (symvalue.doJMP op (s'.regs dst) const).run g₁₁ with eq g₁,
   cases f₂ : (mk_not eq).run g₁ with neq g₂,
-  cases f₃ : (assume_ eq abs).run g₂ with truestate g₃,
+  cases f₃ : (assume_ eq s').run g₂ with truestate g₃,
   cases f₄ : (k {current := if_true, ..truestate}).run g₃ with true_condition g₄,
-  cases f₅ : (assume_ neq abs).run g₄ with falsestate g₅,
+  cases f₅ : (assume_ neq s').run g₄ with falsestate g₅,
   cases f₆ : (k {current := if_false, ..falsestate}).run g₅ with false_condition g₆,
   cases f₇ : (mk_and true_condition false_condition).run g₆ with result g₆,
   simp only [has_bind.bind, id_bind] at mk,
-  rw [f₀, f₁, f₂, f₃, f₄, f₅, f₆, f₇] at mk,
+  rw [f₀₀, f₁₀, f₁₁] at mk,
+  simp only at mk,
+  rw [f₁, f₂, f₃, f₄, f₅, f₆, f₇] at mk,
   cases mk, clear mk,
 
-  have l₀ : g ≤ g₀,
-  { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₀, simp only at r, rw [← r],
-    apply le_mk_const },
-  have l₁ : g₀ ≤ g₁,
+  have l₀₀ : g ≤ g₀₀,
+  { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₀₀, simp only at r, rw [← r],
+    apply symvalue.le_mk_scalar },
+  have l₁₀ : g₀₀ ≤ g₁₀,
+  { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₁₀, simp only at r, rw [← r],
+    apply symvalue.doJMP_check_increasing },
+  have l₁₁ : g₁₀ ≤ g₁₁,
+  { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₁₁, simp only at r, rw [← r],
+    apply assert_increasing },
+  have l₁ : g₁₁ ≤ g₁,
   { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₁, simp only at r, rw [← r],
-    apply doJMP_increasing },
+    apply symvalue.doJMP_increasing },
   have l₂ : g₁ ≤ g₂,
   { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₂, simp only at r, rw [← r],
     apply le_mk_not },
@@ -522,37 +550,35 @@ begin
   { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₇, simp only at r, rw [← r],
     apply le_mk_and },
 
+  have h₀₀ := symvalue.sat_mk_scalar f₀₀,
+  have h₁₀ := symvalue.sat_doJMP_check f₁₀ (sat_of_le l₀₀ (pre.regs_ok dst)) h₀₀,
+  have h₁₁ := assert_spec (of_le (le_trans l₀₀ l₁₀) pre) h₁₀ f₁₁,
+
   rename ih → ih₁,
   have ih₂ := ih₁,
-  specialize @ih₁ g₃ g₄ true_condition {current := if_true, ..truestate} asserts ((bpf.JMP.doJMP op (regs dst) imm.nth) && assumes) regs true.intro _ f₄,
+  specialize @ih₁ g₃ g₄ true_condition {current := if_true, ..truestate} (asserts && bimplies assumes (op.doJMP_check (regs dst) (value.scalar (vector.nth imm)))) ((bpf.JMP.doJMP op (regs dst) (bpf.value.scalar imm.nth)) && assumes) regs true.intro _ f₄,
   { convert (assume_spec _ _ f₃) using 0,
     { simp only [concretizes_iff] },
-    { refine of_le (le_trans (le_trans l₀ l₁) l₂) pre },
+    { refine of_le (le_trans l₁ l₂) h₁₁ },
     { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₂, simp only at r, rw [← r], clear r,
       obtain ⟨l, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₁, simp only at l r, rw [← l, ← r], clear l, clear r,
-      obtain ⟨l, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₀, simp only at l r, rw [← l, ← r], clear l, clear r,
       refine sat_of_le le_mk_not _,
-      apply doJMP_spec,
+      apply symvalue.sat_doJMP,
       { rw [prod.mk.eta] },
-      { refine sat_of_le le_mk_const _,
-        apply pre.regs_ok dst },
-      { apply sat_mk_const,
-        rw [prod.mk.eta] } } },
-  specialize @ih₂ g₅ g₆ false_condition {current := if_false, ..falsestate} asserts (!(bpf.JMP.doJMP op (regs dst) imm.nth) && assumes) regs true.intro _ f₆,
+      { exact h₁₁.regs_ok dst },
+      { exact sat_of_le (le_trans l₁₀ l₁₁) h₀₀ } } },
+  specialize @ih₂ g₅ g₆ false_condition {current := if_false, ..falsestate} (asserts && bimplies assumes (op.doJMP_check (regs dst) (value.scalar (vector.nth imm)))) (!(bpf.JMP.doJMP op (regs dst) (bpf.value.scalar imm.nth)) && assumes) regs true.intro _ f₆,
   { convert (assume_spec _ _ f₅) using 0,
     { simp only [concretizes_iff] },
-    { refine of_le (le_trans (le_trans (le_trans l₀ l₁) l₂) (le_trans l₃ l₄)) pre },
+    { refine of_le (le_trans (le_trans l₁ l₂) (le_trans l₃ l₄)) h₁₁ },
     { refine sat_of_le (le_trans l₃ l₄) _,
       obtain ⟨l, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₂, simp only at l r, rw [← l, ← r], clear l, clear r,
       refine sat_mk_not (by rw [prod.mk.eta]) _,
       obtain ⟨l, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₁, simp only at l r, rw [← l, ← r], clear l, clear r,
-      obtain ⟨l, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₀, simp only at l r, rw [← l, ← r], clear l, clear r,
-      apply doJMP_spec,
+      apply symvalue.sat_doJMP,
       { rw [prod.mk.eta] },
-      { refine sat_of_le le_mk_const _,
-        apply pre.regs_ok dst },
-      { apply sat_mk_const,
-        rw [prod.mk.eta] } } },
+      { exact h₁₁.regs_ok dst },
+      { exact sat_of_le (le_trans l₁₀ l₁₁) h₀₀ } } },
   rcases ih₁ with ⟨vc₁, vc₁_sat, vc₁_sound⟩,
   rcases ih₂ with ⟨vc₂, vc₂_sat, vc₂_sound⟩,
   existsi (vc₁ && vc₂),
@@ -565,37 +591,26 @@ begin
     rcases vcs_true with ⟨⟨⟩, ⟨⟩⟩,
     simp only [eq_self_iff_true, to_bool_iff, forall_true_left, band_tt] at vc₁_sound,
     simp only [bnot_eq_true_eq_eq_ff, bool.to_bool_not, eq_self_iff_true, to_bool_ff_iff, forall_true_left, band_tt] at vc₂_sound,
-    cases cond : bpf.JMP.doJMP op (regs dst) imm.nth,
+    cases cond : bpf.JMP.doJMP op (regs dst) (bpf.value.scalar imm.nth),
     case tt {
       clear vc₂_sound,
       obtain ⟨as_ok, tail⟩ := vc₁_sound cond,
-      refine ⟨as_ok, _⟩,
+      simp only [band_eq_true_eq_eq_tt_and_eq_tt, bimplies] at as_ok,
+      refine ⟨as_ok.1, _⟩,
       apply bpf.cfg.safe_from_state_of_det_step tail _ (bpf.cfg.step_jmp_k_det fetch_i),
-      have step := bpf.cfg.step.JMP_K fetch_i rfl,
+      have step := bpf.cfg.step.JMP_K fetch_i as_ok.2 rfl,
       rw [cond] at step,
       exact step },
     case ff {
       clear vc₁_sound,
       obtain ⟨as_ok, tail⟩ := vc₂_sound cond,
-      refine ⟨as_ok, _⟩,
+      simp only [band_eq_true_eq_eq_tt_and_eq_tt, bimplies] at as_ok,
+      refine ⟨as_ok.1, _⟩,
       apply bpf.cfg.safe_from_state_of_det_step tail _ (bpf.cfg.step_jmp_k_det fetch_i),
-      have step := bpf.cfg.step.JMP_K fetch_i rfl,
+      have step := bpf.cfg.step.JMP_K fetch_i as_ok.2 rfl,
       rw [cond] at step,
       exact step } }
 end
-
--- theorem lift2_denote_sound {g g' : γ} {e₁ e₂ e₃ : β} {v₁ v₂ : i64} {f : i64 → i64 → i64} :
---   (lift2_denote f e₁ e₂).run g = (e₃, g') →
---   sat g  e₁ (⟨64, v₁⟩ : Σ n, fin n → bool) →
---   sat g  e₂ (⟨64, v₂⟩ : Σ n, fin n → bool) →
---   sat g' e₃ (⟨64, f v₁ v₂⟩ : Σ n, fin n → bool) :=
--- begin
---   intros mk sat₁ sat₂,
---   simp only [lift2_denote, denote_sound sat₁, denote_sound sat₂, erased.bind_eq_out, erased.out_mk] at mk,
---   have sat₃ := sat_mk_var mk,
---   simp only [erased.out_mk] at sat₃,
---   exact sat₃
--- end
 
 /--
   step_alu64_x is a correct symbolic evaluator when the current instruction is ALU64_X and
@@ -714,6 +729,43 @@ begin
     exact this_assert_ok }
 end
 
+theorem step_exit_correct
+  {cfg : CFG χ η} {k : symstate β η → state γ β}
+  (k_inc : ∀ s, increasing (k s)) (ih : se_correct cfg ⊤ k) :
+    se_correct cfg (λ s, lookup s.current cfg.code = some instr.Exit)
+               (step_exit cfg k) :=
+begin
+  intros g g' c abs asserts assumes regs fetch_i pre mk,
+  simp only [step_exit, state_t.run_bind] at mk,
+  cases f₁ : ((mk_const1 (abs.regs reg.R0).is_scalar).run g : β × γ) with noleak g',
+  cases f₂ : (assert noleak abs).run g' with abs' g'',
+  simp only [(>>=), id_bind] at mk,
+  rw [f₁, f₂] at mk,
+  have l₁ : g ≤ g',
+  { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₁, simp only at r, rw [← r],
+    apply le_mk_const },
+  have l₂ : g' ≤ g'',
+  { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₂, simp only at r, rw [← r],
+    apply assert_increasing },
+  cases mk,
+  have h₁ := sat_mk_const1 f₁,
+  have h₂ := assert_spec (of_le l₁ pre) h₁ f₂,
+  existsi _,
+  refine ⟨h₂.asserts_ok, _⟩,
+  intros assumes_true asserts_true,
+  simp only [band_eq_true_eq_eq_tt_and_eq_tt] at asserts_true,
+  refine ⟨asserts_true.1, _⟩,
+  cases asserts_true with asserts_true noleak',
+  simp only [assumes_true, bimplies, to_bool_iff] at noleak',
+  cases noleak' with return_value return_value_h,
+  have return_register_sat := pre.regs_ok reg.R0,
+  rw [return_value_h] at return_register_sat,
+  generalize hreg0 : regs reg.R0 = reg_r0,
+  rw [hreg0] at return_register_sat,
+  cases return_register_sat,
+  exact bpf.cfg.safe_from_state_of_det_step bpf.cfg.safe_from_exited (bpf.cfg.step.Exit fetch_i hreg0) (bpf.cfg.step_exit_det fetch_i)
+end
+
 /-- step_symeval is correct for any state when the continuation is correct for any state. -/
 theorem step_symeval_correct
   {cfg : CFG χ η} {k : symstate β η → state γ β}
@@ -735,12 +787,17 @@ begin
     case STX {
       exact die_correct true.intro pre mk },
     case Exit {
-      simp only [state_t.run_pure] at mk,
-      cases mk, clear mk,
-      refine ⟨asserts, ⟨pre.asserts_ok, _⟩⟩,
-      intros assumes_true asserts_true,
-      refine ⟨asserts_true, _⟩,
-      apply bpf.cfg.safe_from_state_of_det_step bpf.cfg.safe_from_exited (bpf.cfg.step.Exit fetch_i) (bpf.cfg.step_exit_det fetch_i) } }
+      exact step_exit_correct k_inc ih fetch_i pre mk,
+
+
+
+      -- cases mk, clear mk,
+      -- refine ⟨asserts, ⟨pre.asserts_ok, _⟩⟩,
+      -- intros assumes_true asserts_true,
+      -- refine ⟨asserts_true, _⟩,
+      -- apply bpf.cfg.safe_from_state_of_det_step bpf.cfg.safe_from_exited (bpf.cfg.step.Exit fetch_i) (bpf.cfg.step_exit_det fetch_i)
+
+       } }
 end
 
 theorem symeval_correct (cfg : CFG χ η) (fuel : ℕ) :

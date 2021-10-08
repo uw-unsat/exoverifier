@@ -16,7 +16,7 @@ namespace cfg
 namespace se
 namespace default
 
-abbreviation vcgen : cfg.trie_program → ℕ → erased (vector i64 bpf.nregs) → state aig.default.factory (Σ n, vector aig.default.bref n) :=
+abbreviation vcgen : cfg.trie_program → ℕ → erased (vector value bpf.nregs) → state aig.default.factory (Σ n, vector aig.default.bref n) :=
 vcgen
 
 end default

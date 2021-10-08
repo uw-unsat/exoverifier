@@ -81,7 +81,7 @@ k {regs        := function.update s.regs dst val,
 def step_jmp64_x (cfg : CFG χ η) (k : symstate β η → state γ β) (op : JMP) (dst src : reg) (if_true if_false : η) (s : symstate β η) : state γ β := do
 check ← symvalue.doJMP_check op (s.regs dst) (s.regs src),
 s' ← assert check s,
-cond ← symvalue.doJMP op (s.regs dst) (s.regs src),
+cond ← symvalue.doJMP op (s'.regs dst) (s'.regs src),
 ncond ← mk_not cond,
 truestate ← assume_ cond s',
 true_condition ← k {current := if_true, ..truestate},
@@ -94,13 +94,18 @@ def step_jmp64_k (cfg : CFG χ η) (k : symstate β η → state γ β) (op : JM
 (const : symvalue β) ← symvalue.mk_scalar imm,
 check ← symvalue.doJMP_check op (s.regs dst) const,
 s' ← assert check s,
-cond ← symvalue.doJMP op (s.regs dst) const,
+cond ← symvalue.doJMP op (s'.regs dst) const,
 ncond ← mk_not cond,
-truestate ← assume_ cond s,
+truestate ← assume_ cond s',
 true_condition ← k {current := if_true, ..truestate},
-falsestate ← assume_ ncond s,
+falsestate ← assume_ ncond s',
 false_condition ← k {current := if_false, ..falsestate},
 mk_and true_condition false_condition
+
+def step_exit (cfg : CFG χ η) (k : symstate β η → state γ β) (s : symstate β η) : state γ β := do
+(noleak : β) ← mk_const1 (s.regs reg.R0).is_scalar,
+s ← assert noleak s,
+pure s.assertions
 
 /-- Run symbolic evaluation for one step (instruction), passing control to continuation k. -/
 def step_symeval (cfg : CFG χ η) (k : symstate β η → state γ β) : symstate β η → state γ β :=
@@ -114,10 +119,7 @@ def step_symeval (cfg : CFG χ η) (k : symstate β η → state γ β) : symsta
     step_jmp64_x cfg k op r₁ r₂ if_true if_false s
   | some (instr.JMP_K op r₁ imm if_true if_false) :=
     step_jmp64_k cfg k op r₁ imm if_true if_false s
-  | some (instr.Exit) := do
-    (noleak : β) ← mk_const1 (s.regs reg.R0).is_scalar,
-    s ← assert noleak s,
-    pure s.assertions
+  | some (instr.Exit) := step_exit cfg k s
   | some (instr.STX size dst src imm next) := die
   | none := die
   end

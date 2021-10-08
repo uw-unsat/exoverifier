@@ -33,6 +33,17 @@ namespace avalue
 
 variables {β : Type} [bv_abstr 64 β]
 
+section has_to_pexpr
+variable [has_to_pexpr β]
+
+private meta def to_pexpr' : avalue β → pexpr
+| (scalar x)  := ``(scalar %%x)
+| (pointer m x) := ``(pointer %%m %%x)
+
+meta instance : has_to_pexpr (avalue β) := ⟨to_pexpr'⟩
+
+end has_to_pexpr
+
 instance : has_γ bpf.value (avalue β) :=
 sorry
 

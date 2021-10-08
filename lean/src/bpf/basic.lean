@@ -154,6 +154,8 @@ inductive value : Type
 
 namespace value
 
+instance : inhabited value := ⟨value.scalar 0⟩
+
 abbreviation is_scalar (v : value) : Prop :=
 ∃ r, v = scalar r
 

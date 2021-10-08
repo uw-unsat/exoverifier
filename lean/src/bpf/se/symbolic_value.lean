@@ -137,11 +137,25 @@ def doJMP : Π (op : JMP) (a b : symvalue β), state γ β
 theorem doJMP_increasing {op : JMP} {a b : symvalue β} : increasing (doJMP op a b : state γ β) :=
 sorry
 
+theorem sat_doJMP ⦃g g' : γ⦄ ⦃op : JMP⦄ ⦃e₁ e₂ : symvalue β⦄ ⦃e₃ : β⦄ ⦃v₁ v₂ : bpf.value⦄ :
+  (doJMP op e₁ e₂).run g = (e₃, g') →
+  sat g  e₁ v₁ →
+  sat g  e₂ v₂ →
+  factory.sat g' e₃ (⟨1, λ _, bpf.JMP.doJMP op v₁ v₂⟩ : Σ (n : ℕ), fin n → bool) :=
+sorry
+
 def doJMP_check : Π (op : JMP) (a b : symvalue β), state γ β
 | _ (symvalue.scalar x) (symvalue.scalar y) := mk_true
 | _ _ _ := mk_false
 
 theorem doJMP_check_increasing {op : JMP} {a b : symvalue β} : increasing (doJMP_check op a b : state γ β) :=
+sorry
+
+theorem sat_doJMP_check ⦃g g' : γ⦄ ⦃op : JMP⦄ ⦃e₁ e₂ : symvalue β⦄ ⦃e₃ : β⦄ ⦃v₁ v₂ : bpf.value⦄ :
+  (doJMP_check op e₁ e₂).run g = (e₃, g') →
+  sat g e₁ v₁ →
+  sat g e₂ v₂ →
+  factory.sat g' e₃ (⟨1, λ _, bpf.JMP.doJMP_check op v₁ v₂⟩ : Σ (n : ℕ), fin n → bool) :=
 sorry
 
 end symvalue
