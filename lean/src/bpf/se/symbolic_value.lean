@@ -13,9 +13,9 @@ universe u
 
 variables {β γ : Type u} [smt.factory β γ] [smt.add_factory β γ] [smt.const_factory β γ]
   [smt.eq_factory β γ] [smt.not_factory β γ] [smt.and_factory β γ] [smt.redor_factory β γ] [smt.ult_factory β γ]
-  [smt.ule_factory β γ] [smt.slt_factory β γ] [smt.sle_factory β γ]
+  [smt.ule_factory β γ] [smt.slt_factory β γ] [smt.sle_factory β γ] [smt.var_factory β γ]
 open smt.add_factory smt.const_factory smt.eq_factory smt.not_factory smt.and_factory smt.redor_factory smt.ult_factory
-     smt.slt_factory smt.sle_factory smt.ule_factory factory.monad
+     smt.slt_factory smt.sle_factory smt.ule_factory factory.monad smt.var_factory
 
 /-- Symbolic values of BPF registers -/
 inductive symvalue (β : Type u)
@@ -173,18 +173,66 @@ theorem sat_doALU ⦃g g' : γ⦄ ⦃op : ALU⦄ ⦃e₁ e₂ e₃ : symvalue β
   sat g' e₃ (bpf.ALU.doALU op v₁ v₂) :=
 sorry
 
+private def doALU_scalar_check : Π (op : bpf.ALU) (a b : β), state γ β
+| ALU.DIV _ y := mk_redor y
+| ALU.MOD _ y := mk_redor y
+| ALU.END _ _ := mk_false
+| _       _ _ := mk_true
+
 def doALU_check : Π (op : bpf.ALU) (a b : symvalue β), state γ β
-| _ _ _ := mk_false
+| op (symvalue.scalar x) (symvalue.scalar y) := doALU_scalar_check op x y
+| op a                   b                   := mk_var $ do
+  (x : value) ← denote γ a,
+  (y : value) ← denote γ b,
+  pure (λ (_ : fin 1), ALU.doALU_check op x y)
 
 theorem doALU_check_increasing {op : ALU} {a b : symvalue β} : increasing (doALU_check op a b : state γ β) :=
-sorry
+begin
+  cases a,
+  apply le_mk_var,
+  cases b,
+  apply le_mk_var,
+  cases op; try{apply le_mk_const},
+  apply le_mk_redor,
+  apply le_mk_redor,
+  apply le_mk_var,
+  apply le_mk_var
+end
 
 theorem sat_doALU_check ⦃g g' : γ⦄ ⦃op : bpf.ALU⦄ ⦃e₁ e₂ : symvalue β⦄ ⦃e₃ : β⦄ ⦃v₁ v₂ : bpf.value⦄ :
   (doALU_check op e₁ e₂).run g = (e₃, g') →
   sat g e₁ v₁ →
   sat g e₂ v₂ →
   factory.sat g' e₃ (⟨1, λ _, bpf.ALU.doALU_check op v₁ v₂⟩ : Σ (n : ℕ), fin n → bool) :=
-sorry
+begin
+  intros mk sat₁ sat₂,
+  cases sat₁,
+  case sat.sat_pointer {
+    convert (sat_mk_var mk), ext i,
+    simp only [doALU_check, denote_sound sat₁, denote_sound sat₂, erased.out_mk, erased.bind_def, erased.pure_def, erased.bind_eq_out] },
+  case sat.sat_unknown {
+    convert (sat_mk_var mk), ext i,
+    simp only [doALU_check, denote_sound sat₁, denote_sound sat₂, erased.out_mk, erased.bind_def, erased.pure_def, erased.bind_eq_out] },
+  case sat.sat_scalar : _ _ sat₁' {
+    cases sat₂,
+    case sat.sat_pointer {
+      convert (sat_mk_var mk), ext i,
+      simp only [doALU_check, denote_sound sat₁, denote_sound sat₂, erased.out_mk, erased.bind_def, erased.pure_def, erased.bind_eq_out] },
+    case sat.sat_unknown {
+      convert (sat_mk_var mk), ext i,
+      simp only [doALU_check, denote_sound sat₁, denote_sound sat₂, erased.out_mk, erased.bind_def, erased.pure_def, erased.bind_eq_out] },
+    case sat.sat_scalar : _ _ sat₂' {
+      cases op;
+      try {
+        convert (sat_mk_const mk),
+        ext i,
+        simp only [fin.eq_zero i],
+        refl };
+      { convert (sat_mk_redor mk sat₂'),
+        ext i,
+        rw [bv.any_eq_to_bool_nonzero],
+        refl } } }
+end
 
 def doJMP : Π (op : JMP) (a b : symvalue β), state γ β
 | JMP.JEQ  (symvalue.scalar x) (symvalue.scalar y) := mk_eq x y
