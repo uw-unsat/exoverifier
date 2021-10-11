@@ -46,36 +46,102 @@ inductive sat (g : γ) : (symvalue β) → bpf.value → Prop
 | sat_scalar {val : β} {val_v : bpf.i64} :
   factory.sat g val (⟨64, val_v⟩ : Σ (n : ℕ), fin n → bool) →
   sat (symvalue.scalar val) (value.scalar val_v)
+| sat_unknown {val : erased value} :
+  sat (symvalue.unknown val) val.out
+
+private theorem sat_of_le ⦃g g' : γ⦄ ⦃x : symvalue β⦄ ⦃v : value⦄ :
+  g ≤ g' →
+  sat g x v →
+  sat g' x v :=
+begin
+  intros l sat₁,
+  cases sat₁,
+  case sat_pointer : _ _ _ sat' {
+    exact sat.sat_pointer (factory.sat_of_le l sat') },
+  case sat_scalar : _ _ sat' {
+    exact sat.sat_scalar (factory.sat_of_le l sat') },
+  case sat_unknown {
+    cases sat₁,
+    apply sat.sat_unknown }
+end
+
+private def denote_n (γ : Type u) [smt.factory β γ] (n : ℕ) (b : β) : erased (fin n → bool) := do
+(v : Σ (n : ℕ), fin n → bool) ← factory.denote γ b,
+match v with
+| ⟨n', x⟩ := if h : n = n' then pure $ h.symm.rec_on x else default _
+end
+
+private def denote (γ : Type u) [smt.factory β γ] : symvalue β → erased value
+| (scalar s)         := value.scalar <$> denote_n γ 64 s
+| (pointer base off) := value.pointer base <$> denote_n γ 64 off
+| (unknown v)        := v
+
+private theorem denote_sound ⦃g : γ⦄ ⦃e : symvalue β⦄ ⦃x : value⦄ :
+  sat g e x →
+  denote γ e = erased.mk x :=
+begin
+  intros sat₁,
+  cases sat₁,
+  case sat_scalar : _ _ sat' {
+    have h := factory.denote_sound sat',
+    simp only [denote, denote_n, h, erased.out_mk, erased.bind_def, erased.bind_eq_out, erased.map_def],
+    rw [dif_pos rfl],
+    simp only [erased.map, erased.out_mk, erased.pure_def, erased.bind_eq_out] },
+  case sat_pointer : _ _ _ sat' {
+    have h := factory.denote_sound sat',
+    simp only [denote, denote_n, h, erased.out_mk, erased.bind_def, erased.bind_eq_out, erased.map_def],
+    rw [dif_pos rfl],
+    simp only [erased.map, erased.out_mk, erased.pure_def, erased.bind_eq_out] },
+  case sat_unknown {
+    cases sat₁,
+    simp only [denote, erased.mk_out] }
+end
 
 instance : factory bpf.value (symvalue β) γ :=
 { sat          := sat,
-  sat_of_le    := sorry,
+  sat_of_le    := sat_of_le,
   init_f       := factory.init_f (Σ (n : ℕ), fin n → bool) β,
   default      := ⟨symvalue.unknown $ erased.mk $ value.scalar 0⟩,
-  denote       := sorry,
-  denote_sound := sorry }
+  denote       := denote γ,
+  denote_sound := denote_sound }
 
 def mk_scalar (imm : lsbvector 64) : state γ (symvalue β) :=
 symvalue.scalar <$> mk_const imm
 
 theorem le_mk_scalar {imm : lsbvector 64} : increasing (mk_scalar imm : state γ (symvalue β)) :=
-sorry
+begin
+  apply increasing_map,
+  apply le_mk_const
+end
 
 theorem sat_mk_scalar ⦃g g' : γ⦄ ⦃e₁ : symvalue β⦄ ⦃imm : lsbvector 64⦄ :
   (mk_scalar imm).run g = (e₁, g') →
   sat g' e₁ (bpf.value.scalar imm.nth) :=
-sorry
+begin
+  intros mk,
+  simp only [mk_scalar, state_t.run_map] at mk,
+  cases mk,
+  apply sat.sat_scalar,
+  apply sat_mk_const,
+  rw [prod.mk.eta]
+end
 
 def mk_unknown (v : erased value) : state γ (symvalue β) :=
 pure (symvalue.unknown v)
 
 theorem le_mk_unknown {v : erased value} : increasing (mk_unknown v : state γ (symvalue β)) :=
-sorry
+begin
+  apply increasing_pure
+end
 
 theorem sat_mk_unknown ⦃g g' : γ⦄ ⦃e₁ : symvalue β⦄ ⦃v : erased bpf.value⦄ :
   (mk_unknown v).run g = (e₁, g') →
   sat g' e₁ v.out :=
-sorry
+begin
+  intros mk,
+  cases mk,
+  constructor
+end
 
 -- /-- Lift a constant function on 64 bits to expressions, losing precision.
 --     Computationally, this is just `mk_var`. -/
