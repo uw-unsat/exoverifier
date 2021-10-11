@@ -112,6 +112,7 @@ sorry
 
 instance : bv_abstr n range :=
 { add  := { op := add, correct := add_correct },
+  neg  := sorry,
   and  := sorry,
   or   := sorry,
   xor  := sorry,

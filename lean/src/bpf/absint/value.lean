@@ -123,10 +123,61 @@ instance : abstr_le bpf.value (avalue β) :=
 instance : abstr_meet bpf.value (with_top (avalue β)) (with_bot (with_top (avalue β))) :=
 sorry
 
-instance : abstr_join bpf.value (avalue β) (with_top (avalue β)) := sorry
+instance avalue_join : abstr_join bpf.value (avalue β) (with_top (avalue β)) :=
+{ join := λ (x y : avalue β),
+    match x, y with
+    | avalue.scalar x', avalue.scalar y' := some $ avalue.scalar (x' ⊔ y')
+    | avalue.pointer m₁ x', avalue.pointer m₂ y' :=
+      if m₁ = m₂
+      then pure $ avalue.pointer m₁ (x' ⊔ y')
+      else ⊤
+    | _, _ := ⊤
+    end,
+  join_correct := by {
+    intros x y val h₁,
+    cases x; cases y,
+    { cases h₁; cases h₁; constructor; apply abstr_join.join_correct,
+      { left, tauto },
+      { right, tauto } },
+    { simp only [avalue_join._match_1] },
+    { simp only [avalue_join._match_1] },
+    { simp only [avalue_join._match_1],
+      split_ifs,
+      { subst h,
+        cases h₁; cases h₁; constructor; apply abstr_join.join_correct,
+        { left, tauto },
+        { right, tauto } },
+      { apply abstr_top.top_correct } } } }
+
+private def doALU_scalar : Π (op : bpf.ALU), abstr_binary_transfer bpf.i64 β β op.doALU_scalar
+| bpf.ALU.ADD  := bv_abstr.add
+| bpf.ALU.MUL  := bv_abstr.mul
+| bpf.ALU.LSH  := bv_abstr.shl
+| bpf.ALU.XOR  := bv_abstr.xor
+| bpf.ALU.AND  := bv_abstr.and
+| bpf.ALU.OR   := bv_abstr.or
+| bpf.ALU.DIV  := bv_abstr.udiv
+| bpf.ALU.MOD  := bv_abstr.urem
+| bpf.ALU.RSH  := bv_abstr.lshr
+| bpf.ALU.ARSH := bv_abstr.ashr
+| _            := { op := λ _ _, ⊤, correct := by { intros, apply abstr_top.top_correct } }
+
+def doALU (op : bpf.ALU) : abstr_binary_transfer bpf.value (avalue β) (with_top (avalue β)) op.doALU :=
+{ op := λ (x y : avalue β),
+    match x, y with
+    | avalue.scalar x', avalue.scalar y' := some $ avalue.scalar $ (doALU_scalar op).op x' y'
+    | _, _ := ⊤
+    end,
+  correct := by {
+    intros _ _ _ _ h₁ h₂,
+    cases u; cases v,
+    { cases h₁, cases h₂,
+      constructor,
+      apply (doALU_scalar op).correct; assumption },
+    all_goals { apply abstr_top.top_correct } } }
 
 instance : value_abstr (with_top (avalue β)) :=
-{ doALU := sorry,
+{ doALU := λ op, with_top.lift_binary_transfer_arg (doALU op),
   doJMP_tt := sorry }
 
 end avalue

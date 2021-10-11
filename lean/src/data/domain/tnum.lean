@@ -248,6 +248,31 @@ instance : abstr_le (fin n → bool) (tnum n) :=
       simp only [h, l2, cond] } } }
 
 
+private def lift1 (f : lsbvector n → lsbvector n) (a : tnum n) : tnum n :=
+if a.is_const
+then ⟨a.mask, f a.value⟩
+else ⊤
+
+private theorem lift1_correct
+    {f : lsbvector n → lsbvector n}
+    {g : (fin n → bool) → fin n → bool}
+    (f_nth : ∀ (u : lsbvector n), (f u).nth = g u.nth) :
+  ∀ ⦃x : fin n → bool⦄ ⦃a : tnum n⦄,
+    x ∈ γ a →
+    g x ∈ γ (lift1 f a) :=
+begin
+  intros _ _ h₁ _,
+  simp only [lift1],
+  split_ifs with h₃,
+  { simp only [γ_is_const h₁ h₃],
+    simp only [tnum.is_const] at h₃,
+    simp only [h₃, vector.nth_repeat, tnum.rel, cond_eq_or_ands, bnot_eq_true_eq_eq_ff, band_eq_true_eq_eq_tt_and_eq_tt,
+               bool.bnot_false, ff_biff, band_tt, bor_eq_true_eq_eq_tt_or_eq_tt, f_nth _, vector.nth_of_fn_ext],
+    cases g x i; tauto },
+  { have h := @abstr_top.top_correct _ (tnum n) _ _ (g x),
+    exact h i }
+end
+
 private def lift2 (f : lsbvector n → lsbvector n → lsbvector n) (a b : tnum n) : tnum n :=
 if a.is_const ∧ b.is_const
 then ⟨a.mask, f a.value b.value⟩
@@ -262,19 +287,28 @@ private theorem lift2_correct
     y ∈ γ b →
     g x y ∈ γ (lift2 f a b) :=
 begin
-  intros _ _ _ _ h₁ h₂,
+  intros _ _ _ _ h₁ h₂ _,
   simp only [lift2],
   split_ifs with h₃,
   { simp only [γ_is_const h₁ h₃.1, γ_is_const h₂ h₃.2],
     rcases h₃ with ⟨h₃, -⟩,
     simp only [tnum.is_const] at h₃,
-    intros i,
     simp only [h₃, vector.nth_repeat, rel, cond_eq_or_ands, bnot_eq_true_eq_eq_ff, band_eq_true_eq_eq_tt_and_eq_tt,
                bool.bnot_false, ff_biff, band_tt, bor_eq_true_eq_eq_tt_or_eq_tt, f_nth _ _, vector.nth_of_fn_ext],
     cases g x y i; tauto },
-  { intros i,
-    have h := @abstr_top.top_correct _ (tnum n) _ _ (g x y),
+  { have h := @abstr_top.top_correct _ (tnum n) _ _ (g x y),
     exact h i }
+end
+
+protected def neg : tnum n → tnum n :=
+⊤
+
+protected theorem neg_correct ⦃x : fin n → bool⦄ ⦃a : tnum n⦄ :
+  x ∈ γ a →
+  -x ∈ γ (tnum.neg a) :=
+begin
+  intros _,
+  apply @abstr_top.top_correct _ (tnum n) _
 end
 
 /-- Create the sum of two tnums. -/
@@ -390,7 +424,8 @@ begin
 end
 
 instance : bv_abstr n (tnum n) :=
-{ add  := { op := tnum.add, correct := tnum.add_correct },
+{ neg  := { op := tnum.neg, correct := tnum.neg_correct },
+  add  := { op := tnum.add, correct := tnum.add_correct },
   and  := { op := tnum.and, correct := tnum.and_correct },
   or   := { op := tnum.or, correct := tnum.or_correct },
   xor  := { op := tnum.xor, correct := tnum.xor_correct },

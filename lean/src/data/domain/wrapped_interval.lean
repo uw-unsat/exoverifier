@@ -221,7 +221,8 @@ begin
 end
 
 instance : bv_abstr n (with_top interval) :=
-{ add := with_top.lift_binary_transfer
+{ neg := sorry,
+  add := with_top.lift_binary_transfer
    { op := wrapped_interval.add, correct := wrapped_interval.add_correct },
   and := with_top.lift_binary_transfer
    { op := wrapped_interval.and, correct := wrapped_interval.and_correct },

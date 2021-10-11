@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Luke Nelson, Xi Wang
 -/
 import misc.with_bot
+import misc.with_top
 import order.bounded_lattice
 import data.fintype.basic
 
@@ -85,9 +86,9 @@ structure abstr_unary_test (β : out_param Type*) (α : Type*) [has_γ β α] (p
   x ∈ γ u →
   p x = tt)
 
-structure abstr_unary_transfer (β : out_param Type*) (α : Type*) [has_γ β α] (f : β → β) :=
-(op      : α → α)
-(correct : ∀ ⦃x : β⦄ ⦃u : α⦄,
+structure abstr_unary_transfer (β : out_param Type*) (α₁ α₂ : Type*) [has_γ β α₁] [has_γ β α₂] (f : β → β) :=
+(op      : α₁ → α₂)
+(correct : ∀ ⦃x : β⦄ ⦃u : α₁⦄,
   x ∈ γ u →
   (f x) ∈ γ (op u))
 
@@ -381,8 +382,8 @@ def lift_arg_unary_inversion {p : β → Prop} [has_γ β α] (g : abstr_unary_i
       exact g.correct xu h } } }
 
 /-- Lift a unary transfer function to work with ⊥. -/
-def lift_unary_transfer {f : β → β} [has_γ β α] (g : abstr_unary_transfer β α f) :
-  abstr_unary_transfer β (with_bot α) f :=
+def lift_unary_transfer {f : β → β} [has_γ β α] (g : abstr_unary_transfer β α α f) :
+  abstr_unary_transfer β (with_bot α) (with_bot α) f :=
 { op := λ (x : with_bot α), g.op <$> x,
   correct := by {
     intros x u xu,
@@ -489,21 +490,32 @@ instance join_args [has_γ β α] [abstr_join β α (with_top α)] :
     exact h } }
 
 /--
-Lift a transfer function to `with_top`. Note that this is not necessarily the maximally
-precise transfer function, for example, the function (λ x y, x) need not go to ⊤
-when y does; in this case it is more useful to define your own transfer function.
+Lift a binary function that can return ⊤ to accept ⊤ as an argument.
+Note this is not always the most precise approximation for `f`, for example,
+if `f` is MOV (i.e., λ _ y, y), then this is less precise than simply returning the
+right operand.
+-/
+def lift_binary_transfer_arg {f : β → β → β} [has_γ β α] (g : abstr_binary_transfer β α (with_top α) f) :
+  abstr_binary_transfer β (with_top α) (with_top α) f :=
+{ op := (λ (x y : with_top α), do
+    x' ← x,
+    y' ← y,
+    g.op x' y'),
+  correct := by {
+    intros x y u v xu yv,
+    cases u; cases v; simp only [option.some_bind],
+    apply g.correct xu yv } }
+
+/--
+Lift a transfer function to `with_top`. Note that, like `lift_binary_transfer_arg`,
+this is not always maximally precise.
 -/
 def lift_binary_transfer {f : β → β → β} [has_γ β α] (g : abstr_binary_transfer β α α f) :
   abstr_binary_transfer β (with_top α) (with_top α) f :=
-{ op := λ (x y : with_top α),
-    match x, y with
-    | some x', some y' := some (g.op x' y')
-    | _,       _       := ⊤
-    end,
+lift_binary_transfer_arg {
+  op := λ x y, some $ g.op x y,
   correct := by {
-    intros x y u v xu yv,
-    cases u; cases v; simp only [lift_binary_transfer._match_1],
-    dsimp only [γ, has_γ._match_1] at xu yv ⊢,
+    intros _ _ _ _ _ _,
     apply g.correct; assumption } }
 
 end with_top

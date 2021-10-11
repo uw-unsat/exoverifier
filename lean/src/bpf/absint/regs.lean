@@ -25,7 +25,7 @@ class regs_abstr (α : Type*) extends
 
 -- Do a reg-reg ALU op.
 (do_alu (op : bpf.ALU) (dst src : bpf.reg) :
-  abstr_unary_transfer (bpf.reg → bpf.value) α
+  abstr_unary_transfer (bpf.reg → bpf.value) α α
     (λ cregs, function.update cregs dst (bpf.ALU.doALU op (cregs dst) (cregs src))))
 
 -- Check if an ALU op is legal.
@@ -35,7 +35,7 @@ class regs_abstr (α : Type*) extends
 
 -- Do an ALU op with an immediate.
 (do_alu_imm (op : bpf.ALU) (dst : bpf.reg) (imm : lsbvector 64) :
-  abstr_unary_transfer (bpf.reg → bpf.value) α
+  abstr_unary_transfer (bpf.reg → bpf.value) α α
     (λ cregs, function.update cregs dst (bpf.ALU.doALU op (cregs dst) (bpf.value.scalar imm.nth))))
 
 -- Check if an ALU op is legal.
@@ -110,7 +110,7 @@ def test_reg (abs : aregs β) (reg : bpf.reg) (val : bpf.value) : bool :=
 γ (interpret abs reg) val
 
 private def do_alu (op : bpf.ALU) (dst src : bpf.reg) :
-  abstr_unary_transfer (bpf.reg → bpf.value) (aregs β)
+  abstr_unary_transfer (bpf.reg → bpf.value) (aregs β) (aregs β)
     (λ cregs, function.update cregs dst (bpf.ALU.doALU op (cregs dst) (cregs src))) :=
 { op      := λ (l : aregs β), l.update_nth dst.to_fin ((value_abstr.doALU op).op (interpret l dst) (interpret l src)),
   correct := by {
@@ -128,7 +128,7 @@ private def do_alu (op : bpf.ALU) (dst src : bpf.reg) :
       apply bpf.reg.to_fin_inj h } } }
 
 def do_alu_imm (op : bpf.ALU) (dst : bpf.reg) (imm : lsbvector 64) :
-  abstr_unary_transfer (bpf.reg → bpf.value) (aregs β)
+  abstr_unary_transfer (bpf.reg → bpf.value) (aregs β) (aregs β)
     (λ cregs, function.update cregs dst (bpf.ALU.doALU op (cregs dst) (bpf.value.scalar imm.nth))) :=
 { op      := λ (l : aregs β), l.update_nth dst.to_fin ((value_abstr.doALU op).op (interpret l dst) (abstract (bpf.value.scalar imm.nth))),
   correct := by {
