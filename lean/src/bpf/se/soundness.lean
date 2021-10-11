@@ -27,6 +27,7 @@ variables
   [smt.redor_factory β γ] [smt.not_factory β γ] [smt.or_factory β γ] [smt.var_factory β γ]
   [smt.udiv_factory β γ] [smt.xor_factory β γ] [smt.sub_factory β γ] [smt.ult_factory β γ]
   [smt.mul_factory β γ] [smt.shl_factory β γ] [smt.lshr_factory β γ] [smt.ite_factory β γ]
+  [smt.urem_factory β γ]
 
 @[reducible]
 def bv_sig {n : ℕ} (f : fin n → bool) : Σ n, fin n → bool := ⟨n, f⟩
@@ -810,7 +811,7 @@ end
 
 /-- If the verification conditions evaluate to tt, then the program is safe. -/
 theorem vcgen_spec {cfg : CFG χ η} {fuel : ℕ} {g g' : γ} {vc : β} {regs : erased (vector value bpf.nregs)} :
-  (@vcgen χ η β γ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ cfg fuel regs).run g = (vc, g') →
+  (@vcgen χ η β γ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ cfg fuel regs).run g = (vc, g') →
   ∃ (vc_b : bool),
     sat g' vc (bv1 vc_b) ∧
     (vc_b = tt →

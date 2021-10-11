@@ -40,6 +40,7 @@ variables
   [smt.redor_factory β γ] [smt.not_factory β γ] [smt.or_factory β γ] [smt.var_factory β γ]
   [smt.udiv_factory β γ] [smt.xor_factory β γ] [smt.sub_factory β γ] [smt.ult_factory β γ]
   [smt.mul_factory β γ] [smt.shl_factory β γ] [smt.lshr_factory β γ] [smt.ite_factory β γ]
+  [smt.urem_factory β γ]
 
 /-- Add an assertion to symbolic state. -/
 def assert (c : β) (s : symstate β η) : state γ (symstate β η) := do

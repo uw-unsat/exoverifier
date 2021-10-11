@@ -11,11 +11,17 @@ namespace cfg
 namespace se
 universe u
 
-variables {β γ : Type u} [smt.factory β γ] [smt.add_factory β γ] [smt.const_factory β γ]
-  [smt.eq_factory β γ] [smt.not_factory β γ] [smt.and_factory β γ] [smt.redor_factory β γ] [smt.ult_factory β γ]
-  [smt.ule_factory β γ] [smt.slt_factory β γ] [smt.sle_factory β γ] [smt.var_factory β γ]
+variables {β γ : Type u}
+  [smt.factory β γ] [smt.extract_factory β γ] [smt.neg_factory β γ] [smt.add_factory β γ]
+  [smt.and_factory β γ] [smt.const_factory β γ] [smt.eq_factory β γ] [smt.implies_factory β γ]
+  [smt.redor_factory β γ] [smt.not_factory β γ] [smt.or_factory β γ] [smt.var_factory β γ]
+  [smt.udiv_factory β γ] [smt.xor_factory β γ] [smt.sub_factory β γ] [smt.ult_factory β γ]
+  [smt.mul_factory β γ] [smt.shl_factory β γ] [smt.lshr_factory β γ] [smt.ite_factory β γ]
+  [smt.urem_factory β γ]
+
 open smt.add_factory smt.const_factory smt.eq_factory smt.not_factory smt.and_factory smt.redor_factory smt.ult_factory
-     smt.slt_factory smt.sle_factory smt.ule_factory factory.monad smt.var_factory
+     smt.slt_factory smt.sle_factory smt.ule_factory factory.monad smt.var_factory smt.or_factory smt.udiv_factory smt.xor_factory
+     smt.shl_factory smt.ashr_factory smt.lshr_factory smt.mul_factory smt.neg_factory smt.sub_factory smt.urem_factory
 
 /-- Symbolic values of BPF registers -/
 inductive symvalue (β : Type u)
@@ -143,25 +149,28 @@ begin
   constructor
 end
 
--- /-- Lift a constant function on 64 bits to expressions, losing precision.
---     Computationally, this is just `mk_var`. -/
--- def lift2_denote (f : i64 → i64 → i64) (e₁ e₂ : β) : state γ β :=
--- mk_var $
--- (factory.denote γ e₁).bind (λ (v₁ : Σ n, fin n → bool),
---   (factory.denote γ e₂).bind (λ (v₂ : Σ n, fin n → bool),
---     erased.mk $
---       match v₁, v₂ with
---       | ⟨64, b₁⟩, ⟨64, b₂⟩ := f b₁ b₂
---       | _,        _        := default _
---       end))
-
--- def doALU : ∀ (op : bpf.ALU) (dst src : β), state γ β
--- | op dst src       := lift2_denote (bpf.ALU.doALU_scalar op) dst src
+private def doALU_scalar : Π (op : ALU) (a b : β), state γ β
+| ALU.ADD  := mk_add
+| ALU.AND  := mk_and
+| ALU.ARSH := mk_ashr
+| ALU.DIV  := mk_udiv
+| ALU.END  := sorry
+| ALU.LSH  := mk_shl
+| ALU.MOD  := mk_urem
+| ALU.MOV  := λ _ y, pure y
+| ALU.MUL  := mk_mul
+| ALU.NEG  := λ x _, mk_neg x
+| ALU.OR   := mk_or
+| ALU.RSH  := mk_lshr
+| ALU.SUB  := mk_sub
+| ALU.XOR  := mk_xor
 
 def doALU : Π (op : ALU) (a b : symvalue β), state γ (symvalue β)
-| ALU.ADD (symvalue.scalar x) (symvalue.scalar y) :=
-  symvalue.scalar <$> mk_add x y
-| _ _ _ := pure (symvalue.unknown $ erased.mk $ value.scalar 0)
+| op (symvalue.scalar x) (symvalue.scalar y) := symvalue.scalar <$> doALU_scalar op x y
+| op a                   b                   := pure $ symvalue.unknown $ do
+  (x : value) ← denote γ a,
+  (y : value) ← denote γ b,
+  pure $ ALU.doALU op x y
 
 theorem doALU_increasing {op : ALU} {a b : symvalue β} : increasing (doALU op a b : state γ (symvalue β)) :=
 sorry
@@ -234,19 +243,66 @@ begin
         refl } } }
 end
 
+def doJMP_check : Π (op : JMP) (a b : symvalue β), state γ β
+| _ (symvalue.scalar x) (symvalue.scalar y) := mk_true
+| op a                   b                  := mk_var $ do
+  (x : value) ← denote γ a,
+  (y : value) ← denote γ b,
+  pure (λ (_ : fin 1), JMP.doJMP_check op x y)
+
+theorem doJMP_check_increasing {op : JMP} {a b : symvalue β} : increasing (doJMP_check op a b : state γ β) :=
+begin
+  cases a; cases b; apply le_mk_const <|> apply le_mk_var
+end
+
+theorem sat_doJMP_check ⦃g g' : γ⦄ ⦃op : JMP⦄ ⦃e₁ e₂ : symvalue β⦄ ⦃e₃ : β⦄ ⦃v₁ v₂ : bpf.value⦄ :
+  (doJMP_check op e₁ e₂).run g = (e₃, g') →
+  sat g e₁ v₁ →
+  sat g e₂ v₂ →
+  factory.sat g' e₃ (⟨1, λ _, bpf.JMP.doJMP_check op v₁ v₂⟩ : Σ (n : ℕ), fin n → bool) :=
+begin
+  intros mk sat₁ sat₂,
+  cases sat₁,
+  case sat.sat_pointer {
+    convert (sat_mk_var mk), ext i,
+    simp only [doJMP_check, denote_sound sat₁, denote_sound sat₂, erased.out_mk, erased.bind_def, erased.pure_def, erased.bind_eq_out] },
+  case sat.sat_unknown {
+    convert (sat_mk_var mk), ext i,
+    simp only [doJMP_check, denote_sound sat₁, denote_sound sat₂, erased.out_mk, erased.bind_def, erased.pure_def, erased.bind_eq_out] },
+  case sat.sat_scalar : _ _ sat₁' {
+    cases sat₂,
+    case sat.sat_pointer {
+      convert (sat_mk_var mk), ext i,
+      simp only [doJMP_check, denote_sound sat₁, denote_sound sat₂, erased.out_mk, erased.bind_def, erased.pure_def, erased.bind_eq_out] },
+    case sat.sat_unknown {
+      convert (sat_mk_var mk), ext i,
+      simp only [doJMP_check, denote_sound sat₁, denote_sound sat₂, erased.out_mk, erased.bind_def, erased.pure_def, erased.bind_eq_out] },
+    case sat.sat_scalar : _ _ sat₂' {
+      convert (sat_mk_const mk),
+      ext i,
+      simp only [fin.eq_zero i],
+      refl } }
+end
+
+private def doJMP_scalar : Π (op : JMP) (a b : β), state γ β
+| JMP.JEQ  x y := mk_eq x y
+| JMP.JNE  x y := mk_eq x y >>= mk_not
+| JMP.JSET x y := mk_and x y >>= mk_redor
+| JMP.JLT  x y := mk_ult x y
+| JMP.JGT  x y := mk_ult y x
+| JMP.JLE  x y := mk_ule x y
+| JMP.JGE  x y := mk_ule y x
+| JMP.JSLT x y := mk_slt x y
+| JMP.JSGT x y := mk_slt y x
+| JMP.JSLE x y := mk_sle x y
+| JMP.JSGE x y := mk_sle y x
+
 def doJMP : Π (op : JMP) (a b : symvalue β), state γ β
-| JMP.JEQ  (symvalue.scalar x) (symvalue.scalar y) := mk_eq x y
-| JMP.JNE  (symvalue.scalar x) (symvalue.scalar y) := mk_eq x y >>= mk_not
-| JMP.JSET (symvalue.scalar x) (symvalue.scalar y) := mk_and x y >>= mk_redor
-| JMP.JLT  (symvalue.scalar x) (symvalue.scalar y) := mk_ult x y
-| JMP.JGT  (symvalue.scalar x) (symvalue.scalar y) := mk_ult y x
-| JMP.JLE  (symvalue.scalar x) (symvalue.scalar y) := mk_ule x y
-| JMP.JGE  (symvalue.scalar x) (symvalue.scalar y) := mk_ule y x
-| JMP.JSLT (symvalue.scalar x) (symvalue.scalar y) := mk_slt x y
-| JMP.JSGT (symvalue.scalar x) (symvalue.scalar y) := mk_slt y x
-| JMP.JSLE (symvalue.scalar x) (symvalue.scalar y) := mk_sle x y
-| JMP.JSGE (symvalue.scalar x) (symvalue.scalar y) := mk_sle y x
-| _ _ _ := mk_true
+| op (symvalue.scalar x) (symvalue.scalar y) := doJMP_scalar op x y
+| op a                   b                   := mk_var $ do
+  (x : value) ← denote γ a,
+  (y : value) ← denote γ b,
+  pure (λ (_ : fin 1), JMP.doJMP op x y)
 
 theorem doJMP_increasing {op : JMP} {a b : symvalue β} : increasing (doJMP op a b : state γ β) :=
 sorry
@@ -256,20 +312,6 @@ theorem sat_doJMP ⦃g g' : γ⦄ ⦃op : JMP⦄ ⦃e₁ e₂ : symvalue β⦄ �
   sat g  e₁ v₁ →
   sat g  e₂ v₂ →
   factory.sat g' e₃ (⟨1, λ _, bpf.JMP.doJMP op v₁ v₂⟩ : Σ (n : ℕ), fin n → bool) :=
-sorry
-
-def doJMP_check : Π (op : JMP) (a b : symvalue β), state γ β
-| _ (symvalue.scalar x) (symvalue.scalar y) := mk_true
-| _ _ _ := mk_false
-
-theorem doJMP_check_increasing {op : JMP} {a b : symvalue β} : increasing (doJMP_check op a b : state γ β) :=
-sorry
-
-theorem sat_doJMP_check ⦃g g' : γ⦄ ⦃op : JMP⦄ ⦃e₁ e₂ : symvalue β⦄ ⦃e₃ : β⦄ ⦃v₁ v₂ : bpf.value⦄ :
-  (doJMP_check op e₁ e₂).run g = (e₃, g') →
-  sat g e₁ v₁ →
-  sat g e₂ v₂ →
-  factory.sat g' e₃ (⟨1, λ _, bpf.JMP.doJMP_check op v₁ v₂⟩ : Σ (n : ℕ), fin n → bool) :=
 sorry
 
 end symvalue

@@ -27,6 +27,7 @@ variables
   [smt.redor_factory β γ] [smt.not_factory β γ] [smt.or_factory β γ] [smt.var_factory β γ]
   [smt.udiv_factory β γ] [smt.xor_factory β γ] [smt.sub_factory β γ] [smt.ult_factory β γ]
   [smt.mul_factory β γ] [smt.shl_factory β γ] [smt.lshr_factory β γ] [smt.ite_factory β γ]
+  [smt.urem_factory β γ]
    {ω : Type} (smt_decider : smt.decision_procedure β γ ω) (smt_oracle : smt.oracle β γ ω)
 
 include χ η β γ smt_decider
@@ -34,7 +35,7 @@ def decide_safe_with_regs_via_reduce_to_smt (fuel : ℕ) :
   semidecision.procedure (λ (e : (bpf.cfg.CFG χ η) × erased (vector value bpf.nregs)), bpf.cfg.safe_with_regs e.1 (bpf.reg.of_vector e.2.out)) ω :=
 begin
   rintros ⟨p, regs⟩ w,
-  rcases vch : (@cfg.se.vcgen χ η β γ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ p fuel regs).run (factory.init_f (Σ n, fin n → bool) β) with ⟨vc, g'⟩,
+  rcases vch : (@cfg.se.vcgen χ η β γ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ p fuel regs).run (factory.init_f (Σ n, fin n → bool) β) with ⟨vc, g'⟩,
   refine (smt_decider (g', (vc, cfg.se.bv1 tt)) w).modus_ponens _,
   intros h,
   rcases cfg.se.vcgen_spec vch with ⟨b, sat₁, h'⟩,
@@ -48,7 +49,7 @@ omit smt_decider
 meta def safe_with_regs_via_reduce_to_smt_oracle (fuel : ℕ) :
   semidecision.oracle (bpf.cfg.CFG χ η × erased (vector value bpf.nregs)) ω :=
 λ ⟨p, r⟩,
-  match (@cfg.se.vcgen χ η β γ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ p fuel r).run (factory.init_f (Σ n, fin n → bool) β) with
+  match (@cfg.se.vcgen χ η β γ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ p fuel r).run (factory.init_f (Σ n, fin n → bool) β) with
   | ⟨vc, g'⟩ := smt_oracle (g', (vc, ⟨1, λ _, tt⟩))
   end
 
@@ -81,7 +82,7 @@ def decide_safe_with_regs_via_reduce_to_smt (fuel : ℕ) :
   semidecision.procedure (λ (e : bpf.cfg.trie_program × erased (vector value bpf.nregs)), bpf.cfg.safe_with_regs e.1 (bpf.reg.of_vector e.2.out)) sat.proof.default.proof :=
 @bpf.decision.decide_safe_with_regs_via_reduce_to_smt
   pos_num _ (Σ n, vector aig.default.bref n) aig.default.factory _
-  _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ sat.proof.default.proof
+  _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ sat.proof.default.proof
   (smt.bitblast.decide_via_reduce_to_sat aig.default.decide_via_to_cnf) fuel
 
 /-- Default instances. -/
@@ -89,14 +90,14 @@ def decide_binary_safety_via_reduce_to_smt (fuel : ℕ) :
   semidecision.procedure (λ (e : erased (vector value nregs) × list bool), bpf.binary_safe_with_regs e.1.out e.2) sat.proof.default.proof :=
 @bpf.decision.decide_binary_safety_via_reduce_to_smt
   pos_num (trie (bpf.cfg.instr pos_num)) (Σ n, vector aig.default.bref n) aig.default.factory _
-  _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ sat.proof.default.proof
+  _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ sat.proof.default.proof
   (smt.bitblast.decide_via_reduce_to_sat aig.default.decide_via_to_cnf) fuel
 
 /-- Build a witness for the decision procedure of BPF safety. -/
 meta def binary_safety_via_reduce_to_smt_oracle (fuel : ℕ) :
   semidecision.oracle (erased (vector value nregs) × list bool) sat.proof.default.proof :=
 @bpf.decision.binary_safety_via_reduce_to_smt_oracle pos_num (trie (bpf.cfg.instr pos_num)) (Σ n, vector aig.default.bref n) aig.default.factory _
-  _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ sat.proof.default.proof (smt.bitblast.reduce_to_sat_oracle aig.to_cnf_oracle) fuel
+  _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ sat.proof.default.proof (smt.bitblast.reduce_to_sat_oracle aig.to_cnf_oracle) fuel
 
 end default
 
