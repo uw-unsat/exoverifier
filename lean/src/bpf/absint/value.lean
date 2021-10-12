@@ -205,6 +205,83 @@ private def doALU (op : bpf.ALU) : abstr_binary_transfer bpf.value (avalue β) (
       apply (doALU_scalar op).correct; assumption },
     all_goals { apply abstr_top.top_correct } } }
 
+private def doALU_scalar_check : Π (op : bpf.ALU), abstr_binary_test bpf.i64 β op.doALU_scalar_check
+| bpf.ALU.ADD := {
+  test := λ _ _, tt,
+  test_sound := by { intros, refl } }
+| bpf.ALU.MOV := {
+  test := λ _ _, tt,
+  test_sound := by { intros, refl } }
+| bpf.ALU.SUB := {
+  test := λ _ _, tt,
+  test_sound := by { intros, refl } }
+| bpf.ALU.MUL := {
+  test := λ _ _, tt,
+  test_sound := by { intros, refl } }
+| bpf.ALU.MOV := {
+  test := λ _ _, tt,
+  test_sound := by { intros, refl } }
+| bpf.ALU.OR := {
+  test := λ _ _, tt,
+  test_sound := by { intros, refl } }
+| bpf.ALU.AND := {
+  test := λ _ _, tt,
+  test_sound := by { intros, refl } }
+| bpf.ALU.LSH := {
+  test := λ _ _, tt,
+  test_sound := by { intros, refl } }
+| bpf.ALU.RSH := {
+  test := λ _ _, tt,
+  test_sound := by { intros, refl } }
+| bpf.ALU.NEG := {
+  test := λ _ _, tt,
+  test_sound := by { intros, refl } }
+| bpf.ALU.XOR := {
+  test := λ _ _, tt,
+  test_sound := by { intros, refl } }
+| bpf.ALU.ARSH := {
+  test := λ _ _, tt,
+  test_sound := by { intros, refl } }
+| bpf.ALU.END := {
+  test := λ _ _, ff,
+  test_sound := by { intros _ _ _ _ h, cases h } }
+| bpf.ALU.DIV := {
+  test := λ _ divisor, to_bool $ ¬ has_γ.γ divisor (0 : bpf.i64),
+  test_sound := by {
+    intros _ _ _ _ h₁ h₂ h₃,
+    simp only [to_bool_iff] at h₁,
+    simp only [bpf.ALU.doALU_scalar_check],
+    contrapose! h₁,
+    simp only [bnot_eq_true_eq_eq_ff, bool.to_bool_not, not_not, to_bool_ff_iff, ne.def] at h₁,
+    subst h₁,
+    assumption } }
+| bpf.ALU.MOD := {
+  test := λ _ divisor, to_bool $ ¬ has_γ.γ divisor (0 : bpf.i64),
+  test_sound := by {
+    intros _ _ _ _ h₁ h₂ h₃,
+    simp only [to_bool_iff] at h₁,
+    simp only [bpf.ALU.doALU_scalar_check],
+    contrapose! h₁,
+    simp only [bnot_eq_true_eq_eq_ff, bool.to_bool_not, not_not, to_bool_ff_iff, ne.def] at h₁,
+    subst h₁,
+    assumption } }
+
+private def doALU_check (op : bpf.ALU) : abstr_binary_test bpf.value (with_top (avalue β)) op.doALU_check :=
+{ test := λ (x y : with_top (avalue β)),
+    match x, y with
+    | some (avalue.scalar x), some (avalue.scalar y) := (doALU_scalar_check op).test x y
+    | _, _ := ff
+    end,
+  test_sound := by {
+    intros _ _ _ _ h₁ h₂ h₃,
+    cases u, cases h₁,
+    cases u, swap, cases h₁,
+    cases v, cases h₁,
+    cases v, swap, cases h₁,
+    cases h₂ with _ _ h₂',
+    cases h₃ with _ _ h₃',
+    exact (doALU_scalar_check op).test_sound h₁ h₂' h₃' } }
+
 private def is_scalar : abstr_unary_test bpf.value (with_top (avalue β)) (λ (x : bpf.value), to_bool x.is_scalar) :=
 { test := λ (x : with_top (avalue β)),
     match x with
@@ -224,7 +301,7 @@ private def is_scalar : abstr_unary_test bpf.value (with_top (avalue β)) (λ (x
 
 instance : value_abstr (with_top (avalue β)) :=
 { doALU       := λ op, with_top.lift_binary_transfer_arg (doALU op),
-  doALU_check := sorry,
+  doALU_check := doALU_check,
   doJMP_check := sorry,
   is_scalar   := is_scalar,
   doJMP_tt    := sorry }
