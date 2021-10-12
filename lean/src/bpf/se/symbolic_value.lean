@@ -305,14 +305,84 @@ def doJMP : Π (op : JMP) (a b : symvalue β), state γ β
   pure (λ (_ : fin 1), JMP.doJMP op x y)
 
 theorem doJMP_increasing {op : JMP} {a b : symvalue β} : increasing (doJMP op a b : state γ β) :=
-sorry
+begin
+  cases a; try{apply le_mk_var},
+  cases b; try{apply le_mk_var},
+  cases op,
+  case JEQ { apply le_mk_eq },
+  case JNE {
+    apply increasing_bind; intros,
+    apply le_mk_eq,
+    apply le_mk_not },
+  case JSET {
+    apply increasing_bind; intros,
+    apply le_mk_and,
+    apply le_mk_redor },
+  case JLE { apply le_mk_ule },
+  case JLT { apply le_mk_ult },
+  case JGE { apply le_mk_ule },
+  case JGT { apply le_mk_ult },
+  case JSLE { apply le_mk_sle },
+  case JSLT { apply le_mk_slt },
+  case JSGE { apply le_mk_sle },
+  case JSGT { apply le_mk_slt }
+end
 
 theorem sat_doJMP ⦃g g' : γ⦄ ⦃op : JMP⦄ ⦃e₁ e₂ : symvalue β⦄ ⦃e₃ : β⦄ ⦃v₁ v₂ : bpf.value⦄ :
   (doJMP op e₁ e₂).run g = (e₃, g') →
   sat g  e₁ v₁ →
   sat g  e₂ v₂ →
   factory.sat g' e₃ (⟨1, λ _, bpf.JMP.doJMP op v₁ v₂⟩ : Σ (n : ℕ), fin n → bool) :=
-sorry
+begin
+  intros mk sat₁ sat₂,
+  cases sat₁,
+  case sat_pointer {
+    convert (sat_mk_var mk),
+    simp only [doJMP, denote_sound sat₁, denote_sound sat₂, erased.out_mk, erased.bind_def, erased.pure_def, erased.bind_eq_out] },
+  case sat_unknown {
+    convert (sat_mk_var mk),
+    simp only [doJMP, denote_sound sat₁, denote_sound sat₂, erased.out_mk, erased.bind_def, erased.pure_def, erased.bind_eq_out] },
+  case sat_scalar : _ _ sat₁' {
+
+    cases sat₂,
+    case sat_pointer {
+      convert (sat_mk_var mk),
+      simp only [doJMP, denote_sound sat₁, denote_sound sat₂, erased.out_mk, erased.bind_def, erased.pure_def, erased.bind_eq_out] },
+    case sat_unknown {
+      convert (sat_mk_var mk),
+      simp only [doJMP, denote_sound sat₁, denote_sound sat₂, erased.out_mk, erased.bind_def, erased.pure_def, erased.bind_eq_out] },
+    case sat_scalar : _ _ sat₂' {
+
+      cases op,
+      case JEQ {
+        exact sat_mk_eq mk sat₁' sat₂' },
+      case JLT {
+        exact sat_mk_ult mk sat₁' sat₂' },
+      case JLE {
+        exact sat_mk_ule mk sat₁' sat₂' },
+      case JGT {
+        exact sat_mk_ult mk sat₂' sat₁' },
+      case JGE {
+        exact sat_mk_ule mk sat₂' sat₁' },
+      case JSLT {
+        exact sat_mk_slt mk sat₁' sat₂' },
+      case JSLE {
+        exact sat_mk_sle mk sat₁' sat₂' },
+      case JSGT {
+        exact sat_mk_slt mk sat₂' sat₁' },
+      case JSGE {
+        exact sat_mk_sle mk sat₂' sat₁' },
+      case JNE {
+        simp only [doJMP, doJMP_scalar, state_t.run_bind] at mk,
+        convert (sat_mk_not mk (sat_mk_eq (by rw [prod.mk.eta]) sat₁' sat₂')),
+        ext i,
+        simp only [bpf.JMP.doJMP, bpf.JMP.doJMP_scalar, fin.eq_zero i, bv.not, bool.to_bool_not] },
+      case JSET {
+        simp only [doJMP, doJMP_scalar, state_t.run_bind] at mk,
+        convert (sat_mk_redor mk (sat_mk_and (by rw [prod.mk.eta]) sat₁' sat₂')),
+        ext i,
+        simp only [bpf.JMP.doJMP, bpf.JMP.doJMP_scalar, bv.any_eq_to_bool_nonzero] } } }
+end
 
 end symvalue
 end se

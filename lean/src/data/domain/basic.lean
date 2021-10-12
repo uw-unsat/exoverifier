@@ -86,6 +86,14 @@ structure abstr_unary_test (β : out_param Type*) (α : Type*) [has_γ β α] (p
   x ∈ γ u →
   p x = tt)
 
+structure abstr_binary_test (β : out_param Type*) (α : Type*) [has_γ β α] (p : β → β → bool) :=
+(test       : α → α → bool)
+(test_sound : ∀ ⦃x y : β⦄ ⦃u v : α⦄,
+  test u v = tt →
+  x ∈ γ u →
+  y ∈ γ v →
+  p x y = tt)
+
 structure abstr_unary_transfer (β : out_param Type*) (α₁ α₂ : Type*) [has_γ β α₁] [has_γ β α₂] (f : β → β) :=
 (op      : α₁ → α₂)
 (correct : ∀ ⦃x : β⦄ ⦃u : α₁⦄,
