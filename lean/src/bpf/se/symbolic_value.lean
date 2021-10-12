@@ -55,6 +55,14 @@ inductive sat (g : γ) : (symvalue β) → bpf.value → Prop
 | sat_unknown {val : erased value} :
   sat (symvalue.unknown val) val.out
 
+private theorem sat_unknown_pure {g : γ} {val : value} :
+  sat g (symvalue.unknown (pure val) : symvalue β) val :=
+begin
+  rw [← erased.out_mk val],
+  convert sat.sat_unknown,
+  rw [erased.out_mk]
+end
+
 private theorem sat_of_le ⦃g g' : γ⦄ ⦃x : symvalue β⦄ ⦃v : value⦄ :
   g ≤ g' →
   sat g x v →
@@ -154,7 +162,7 @@ private def doALU_scalar : Π (op : ALU) (a b : β), state γ β
 | ALU.AND  := mk_and
 | ALU.ARSH := mk_ashr
 | ALU.DIV  := mk_udiv
-| ALU.END  := sorry
+| ALU.END  := λ a _, pure a
 | ALU.LSH  := mk_shl
 | ALU.MOD  := mk_urem
 | ALU.MOV  := λ _ y, pure y
@@ -165,6 +173,30 @@ private def doALU_scalar : Π (op : ALU) (a b : β), state γ β
 | ALU.SUB  := mk_sub
 | ALU.XOR  := mk_xor
 
+private theorem sat_doALU_scalar ⦃g g' : γ⦄ ⦃op : ALU⦄ ⦃e₁ e₂ e₃ : β⦄ ⦃v₁ v₂ : bpf.i64⦄ :
+  (doALU_scalar op e₁ e₂).run g = (e₃, g') →
+  factory.sat g e₁ (⟨64, v₁⟩ : Σ (n : ℕ), fin n → bool) →
+  factory.sat g e₂ (⟨64, v₂⟩ : Σ (n : ℕ), fin n → bool) →
+  factory.sat g' e₃ (⟨64, op.doALU_scalar v₁ v₂⟩ : Σ (n : ℕ), fin n → bool) :=
+begin
+  intros mk sat₁ sat₂,
+  cases op,
+  case ADD { exact sat_mk_add mk sat₁ sat₂ },
+  case AND { exact sat_mk_and mk sat₁ sat₂ },
+  case ARSH { exact sat_mk_ashr mk sat₁ sat₂ },
+  case DIV { exact sat_mk_udiv mk sat₁ sat₂ },
+  case END { cases mk, assumption },
+  case LSH { exact sat_mk_shl mk sat₁ sat₂ },
+  case MOD { exact sat_mk_urem mk sat₁ sat₂ },
+  case MOV { cases mk, assumption },
+  case MUL { exact sat_mk_mul mk sat₁ sat₂ },
+  case NEG { exact sat_mk_neg mk sat₁ },
+  case OR { exact sat_mk_or mk sat₁ sat₂ },
+  case RSH { exact sat_mk_lshr mk sat₁ sat₂ },
+  case SUB { exact sat_mk_sub mk sat₁ sat₂ },
+  case XOR { exact sat_mk_xor mk sat₁ sat₂ }
+end
+
 def doALU : Π (op : ALU) (a b : symvalue β), state γ (symvalue β)
 | op (symvalue.scalar x) (symvalue.scalar y) := symvalue.scalar <$> doALU_scalar op x y
 | op a                   b                   := pure $ symvalue.unknown $ do
@@ -173,14 +205,66 @@ def doALU : Π (op : ALU) (a b : symvalue β), state γ (symvalue β)
   pure $ ALU.doALU op x y
 
 theorem doALU_increasing {op : ALU} {a b : symvalue β} : increasing (doALU op a b : state γ (symvalue β)) :=
-sorry
+begin
+  cases a,
+  apply increasing_pure,
+  swap,
+  apply increasing_pure,
+  cases b,
+  apply increasing_pure,
+  swap,
+  apply increasing_pure,
+  cases op,
+  case ADD { apply increasing_map, apply le_mk_add },
+  case AND { apply increasing_map, apply le_mk_and },
+  case ARSH { apply increasing_map, apply le_mk_ashr },
+  case DIV { apply increasing_map, apply le_mk_udiv },
+  case END { apply increasing_map, apply increasing_pure },
+  case LSH { apply increasing_map, apply le_mk_shl },
+  case MOD { apply increasing_map, apply le_mk_urem },
+  case MOV { apply increasing_map, apply increasing_pure },
+  case MUL { apply increasing_map, apply le_mk_mul },
+  case NEG { apply increasing_map, apply le_mk_neg },
+  case OR { apply increasing_map, apply le_mk_or },
+  case RSH { apply increasing_map, apply le_mk_lshr },
+  case SUB { apply increasing_map, apply le_mk_sub },
+  case XOR { apply increasing_map, apply le_mk_xor }
+end
 
 theorem sat_doALU ⦃g g' : γ⦄ ⦃op : ALU⦄ ⦃e₁ e₂ e₃ : symvalue β⦄ ⦃v₁ v₂ : bpf.value⦄ :
   (doALU op e₁ e₂).run g = (e₃, g') →
   sat g  e₁ v₁ →
   sat g  e₂ v₂ →
   sat g' e₃ (bpf.ALU.doALU op v₁ v₂) :=
-sorry
+begin
+  intros mk sat₁ sat₂,
+  cases sat₁,
+  case sat.sat_pointer {
+    cases mk,
+    simp only [denote_sound sat₁, denote_sound sat₂, erased.out_mk, erased.bind_def, erased.bind_eq_out, doALU._match_1, doALU._match_2],
+    apply sat_unknown_pure },
+  case sat.sat_unknown {
+    cases mk,
+    simp only [denote_sound sat₁, denote_sound sat₂, erased.out_mk, erased.bind_def, erased.bind_eq_out, doALU._match_1, doALU._match_2],
+    apply sat_unknown_pure },
+  cases sat₂,
+  case sat.sat_pointer {
+    cases mk,
+    simp only [denote_sound sat₁, denote_sound sat₂, erased.out_mk, erased.bind_def, erased.bind_eq_out, doALU._match_1, doALU._match_2],
+    apply sat_unknown_pure },
+  case sat.sat_unknown {
+    cases mk,
+    simp only [denote_sound sat₁, denote_sound sat₂, erased.out_mk, erased.bind_def, erased.bind_eq_out, doALU._match_1, doALU._match_2],
+    apply sat_unknown_pure },
+
+  simp only [doALU, state_t.run_map] at mk,
+  cases mk,
+  constructor,
+  apply sat_doALU_scalar,
+  { rw prod.mk.eta },
+  { assumption },
+  { assumption }
+end
 
 private def doALU_scalar_check : Π (op : bpf.ALU) (a b : β), state γ β
 | ALU.DIV _ y := mk_redor y

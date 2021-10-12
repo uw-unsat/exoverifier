@@ -312,12 +312,17 @@ private def is_scalar : abstr_unary_test bpf.value (with_top (avalue β)) (λ (x
     simp only [to_bool_true_eq_tt, exists_eq'],
     cases h₁ } }
 
+private def doJMP_tt (op : bpf.JMP) :
+  abstr_binary_inversion bpf.value (with_top (avalue β)) (with_bot (with_top (avalue β)))
+    (λ (x y : bpf.value), op.doJMP x y = tt) :=
+abstr_binary_inversion.trivial
+
 instance : value_abstr (with_top (avalue β)) :=
 { doALU       := λ op, with_top.lift_binary_transfer_arg (doALU op),
   doALU_check := doALU_check,
   doJMP_check := doJMP_check,
   is_scalar   := is_scalar,
-  doJMP_tt    := sorry }
+  doJMP_tt    := doJMP_tt }
 
 end avalue
 end absint

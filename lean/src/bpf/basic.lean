@@ -207,7 +207,7 @@ def doALU_scalar {n : ℕ} : ALU → (fin n → bool) → (fin n → bool) → (
 | XOR x y  := bv.xor x y
 | MOV _ y  := y
 | ARSH x y := bv.ashr x y
-| END x y  := 0 -- TODO
+| END x y  := x -- TODO
 
 def doALU : ALU → value → value → value
 | op (value.scalar x) (value.scalar y) := value.scalar (doALU_scalar op x y)
