@@ -111,8 +111,11 @@ def gen_one_safety (p : PGRM) (current : CTRL) : bpf.cfg.instr CTRL → MEM → 
     (lookup if_true p.code).is_some ∧
     (lookup if_false p.code).is_some ∧
     (with_bot.lift_unary_test (regs_abstr.do_jmp_check op dst src)).test mem = tt
-| (bpf.cfg.instr.JMP_K _ _ _ if_true if_false) :=
-  λ _, (lookup if_true p.code).is_some ∧ (lookup if_false p.code).is_some ∧ false
+| (bpf.cfg.instr.JMP_K op dst imm if_true if_false) :=
+  λ mem,
+    (lookup if_true p.code).is_some ∧
+    (lookup if_false p.code).is_some ∧
+    (with_bot.lift_unary_test (regs_abstr.do_jmp_imm_check op dst imm)).test mem = tt
 | (bpf.cfg.instr.STX size dst src off next) :=
   λ _, (lookup next p.code).is_some ∧ false
 | bpf.cfg.instr.Exit :=
@@ -356,12 +359,12 @@ begin
     existsi _,
     apply bpf.cfg.step.JMP_X fetch _ rfl,
     exact (with_bot.lift_unary_test (regs_abstr.do_jmp_check _ dst src)).test_sound check_tt rel },
-  case bpf.cfg.instr.JMP_K {
+  case bpf.cfg.instr.JMP_K : op dst imm if_true if_false {
     simp only [absint.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
     rcases check_tt with ⟨-, -, check_tt⟩,
-    cases check_tt,
-    /- existsi _,
-    apply bpf.cfg.step.JMP_K fetch rfl -/ },
+    existsi _,
+    apply bpf.cfg.step.JMP_K fetch _ rfl,
+    exact (with_bot.lift_unary_test (regs_abstr.do_jmp_imm_check _ dst _)).test_sound check_tt rel },
   case bpf.cfg.instr.STX {
     simp only [gen_one_safety, to_bool_false_eq_ff, and_false] at check_tt,
     cases check_tt },
