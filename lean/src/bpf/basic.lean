@@ -190,7 +190,15 @@ def doALU_scalar_check {n : ℕ} : ALU → (fin n → bool) → (fin n → bool)
 
 def doALU_check : ALU → value → value → bool
 | op (value.scalar x) (value.scalar y) := doALU_scalar_check op x y
-| _ _ _ := ff
+
+/-
+MOV is always legal. redundant with the previous rule, but simplifies proof to deal
+with the scalar case uniformly.
+-/
+| ALU.MOV _ _ := tt
+
+/- Remaining ops are illegal. -/
+| _ _ _       := ff
 
 /-- The result of an ALU operation. -/
 def doALU_scalar {n : ℕ} : ALU → (fin n → bool) → (fin n → bool) → (fin n → bool)
@@ -211,7 +219,36 @@ def doALU_scalar {n : ℕ} : ALU → (fin n → bool) → (fin n → bool) → (
 
 def doALU : ALU → value → value → value
 | op (value.scalar x) (value.scalar y) := value.scalar (doALU_scalar op x y)
-| _ _ _ := value.scalar 0
+
+/- MOV always returns src. redundant with previous ops but simplifies proof. -/
+| ALU.MOV _ src := src
+
+/- Remaining illegal ops (for which ALU_check is ff) are nops here. -/
+| _ dst _ := dst
+
+theorem doALU_check_MOV_def (x y : value) :
+  MOV.doALU_check x y = tt :=
+begin
+  cases x; cases y; refl
+end
+
+theorem doALU_MOV_def (x y : value) :
+  MOV.doALU x y = y :=
+begin
+  cases x; cases y; refl
+end
+
+theorem doALU_scalar_def (op : ALU) (x y : i64) :
+  doALU op (value.scalar x) (value.scalar y) = value.scalar (doALU_scalar op x y) :=
+begin
+  cases op; simp [doALU]
+end
+
+theorem doALU_scalar_check_def (op : ALU) (x y : i64) :
+  doALU_check op (value.scalar x) (value.scalar y) = doALU_scalar_check op x y :=
+begin
+  cases op; refl
+end
 
 /--
 Perform a 32-bit ALU operation by truncating registers to 32 bits and zero-extending

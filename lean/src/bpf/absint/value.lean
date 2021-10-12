@@ -112,32 +112,30 @@ inductive le : avalue β → avalue β → Prop
   x ≤ y →
   le (avalue.pointer m x) (avalue.pointer m y)
 
+private def dec_le : Π (a b : avalue β), decidable (le a b)
+| (avalue.scalar x) (avalue.scalar y) :=
+  if h : x ≤ y
+  then decidable.is_true (le.scalar h)
+  else decidable.is_false $ by {
+    contrapose! h,
+    cases h,
+    assumption }
+| (avalue.pointer m₁ x) (avalue.pointer m₂ y) :=
+  if h : m₁ = m₂ ∧ x ≤ y
+  then decidable.is_true $ by {
+    cases h, subst_vars,
+    constructor, assumption }
+  else decidable.is_false $ by {
+    contrapose! h,
+    cases h, tauto }
+| (avalue.scalar x) (avalue.pointer m y) :=
+  decidable.is_false $ by { intros h, cases h }
+| (avalue.pointer m x) (avalue.scalar y) :=
+  decidable.is_false $ by { intros h, cases h }
+
 instance : abstr_le bpf.value (avalue β) :=
 { le         := le,
-  dec_le     := by {
-    intros x y,
-    cases x with _ m₁ x; cases y with _ m₂ y,
-    { simp only [le_iff, exists_false, or_false, exists_eq_right', exists_eq_right_right', and_false],
-      apply_instance },
-    { simp only [le_iff, exists_false, and_false, false_and, or_self],
-      apply_instance },
-    { simp only [le_iff, exists_false, or_false, exists_eq_right', exists_eq_right_right', and_false],
-      apply_instance },
-    { simp only [le_iff, false_or, exists_false, exists_and_distrib_left, and_false],
-      by_cases m₁ = m₂,
-      { subst h,
-        by_cases x ≤ y,
-        { apply decidable.is_true,
-          tauto },
-        { apply decidable.is_false,
-          contrapose! h,
-          rcases h with ⟨_, _, _, _, ⟨_, _⟩, ⟨_, _⟩⟩,
-          subst_vars,
-          assumption } },
-      { apply decidable.is_false,
-        contrapose! h,
-        rcases h with ⟨_, _, _, _, ⟨_, _⟩, ⟨_, _⟩⟩,
-        subst_vars } } },
+  dec_le     := dec_le,
   le_correct := by {
     intros x y h₁ val h₂,
     cases x; cases y,
@@ -201,9 +199,38 @@ private def doALU (op : bpf.ALU) : abstr_binary_transfer bpf.value (avalue β) (
     intros _ _ _ _ h₁ h₂,
     cases u; cases v,
     { cases h₁, cases h₂,
+      simp only [bpf.ALU.doALU_scalar_def],
       constructor,
       apply (doALU_scalar op).correct; assumption },
     all_goals { apply abstr_top.top_correct } } }
+
+/--
+Lift doALU to work on `with_top`. Specialize this because ALU.MOV can be made precise even when
+one (or both) arguments are already ⊤, since MOV ⊤ src = src.
+-/
+private def doALU_with_top (op : bpf.ALU) : abstr_binary_transfer bpf.value (with_top (avalue β)) (with_top (avalue β)) op.doALU :=
+{ op := λ (x y : with_top (avalue β)),
+    match x, y with
+    | some x, some y := (doALU op).op x y
+    | _, src := if op = bpf.ALU.MOV then src else ⊤
+    end,
+  correct := by {
+    intros _ _ _ _ h₁ h₂,
+    cases u; cases v,
+    { simp only [doALU_with_top._match_1],
+      split_ifs; subst_vars,
+      simp only [bpf.ALU.doALU_MOV_def],
+      apply abstr_top.top_correct },
+    { simp only [doALU_with_top._match_1],
+      split_ifs; subst_vars,
+      simp only [bpf.ALU.doALU_MOV_def],
+      exact h₂,
+      apply abstr_top.top_correct },
+    { simp only [doALU_with_top._match_1],
+      split_ifs; subst_vars,
+      simp only [bpf.ALU.doALU_MOV_def],
+      apply abstr_top.top_correct },
+    apply (doALU op).correct h₁ h₂ } }
 
 private def doALU_scalar_check : Π (op : bpf.ALU), abstr_binary_test bpf.i64 β op.doALU_scalar_check
 | bpf.ALU.ADD := {
@@ -267,16 +294,32 @@ private def doALU_check (op : bpf.ALU) : abstr_binary_test bpf.value (with_top (
 { test := λ (x y : with_top (avalue β)),
     match x, y with
     | some (avalue.scalar x), some (avalue.scalar y) := (doALU_scalar_check op).test x y
-    | _, _ := ff
+    | _, _ := if op = bpf.ALU.MOV then tt else ff
     end,
   test_sound := by {
     intros _ _ _ _ h₁ h₂ h₃,
-    cases u, cases h₁,
-    cases u, swap, cases h₁,
-    cases v, cases h₁,
-    cases v, swap, cases h₁,
-    cases h₂ with _ _ h₂',
+    cases u,
+    simp only [doALU_check._match_1] at h₁,
+    split_ifs at h₁; subst_vars,
+    simp only [bpf.ALU.doALU_check_MOV_def],
+    cases h₁,
+    cases u, swap,
+    simp only [doALU_check._match_1] at h₁,
+    split_ifs at h₁; subst_vars,
+    simp only [bpf.ALU.doALU_check_MOV_def],
+    cases h₁,
+    cases v,
+    simp only [doALU_check._match_1] at h₁,
+    split_ifs at h₁; subst_vars,
+    simp only [bpf.ALU.doALU_check_MOV_def],
+    cases h₁,
+    cases v, swap,
+    simp only [doALU_check._match_1] at h₁,
+    split_ifs at h₁; subst_vars,
+    simp only [bpf.ALU.doALU_check_MOV_def],
+    cases h₁,    cases h₂ with _ _ h₂',
     cases h₃ with _ _ h₃',
+    simp only [bpf.ALU.doALU_scalar_check_def],
     exact (doALU_scalar_check op).test_sound h₁ h₂' h₃' } }
 
 private def doJMP_check (op : bpf.JMP) : abstr_binary_test bpf.value (with_top (avalue β)) op.doJMP_check :=
@@ -318,7 +361,7 @@ private def doJMP_tt (op : bpf.JMP) :
 abstr_binary_inversion.trivial
 
 instance : value_abstr (with_top (avalue β)) :=
-{ doALU       := λ op, with_top.lift_binary_transfer_arg (doALU op),
+{ doALU       := doALU_with_top,
   doALU_check := doALU_check,
   doJMP_check := doJMP_check,
   is_scalar   := is_scalar,

@@ -198,21 +198,35 @@ begin
 end
 
 def doALU : Π (op : ALU) (a b : symvalue β), state γ (symvalue β)
-| op (symvalue.scalar x) (symvalue.scalar y) := symvalue.scalar <$> doALU_scalar op x y
-| op a                   b                   := pure $ symvalue.unknown $ do
-  (x : value) ← denote γ a,
-  (y : value) ← denote γ b,
-  pure $ ALU.doALU op x y
+| op      (symvalue.scalar x) (symvalue.scalar y) := symvalue.scalar <$> doALU_scalar op x y
+| op      a                   b                   :=
+  if op = ALU.MOV then pure b else
+  pure $ symvalue.unknown $ do
+    (x : value) ← denote γ a,
+    (y : value) ← denote γ b,
+    pure $ ALU.doALU op x y
 
 theorem doALU_increasing {op : ALU} {a b : symvalue β} : increasing (doALU op a b : state γ (symvalue β)) :=
 begin
   cases a,
+  simp only [doALU],
+  split_ifs,
+  apply increasing_pure,
   apply increasing_pure,
   swap,
+  simp only [doALU],
+  split_ifs,
+  apply increasing_pure,
   apply increasing_pure,
   cases b,
+  simp only [doALU],
+  split_ifs,
+  apply increasing_pure,
   apply increasing_pure,
   swap,
+  simp only [doALU],
+  split_ifs,
+  apply increasing_pure,
   apply increasing_pure,
   cases op,
   case ADD { apply increasing_map, apply le_mk_add },
@@ -240,25 +254,38 @@ begin
   intros mk sat₁ sat₂,
   cases sat₁,
   case sat.sat_pointer {
-    cases mk,
+    simp only [doALU] at mk,
+    split_ifs at mk; subst_vars; cases mk,
+    simp only [bpf.ALU.doALU_MOV_def],
+    exact sat₂,
     simp only [denote_sound sat₁, denote_sound sat₂, erased.out_mk, erased.bind_def, erased.bind_eq_out, doALU._match_1, doALU._match_2],
     apply sat_unknown_pure },
   case sat.sat_unknown {
-    cases mk,
+    simp only [doALU] at mk,
+    split_ifs at mk; subst_vars; cases mk,
+    simp only [bpf.ALU.doALU_MOV_def],
+    exact sat₂,
     simp only [denote_sound sat₁, denote_sound sat₂, erased.out_mk, erased.bind_def, erased.bind_eq_out, doALU._match_1, doALU._match_2],
     apply sat_unknown_pure },
   cases sat₂,
   case sat.sat_pointer {
-    cases mk,
+    simp only [doALU] at mk,
+    split_ifs at mk; subst_vars; cases mk,
+    simp only [bpf.ALU.doALU_MOV_def],
+    exact sat₂,
     simp only [denote_sound sat₁, denote_sound sat₂, erased.out_mk, erased.bind_def, erased.bind_eq_out, doALU._match_1, doALU._match_2],
     apply sat_unknown_pure },
   case sat.sat_unknown {
-    cases mk,
+    simp only [doALU] at mk,
+    split_ifs at mk; subst_vars; cases mk,
+    simp only [bpf.ALU.doALU_MOV_def],
+    exact sat₂,
     simp only [denote_sound sat₁, denote_sound sat₂, erased.out_mk, erased.bind_def, erased.bind_eq_out, doALU._match_1, doALU._match_2],
     apply sat_unknown_pure },
 
   simp only [doALU, state_t.run_map] at mk,
   cases mk,
+  simp only [bpf.ALU.doALU_scalar_def],
   constructor,
   apply sat_doALU_scalar,
   { rw prod.mk.eta },

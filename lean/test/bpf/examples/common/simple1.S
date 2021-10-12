@@ -6,6 +6,9 @@ Authors: Luke Nelson, Xi Wang
 
 /* A trivially safe program. */
 
+r1 = 0
+r2 = 0
 r1 += r2
 r1 += r1
+r0 = r1
 exit

@@ -39,14 +39,14 @@ meta def solution : STATE :=
 meta def solexpr : pexpr :=
 ``(%%solution : @STATE (nonrelational.aregs (with_top (avalue (tnum 64)))) _ trie)
 
--- /-- The solution, but reified into a concrete trie (no computation),
---     by doing computation in meta-lean and serializing. -/
--- def solution' : @STATE (nonrelational.aregs (with_top (avalue (tnum 64)))) _ trie :=
--- (by tactic.to_expr solexpr >>= tactic.exact)
+/-- The solution, but reified into a concrete trie (no computation),
+    by doing computation in meta-lean and serializing. -/
+def solution' : @STATE (nonrelational.aregs (with_top (avalue (tnum 64)))) _ trie :=
+(by tactic.to_expr solexpr >>= tactic.exact)
 
--- def predicates := @gen_safety pos_num (nonrelational.aregs (with_top (avalue (tnum 64)))) _ _ trie _ program
+def predicates := @gen_safety pos_num (nonrelational.aregs (with_top (avalue (tnum 64)))) _ _ trie _ program
 
--- def program_safety : bpf.cfg.safe program :=
--- safe_program_of_correct_approximation _ solution' dec_trivial dec_trivial
+def program_safety : bpf.cfg.safe program :=
+safe_program_of_correct_approximation _ solution' dec_trivial dec_trivial
 
 end test_bpf
