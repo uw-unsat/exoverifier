@@ -141,7 +141,7 @@ end
 /-- The actual symbolic evaluation routine is continuation-based, so the
     correctness of one of these functions inductively depends on the correctness
     of the continuation. -/
-def se_correct (cfg : CFG χ η) (p : set (symstate β η)) (k : symstate β η → state γ β) : Prop :=
+def se_correct (cfg : CFG χ η) (o : oracle) (p : set (symstate β η)) (k : symstate β η → state γ β) : Prop :=
 ∀ ⦃g g' : γ⦄ ⦃c : β⦄ ⦃abs : symstate β η⦄ ⦃asserts assumes : bool⦄ ⦃regs : reg → value⦄,
   -- If the abstract state is one we care about, and
   abs ∈ p →
@@ -158,14 +158,14 @@ def se_correct (cfg : CFG χ η) (p : set (symstate β η)) (k : symstate β η 
       -- The asserts at this point hold, and
       asserts = tt ∧
       -- Then the concrete state is safe from this point onwards.
-      bpf.cfg.safe_from_state cfg (state.running abs.current regs))
+      bpf.cfg.safe_from_state cfg o (state.running abs.current regs))
 
 namespace se_correct
 
-theorem weaken {cfg : CFG χ η} {p p' : set (symstate β η)} {k : symstate β η → state γ β} :
-  se_correct cfg p k →
+theorem weaken {cfg : CFG χ η} {o : oracle} {p p' : set (symstate β η)} {k : symstate β η → state γ β} :
+  se_correct cfg o p k →
   p' ⊆ p →
-  se_correct cfg p' k :=
+  se_correct cfg o p' k :=
 λ h l _ _ _ _ _ _ _ m, h $ l m
 
 end se_correct
@@ -303,7 +303,7 @@ theorem initial_regs_increasing : ∀ {n : ℕ} {r : erased (vector value n)},
   intro c',
   apply increasing_pure }
 
-theorem initial_regs_spec : ∀ {n : ℕ} {regs : erased (vector value n)} {regs' : vector (symvalue β) n} {g g' : γ},
+theorem initial_regs_spec : ∀ {n : ℕ} (regs : erased (vector value n)) {regs' : vector (symvalue β) n} {g g' : γ},
   (se.initial_regs regs).run g = (regs', g') →
   ∀ {r : fin n},
     sat g' (regs'.nth r) (regs.out.nth r)
@@ -325,8 +325,8 @@ theorem initial_regs_spec : ∀ {n : ℕ} {regs : erased (vector value n)} {regs
     apply initial_regs_spec,
     simp only [erased.mk_out, erased.out_mk, prod.mk.eta] } }
 
-theorem initial_state_increasing (cfg : CFG χ η) (regs' : erased (vector value bpf.nregs)) :
-  increasing (initial_symstate cfg regs' : state γ (symstate β η)) :=
+theorem initial_state_increasing (cfg : CFG χ η) (o : erased oracle) :
+  increasing (initial_symstate cfg o : state γ (symstate β η)) :=
 begin
   simp only [initial_symstate],
   apply increasing_bind,
@@ -337,9 +337,9 @@ begin
 end
 
 theorem initial_symstate_spec
-  (g : γ) {g' : γ} {s : symstate β η} (cfg : CFG χ η) (regs : erased (vector value bpf.nregs)) :
-    (initial_symstate cfg regs).run g = (s, g') →
-    concretizes g' s tt tt (bpf.reg.of_vector regs.out) :=
+  (g : γ) {g' : γ} {s : symstate β η} (cfg : CFG χ η) (o : erased oracle) :
+    (initial_symstate cfg o).run g = (s, g') →
+    concretizes g' s tt tt o.out.initial_regs :=
 begin
   intros mk,
   simp only [initial_symstate, state_t.run_bind] at mk,
@@ -349,19 +349,25 @@ begin
   { exact sat_of_le (by apply initial_regs_increasing) (sat_mk_true (by rw [prod.mk.eta])) },
   { simp only [reg.of_vector],
     intros r,
-    apply initial_regs_spec,
+    have : o.out.initial_regs r = (reg.to_vector o.out.initial_regs).nth r.to_fin,
+    { cases r; refl },
+    rw this,
+    have h := initial_regs_spec ((λ (o' : oracle), reg.to_vector o'.initial_regs) <$> o) _,
+    simp only [erased.map_out, erased.map_def] at h,
+    apply h,
+    swap 2,
     rw [prod.mk.eta] }
 end
 
-theorem initial_symstate_current {g : γ} {cfg : CFG χ η} {regs : erased (vector value bpf.nregs)} :
-  ((initial_symstate cfg regs : state γ (symstate β η)).run g).1.current = (CFG.entry cfg) :=
+theorem initial_symstate_current {g : γ} {cfg : CFG χ η} {o : erased oracle} :
+  ((initial_symstate cfg o : state γ (symstate β η)).run g).1.current = (CFG.entry cfg) :=
 begin
   simp only [initial_symstate, state_t.run_bind],
   refl
 end
 
 /-- "die" is a correct symbolic evaluator (that rejects everything). -/
-theorem die_correct {cfg : CFG χ η} : se_correct cfg ⊤ (λ (_ : symstate β η), (die : state γ β)) :=
+theorem die_correct {cfg : CFG χ η} {o : oracle} : se_correct cfg o ⊤ (λ (_ : symstate β η), (die : state γ β)) :=
 begin
   rintros _ _ _ _ _ _ _ ⟨⟩ assumes_sat die_mk,
   existsi ff,
@@ -371,7 +377,7 @@ begin
   { tauto }
 end
 
-theorem infeasible_correct {cfg : CFG χ η} : se_correct cfg ⊤ (infeasible : symstate β η → state γ β) :=
+theorem infeasible_correct {cfg : CFG χ η} {o : oracle} : se_correct cfg o ⊤ (infeasible : symstate β η → state γ β) :=
 begin
   rintros _ _ _ _ _ _ _ ⟨⟩ pre die_mk,
   existsi (!assumes),
@@ -391,10 +397,10 @@ open concretizes
   the continuation is correct for any state.
 -/
 theorem step_jmp64_x_correct
-  {cfg : CFG χ η} {k : symstate β η → state γ β}
-  (k_inc : ∀ s, increasing (k s)) (ih : se_correct cfg ⊤ k)
+  {cfg : CFG χ η} {o : oracle} {k : symstate β η → state γ β}
+  (k_inc : ∀ s, increasing (k s)) (ih : se_correct cfg o ⊤ k)
   {op : JMP} {dst src : reg} {if_true if_false : η} :
-    se_correct cfg (λ s, lookup s.current cfg.code = some (instr.JMP_X op dst src if_true if_false))
+    se_correct cfg o (λ s, lookup s.current cfg.code = some (instr.JMP_X op dst src if_true if_false))
                (step_jmp64_x cfg k op dst src if_true if_false) :=
 begin
   intros _ _ vc _ _ _ _ fetch_i pre mk,
@@ -496,10 +502,10 @@ begin
 end
 
 theorem step_jmp64_k_correct
-  {cfg : CFG χ η} {k : symstate β η → state γ β}
-  (k_inc : ∀ s, increasing (k s)) (ih : se_correct cfg ⊤ k)
+  {cfg : CFG χ η} {o : oracle} {k : symstate β η → state γ β}
+  (k_inc : ∀ s, increasing (k s)) (ih : se_correct cfg o ⊤ k)
   {op : JMP} {dst : reg} {imm : lsbvector 64} {if_true if_false : η} :
-    se_correct cfg (λ s, lookup s.current cfg.code = some (instr.JMP_K op dst imm if_true if_false))
+    se_correct cfg o (λ s, lookup s.current cfg.code = some (instr.JMP_K op dst imm if_true if_false))
                (step_jmp64_k cfg k op dst imm if_true if_false) :=
 begin
   intros _ _ vc _ _ _ _ fetch_i pre mk,
@@ -618,10 +624,10 @@ end
   the continuation is correct for any state.
 -/
 theorem step_alu64_x_correct
-  {cfg : CFG χ η} {k : symstate β η → state γ β}
-  (k_inc : ∀ s, increasing (k s)) (ih : se_correct cfg ⊤ k)
+  {cfg : CFG χ η} {k : symstate β η → state γ β} {o : oracle}
+  (k_inc : ∀ s, increasing (k s)) (ih : se_correct cfg o ⊤ k)
   {op : ALU} {dst src : reg} {next : η} :
-    se_correct cfg (λ s, lookup s.current cfg.code = some (instr.ALU64_X op dst src next))
+    se_correct cfg o (λ s, lookup s.current cfg.code = some (instr.ALU64_X op dst src next))
                (step_alu64_x cfg k op dst src next) :=
 begin
   intros g g' c abs asserts assumes regs fetch_i pre mk,
@@ -672,10 +678,10 @@ begin
 end
 
 theorem step_alu64_k_correct
-  {cfg : CFG χ η} {k : symstate β η → state γ β}
-  (k_inc : ∀ s, increasing (k s)) (ih : se_correct cfg ⊤ k)
+  {cfg : CFG χ η} {k : symstate β η → state γ β} {o : oracle}
+  (k_inc : ∀ s, increasing (k s)) (ih : se_correct cfg o ⊤ k)
   {op : ALU} {dst : reg} {imm : lsbvector 64} {next : η} :
-    se_correct cfg (λ s, lookup s.current cfg.code = some (instr.ALU64_K op dst imm next))
+    se_correct cfg o (λ s, lookup s.current cfg.code = some (instr.ALU64_K op dst imm next))
                (step_alu64_k cfg k op dst imm next) :=
 begin
   intros g g' c abs asserts assumes regs fetch_i pre mk,
@@ -731,9 +737,9 @@ begin
 end
 
 theorem step_exit_correct
-  {cfg : CFG χ η} {k : symstate β η → state γ β}
-  (k_inc : ∀ s, increasing (k s)) (ih : se_correct cfg ⊤ k) :
-    se_correct cfg (λ s, lookup s.current cfg.code = some instr.Exit)
+  {cfg : CFG χ η} {k : symstate β η → state γ β} {o : oracle}
+  (k_inc : ∀ s, increasing (k s)) (ih : se_correct cfg o ⊤ k) :
+    se_correct cfg o (λ s, lookup s.current cfg.code = some instr.Exit)
                (step_exit cfg k) :=
 begin
   intros g g' c abs asserts assumes regs fetch_i pre mk,
@@ -769,9 +775,9 @@ end
 
 /-- step_symeval is correct for any state when the continuation is correct for any state. -/
 theorem step_symeval_correct
-  {cfg : CFG χ η} {k : symstate β η → state γ β}
-  (k_inc : ∀ s, increasing (k s)) (ih : se_correct cfg ⊤ k) :
-    se_correct cfg ⊤ (step_symeval cfg k) :=
+  {cfg : CFG χ η} {k : symstate β η → state γ β} {o : oracle}
+  (k_inc : ∀ s, increasing (k s)) (ih : se_correct cfg o ⊤ k) :
+    se_correct cfg o ⊤ (step_symeval cfg k) :=
 begin
   simp only [step_symeval],
   rintros _ _ vc _ _ _ _ ⟨⟩ pre mk,
@@ -788,21 +794,11 @@ begin
     case STX {
       exact die_correct true.intro pre mk },
     case Exit {
-      exact step_exit_correct k_inc ih fetch_i pre mk,
-
-
-
-      -- cases mk, clear mk,
-      -- refine ⟨asserts, ⟨pre.asserts_ok, _⟩⟩,
-      -- intros assumes_true asserts_true,
-      -- refine ⟨asserts_true, _⟩,
-      -- apply bpf.cfg.safe_from_state_of_det_step bpf.cfg.safe_from_exited (bpf.cfg.step.Exit fetch_i) (bpf.cfg.step_exit_det fetch_i)
-
-       } }
+      exact step_exit_correct k_inc ih fetch_i pre mk } }
 end
 
-theorem symeval_correct (cfg : CFG χ η) (fuel : ℕ) :
-  se_correct cfg ⊤ (symeval cfg fuel : symstate β η → state γ β) :=
+theorem symeval_correct (cfg : CFG χ η) (o : oracle) (fuel : ℕ) :
+  se_correct cfg o ⊤ (symeval cfg fuel : symstate β η → state γ β) :=
 begin
   induction fuel,
   case zero { exact infeasible_correct },
@@ -810,18 +806,18 @@ begin
 end
 
 /-- If the verification conditions evaluate to tt, then the program is safe. -/
-theorem vcgen_spec {cfg : CFG χ η} {fuel : ℕ} {g g' : γ} {vc : β} {regs : erased (vector value bpf.nregs)} :
-  (@vcgen χ η β γ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ cfg fuel regs).run g = (vc, g') →
+theorem vcgen_spec {cfg : CFG χ η} {fuel : ℕ} {g g' : γ} {vc : β} {o : erased oracle}  :
+  (@vcgen χ η β γ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ cfg fuel o).run g = (vc, g') →
   ∃ (vc_b : bool),
     sat g' vc (bv1 vc_b) ∧
     (vc_b = tt →
-     bpf.cfg.safe_from_state cfg (bpf.cfg.state.running cfg.entry (reg.of_vector regs.out))) :=
+     bpf.cfg.safe_with_oracle cfg o.out) :=
 begin
   intros mk,
-  let init := ((initial_symstate cfg regs).run g).1,
-  let g' := ((initial_symstate cfg regs).run g).2,
-  have correct := symeval_correct cfg fuel,
-  obtain ⟨vc_b, sat₁, sound⟩ := @correct g' _ (_ : β) init tt tt (reg.of_vector regs.out) true.intro _ _,
+  let init := ((initial_symstate cfg o).run g).1,
+  let g' := ((initial_symstate cfg o).run g).2,
+  have correct := symeval_correct cfg o.out fuel,
+  obtain ⟨vc_b, sat₁, sound⟩ := @correct g' _ (_ : β) init tt tt _ true.intro _ _,
   { refine ⟨vc_b, ⟨sat₁, _⟩⟩,
     rintros ⟨⟩,
     obtain ⟨-, tail⟩ := sound rfl rfl,

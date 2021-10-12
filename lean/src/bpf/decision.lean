@@ -32,7 +32,7 @@ variables
 
 include χ η β γ smt_decider
 def decide_safe_with_regs_via_reduce_to_smt (fuel : ℕ) :
-  semidecision.procedure (λ (e : (bpf.cfg.CFG χ η) × erased (vector value bpf.nregs)), bpf.cfg.safe_with_regs e.1 (bpf.reg.of_vector e.2.out)) ω :=
+  semidecision.procedure (λ (e : (bpf.cfg.CFG χ η) × erased oracle), bpf.cfg.safe_with_oracle e.1 e.2.out) ω :=
 begin
   rintros ⟨p, regs⟩ w,
   rcases vch : (@cfg.se.vcgen χ η β γ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ p fuel regs).run (factory.init_f (Σ n, fin n → bool) β) with ⟨vc, g'⟩,
@@ -47,7 +47,7 @@ end
 omit smt_decider
 
 meta def safe_with_regs_via_reduce_to_smt_oracle (fuel : ℕ) :
-  semidecision.oracle (bpf.cfg.CFG χ η × erased (vector value bpf.nregs)) ω :=
+  semidecision.oracle (bpf.cfg.CFG χ η × erased oracle) ω :=
 λ ⟨p, r⟩,
   match (@cfg.se.vcgen χ η β γ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ p fuel r).run (factory.init_f (Σ n, fin n → bool) β) with
   | ⟨vc, g'⟩ := smt_oracle (g', (vc, ⟨1, λ _, tt⟩))
@@ -57,7 +57,7 @@ include smt_decider
 /-- Decide the safety of a binary BPF program by decoding the program and using se + smt.  -/
 def decide_binary_safety_via_reduce_to_smt (fuel : ℕ) :
   semidecision.procedure
-    (λ (e : erased (vector value nregs) × list bool), bpf.binary_safe_with_regs e.1.out e.2) ω :=
+    (λ (e : erased oracle × list bool), bpf.binary_safe_with_oracle e.1.out e.2) ω :=
 begin
   rintros ⟨r, b⟩ w,
   cases h : (decode b).map cfg.trie_program.decode_from_flat with p,
@@ -68,7 +68,7 @@ omit smt_decider
 
 /-- Build a witness for the decision procedure of BPF safety. -/
 meta def binary_safety_via_reduce_to_smt_oracle (fuel : ℕ) :
-  semidecision.oracle (erased (vector value nregs) × list bool) ω :=
+  semidecision.oracle (erased oracle × list bool) ω :=
 λ ⟨r, b⟩,
   match (decode b).map cfg.trie_program.decode_from_flat with
   | some p := safe_with_regs_via_reduce_to_smt_oracle smt_oracle fuel (p, r)
@@ -79,7 +79,7 @@ omit χ η β γ
 namespace default
 
 def decide_safe_with_regs_via_reduce_to_smt (fuel : ℕ) :
-  semidecision.procedure (λ (e : bpf.cfg.trie_program × erased (vector value bpf.nregs)), bpf.cfg.safe_with_regs e.1 (bpf.reg.of_vector e.2.out)) sat.proof.default.proof :=
+  semidecision.procedure (λ (e : bpf.cfg.trie_program × erased oracle), bpf.cfg.safe_with_oracle e.1 e.2.out) sat.proof.default.proof :=
 @bpf.decision.decide_safe_with_regs_via_reduce_to_smt
   pos_num _ (Σ n, vector aig.default.bref n) aig.default.factory _
   _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ sat.proof.default.proof
@@ -87,7 +87,7 @@ def decide_safe_with_regs_via_reduce_to_smt (fuel : ℕ) :
 
 /-- Default instances. -/
 def decide_binary_safety_via_reduce_to_smt (fuel : ℕ) :
-  semidecision.procedure (λ (e : erased (vector value nregs) × list bool), bpf.binary_safe_with_regs e.1.out e.2) sat.proof.default.proof :=
+  semidecision.procedure (λ (e : erased oracle × list bool), bpf.binary_safe_with_oracle e.1.out e.2) sat.proof.default.proof :=
 @bpf.decision.decide_binary_safety_via_reduce_to_smt
   pos_num (trie (bpf.cfg.instr pos_num)) (Σ n, vector aig.default.bref n) aig.default.factory _
   _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ sat.proof.default.proof
@@ -95,7 +95,7 @@ def decide_binary_safety_via_reduce_to_smt (fuel : ℕ) :
 
 /-- Build a witness for the decision procedure of BPF safety. -/
 meta def binary_safety_via_reduce_to_smt_oracle (fuel : ℕ) :
-  semidecision.oracle (erased (vector value nregs) × list bool) sat.proof.default.proof :=
+  semidecision.oracle (erased oracle × list bool) sat.proof.default.proof :=
 @bpf.decision.binary_safety_via_reduce_to_smt_oracle pos_num (trie (bpf.cfg.instr pos_num)) (Σ n, vector aig.default.bref n) aig.default.factory _
   _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ sat.proof.default.proof (smt.bitblast.reduce_to_sat_oracle aig.to_cnf_oracle) fuel
 

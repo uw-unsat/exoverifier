@@ -179,7 +179,7 @@ open unordered_map
 variable [decidable_eq α]
 
 @[mk_iff]
-inductive step (cfg : CFG χ α) : state α → state α → Prop
+inductive step (cfg : CFG χ α) (o : oracle) : state α → state α → Prop
 | ALU64_X :
   ∀ {pc : α} {regs : reg → value} {op : ALU} {dst src : reg} {v : value} {next : α},
     lookup pc cfg.code = some (instr.ALU64_X op dst src next) →
@@ -210,11 +210,11 @@ inductive step (cfg : CFG χ α) : state α → state α → Prop
     regs reg.R0 = value.scalar ret →
     step (state.running pc regs) (state.exited ret)
 
-theorem do_step_alu64_x {cfg : CFG χ α} :
+theorem do_step_alu64_x {cfg : CFG χ α} {o : oracle} :
   ∀ {pc regs op dst src next},
     lookup pc cfg.code = some (instr.ALU64_X op dst src next) →
     ∀ {s : state α},
-      step cfg (state.running pc regs) s →
+      step cfg o (state.running pc regs) s →
       s = state.running next (function.update regs dst (ALU.doALU op (regs dst) (regs src))) :=
 begin
   intros _ _ _ _ _ _ fetch _ step₁,
@@ -237,20 +237,20 @@ begin
     cases fetch' },
 end
 
-theorem step_alu64_x_det {cfg : CFG χ α} :
+theorem step_alu64_x_det {cfg : CFG χ α} {o : oracle} :
   ∀ {pc regs op dst src next},
     lookup pc cfg.code = some (instr.ALU64_X op dst src next) →
-    set.subsingleton (step cfg (state.running pc regs)) :=
+    set.subsingleton (step cfg o (state.running pc regs)) :=
 begin
   intros _ _ _ _ _ _ fetch s₁ step₁ s₂ step₂,
   rw [do_step_alu64_x fetch step₁, do_step_alu64_x fetch step₂]
 end
 
-theorem do_step_alu64_k {cfg : CFG χ α} :
+theorem do_step_alu64_k {cfg : CFG χ α} {o : oracle} :
   ∀ {pc regs op dst imm next},
     lookup pc cfg.code = some (instr.ALU64_K op dst imm next) →
     ∀ {s : state α},
-      step cfg (state.running pc regs) s →
+      step cfg o (state.running pc regs) s →
       s = state.running next (function.update regs dst (ALU.doALU op (regs dst) (value.scalar imm.nth))) :=
 begin
   intros _ _ _ _ _ _ fetch _ step₁,
@@ -273,20 +273,20 @@ begin
     cases fetch' },
 end
 
-theorem step_alu64_k_det {cfg : CFG χ α} :
+theorem step_alu64_k_det {cfg : CFG χ α} {o : oracle} :
   ∀ {pc regs op dst imm next},
     lookup pc cfg.code = some (instr.ALU64_K op dst imm next) →
-    set.subsingleton (step cfg (state.running pc regs)) :=
+    set.subsingleton (step cfg o (state.running pc regs)) :=
 begin
   intros _ _ _ _ _ _ fetch s₁ step₁ s₂ step₂,
   rw [do_step_alu64_k fetch step₁, do_step_alu64_k fetch step₂]
 end
 
-theorem do_step_jmp_x {cfg : CFG χ α} :
+theorem do_step_jmp_x {cfg : CFG χ α} {o : oracle} :
   ∀ {pc regs op r₁ r₂ if_true if_false},
     lookup pc cfg.code = some (instr.JMP_X op r₁ r₂ if_true if_false) →
     ∀ {s : state α},
-      step cfg (state.running pc regs) s →
+      step cfg o (state.running pc regs) s →
       s = state.running (if JMP.doJMP op (regs r₁) (regs r₂) then if_true else if_false) regs :=
 begin
   intros _ _ _ _ _ _ _ fetch _ step₁,
@@ -309,20 +309,20 @@ begin
     cases fetch' },
 end
 
-theorem step_jmp_x_det {cfg : CFG χ α} :
+theorem step_jmp_x_det {cfg : CFG χ α} {o : oracle} :
   ∀ {pc regs op r₁ r₂ if_true if_false},
     lookup pc cfg.code = some (instr.JMP_X op r₁ r₂ if_true if_false) →
-    set.subsingleton (step cfg (state.running pc regs)) :=
+    set.subsingleton (step cfg o (state.running pc regs)) :=
 begin
   intros _ _ _ _ _ _ _ fetch s₁ step₁ s₂ step₂,
   rw [do_step_jmp_x fetch step₁, do_step_jmp_x fetch step₂]
 end
 
-theorem do_step_jmp_k {cfg : CFG χ α} :
+theorem do_step_jmp_k {cfg : CFG χ α} {o : oracle} :
   ∀ {pc regs op r₁ imm if_true if_false},
     lookup pc cfg.code = some (instr.JMP_K op r₁ imm if_true if_false) →
     ∀ {s : state α},
-      step cfg (state.running pc regs) s →
+      step cfg o (state.running pc regs) s →
       s = state.running (if JMP.doJMP op (regs r₁) (value.scalar imm.nth) then if_true else if_false) regs :=
 begin
   intros _ _ _ _ _ _ _ fetch _ step₁,
@@ -345,20 +345,20 @@ begin
     cases fetch' },
 end
 
-theorem step_jmp_k_det {cfg : CFG χ α} :
+theorem step_jmp_k_det {cfg : CFG χ α} {o : oracle} :
   ∀ {pc regs op r₁ imm if_true if_false},
     lookup pc cfg.code = some (instr.JMP_K op r₁ imm if_true if_false) →
-    set.subsingleton (step cfg (state.running pc regs)) :=
+    set.subsingleton (step cfg o (state.running pc regs)) :=
 begin
   intros _ _ _ _ _ _ _ fetch s₁ step₁ s₂ step₂,
   rw [do_step_jmp_k fetch step₁, do_step_jmp_k fetch step₂]
 end
 
-theorem do_step_exit {cfg : CFG χ α} :
+theorem do_step_exit {cfg : CFG χ α} {o : oracle} :
   ∀ {pc regs},
     lookup pc cfg.code = some instr.Exit →
     ∀ {s : state α},
-      step cfg (state.running pc regs) s →
+      step cfg o (state.running pc regs) s →
       ∃ (ret : i64),
         regs reg.R0 = value.scalar ret ∧
         s = state.exited ret :=
@@ -382,10 +382,10 @@ begin
     tauto },
 end
 
-theorem step_exit_det {cfg : CFG χ α} :
+theorem step_exit_det {cfg : CFG χ α} {o : oracle} :
   ∀ {pc regs},
     lookup pc cfg.code = some instr.Exit →
-    set.subsingleton (step cfg (state.running pc regs)) :=
+    set.subsingleton (step cfg o (state.running pc regs)) :=
 begin
   intros _ _ fetch s₁ step₁ s₂ step₂,
   obtain ⟨h₁, h₁', h₁''⟩ := do_step_exit fetch step₁,
@@ -395,9 +395,9 @@ begin
   rw [h₁'', h₂'']
 end
 
-theorem running_backwards (cfg : CFG χ α) (s : state α) :
+theorem running_backwards (cfg : CFG χ α) (s : state α) (o : oracle) :
   ∀ pc regs,
-  step cfg s (state.running pc regs) →
+  step cfg o s (state.running pc regs) →
   ∃ pc' regs',
     s = state.running pc' regs' :=
 begin
@@ -405,56 +405,37 @@ begin
   cases step; tauto
 end
 
-inductive initial_state (cfg : CFG χ α) : state α → Prop
-| intro :
-  ∀ (regs : reg → value),
-    initial_state (state.running (CFG.entry cfg) regs)
+def initial_state (cfg : CFG χ α) (o : oracle) : state α :=
+state.running (CFG.entry cfg) o.initial_regs
 
 @[reducible]
-def star (cfg : CFG χ α) : state α → state α → Prop :=
-relation.refl_trans_gen (step cfg)
+def star (cfg : CFG χ α) (o : oracle) : state α → state α → Prop :=
+relation.refl_trans_gen (step cfg o)
 
 /-- A Safe state either can take an additional step or has exited. -/
-def safe_state (cfg : CFG χ α) (s : state α) : Prop :=
-(∃ s', step cfg s s') ∨
+def safe_state (cfg : CFG χ α) (o : oracle) (s : state α) : Prop :=
+(∃ s', step cfg o s s') ∨
 (∃ r, s = state.exited r)
 
 /--
 A cfg is safe from some state `s` iff all states reachable from `s` are safe states.
 -/
-def safe_from_state (cfg : CFG χ α) (s : state α) : Prop :=
+def safe_from_state (cfg : CFG χ α) (o : oracle) (s : state α) : Prop :=
 ∀ s',
-  star cfg s s' →
-  safe_state cfg s'
+  star cfg o s s' →
+  safe_state cfg o s'
 
-def safe_with_regs (cfg : CFG χ α) (regs : reg → value) : Prop :=
-safe_from_state cfg (state.running cfg.entry regs)
+def safe_with_oracle (cfg : CFG χ α) (o : oracle) : Prop :=
+safe_from_state cfg o (initial_state cfg o)
 
-/-- A cfg being safe is defined as all states reachable from all initial states being safe. -/
 def safe (cfg : CFG χ α) : Prop :=
-∀ (s : state α),
-  initial_state cfg s →
-  safe_from_state cfg s
-
-/-- A program is safe iff it is safe with all initial registers. -/
-theorem safe_iff_safe_with_all_regs {cfg : CFG χ α} :
-  safe cfg ↔ (∀ r, safe_with_regs cfg r) :=
-begin
-  split,
-  { intros s r,
-    specialize s (state.running cfg.entry r) _,
-    constructor,
-    apply s },
-  { intros h₁ s s_init,
-    cases s_init,
-    apply h₁ },
-end
+∀ (o : oracle), safe_with_oracle cfg o
 
 /--
 All states reachable from an exited state are safe.
 -/
-theorem safe_from_exited {cfg : CFG χ α} {r : i64} :
-  safe_from_state cfg (state.exited r) :=
+theorem safe_from_exited {cfg : CFG χ α} {r : i64} {o : oracle} :
+  safe_from_state cfg o (state.exited r) :=
 begin
   generalize exited : state.exited r = s',
   intros s' star₁,
@@ -470,10 +451,10 @@ If s is a safe state, and, for all states reachable in one step from s,
 all states reachable from those states are safe, then all states reachable
 from s are safe as well.
 -/
-theorem safe_from_state_of_all_steps_safe {cfg : CFG χ α} {s : state α} :
-  safe_state cfg s →
-  (∀ (s' : state α), step cfg s s' → safe_from_state cfg s') →
-  safe_from_state cfg s :=
+theorem safe_from_state_of_all_steps_safe {cfg : CFG χ α} {s : state α} {o : oracle} :
+  safe_state cfg o s →
+  (∀ (s' : state α), step cfg o s s' → safe_from_state cfg o s') →
+  safe_from_state cfg o s :=
 begin
   intros safe₁ safe₂,
   rcases safe₁ with ⟨s', step₁⟩ | ⟨r, exited⟩,
@@ -490,11 +471,11 @@ end
 If s => s' and all states reachable from s' are safe, and the step
 from s is deterministic, then all states reachable from s are safe.
 -/
-theorem safe_from_state_of_det_step {cfg : CFG χ α} {s s' : state α} :
-  safe_from_state cfg s' →
-  step cfg s s' →
-  set.subsingleton (step cfg s) →
-  safe_from_state cfg s :=
+theorem safe_from_state_of_det_step {cfg : CFG χ α} {s s' : state α} {o : oracle} :
+  safe_from_state cfg o s' →
+  step cfg o s s' →
+  set.subsingleton (step cfg o s) →
+  safe_from_state cfg o s :=
 begin
   intros h₁ h₂ h₃,
   apply safe_from_state_of_all_steps_safe,

@@ -138,17 +138,17 @@ protected def initial_regs : ∀ {n : ℕ}, erased (vector value n) → state γ
   pure $ vector.cons x xs
 
 /-- Construct the initial symbolic state from cfg and registers. -/
-def initial_symstate (cfg : CFG χ η) (regs' : erased (vector value nregs)) : state γ (symstate β η) := do
+def initial_symstate (cfg : CFG χ η) (o : erased oracle) : state γ (symstate β η) := do
 truthy : β ← mk_true,
-(regs : vector (symvalue β) nregs) ← se.initial_regs regs',
+(regs : vector (symvalue β) nregs) ← se.initial_regs ((λ (o' : oracle), reg.to_vector $ o'.initial_regs) <$> o),
 pure { assumptions := truthy,
        assertions  := truthy,
        regs        := bpf.reg.of_vector regs,
        current     := cfg.entry }
 
 /-- Generate verification conditions for the safety of "cfg" given some fuel and initial registers. -/
-def vcgen (cfg : CFG χ η) (fuel : ℕ) (regs : erased (vector value nregs)) : state γ β := do
-init : symstate β η ← initial_symstate cfg regs,
+def vcgen (cfg : CFG χ η) (fuel : ℕ) (o : erased oracle) : state γ β := do
+init : symstate β η ← initial_symstate cfg o,
 symeval cfg fuel init
 
 end impl

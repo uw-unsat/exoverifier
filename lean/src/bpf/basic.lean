@@ -321,6 +321,19 @@ def doJMP32_scalar (op : JMP) (x y : i64) : bool :=
 
 end JMP
 
+/- An oracle makes the nondeterministic choices during execution of a BPF program. -/
+structure oracle : Type :=
+(initial_regs : reg → value)
+(rng          : ℕ → i64)
+
+namespace oracle
+
+instance : inhabited oracle :=
+⟨⟨ λ _, default _,
+   λ _, default _ ⟩⟩
+
+end oracle
+
 /--
 Low-level representation of BPF instructions. In this format, jump offsets are still encoded
 as bitvector offsets in the instruction stream. See `cfg.lean` for the higher-level representation

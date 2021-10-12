@@ -167,26 +167,21 @@ instance (p : PGRM) (s : STATE) : decidable (approximates p s) :=
 by apply list.decidable_forall_mem
 
 /- Collecting semantics for BPF. Computes the set of reachable states for a program `p`. -/
-def collect (p : PGRM) : set (bpf.cfg.state CTRL) :=
-{ s | ∃ s₀, bpf.cfg.initial_state p s₀ ∧ bpf.cfg.star p s₀ s }
+def collect (p : PGRM) (o : bpf.oracle) : set (bpf.cfg.state CTRL) :=
+λ s, bpf.cfg.star p o (bpf.cfg.initial_state p o) s
 
 /--
 Any initial BPF state is correctly approximated by the constraints.
 -/
-theorem init_approximation (p : PGRM) (s : STATE) (t₀ : bpf.cfg.state CTRL) :
-  ∀ pc regs,
-    bpf.cfg.state.running pc regs = t₀ →
-    approximates p s →
-    bpf.cfg.initial_state p t₀ →
-    regs ∈ γ (interpret s pc) :=
+theorem init_approximation (p : PGRM) (s : STATE) (o : bpf.oracle) :
+  approximates p s →
+  o.initial_regs ∈ γ (interpret s p.entry) :=
 begin
-  intros _ _ _ approx init_t₀,
-  subst_vars,
+  intros approx,
   specialize approx _,
   swap 2,
   { simp only [gen_constraints, list.mem_cons_iff],
     exact or.inl rfl },
-  cases init_t₀,
   exact le_correct approx (top_correct _)
 end
 
@@ -195,20 +190,20 @@ Any state which approximates p respects the concretization function γ for the a
 domain over states. In other words, `gen_constraints` is a sound transfer function
 for the BPF semantics.
 -/
-theorem correct_approximation (p : PGRM) (s : STATE) :
+theorem correct_approximation (p : PGRM) (o : bpf.oracle) (s : STATE) :
   approximates p s →
   ∀ (pc : CTRL) (regs : bpf.reg → bpf.value),
-    bpf.cfg.state.running pc regs ∈ collect p →
+    bpf.cfg.state.running pc regs ∈ collect p o →
     regs ∈ γ (interpret s pc) :=
 begin
   intros approx pc regs reachable,
   simp only [collect] at reachable,
-  rcases reachable with ⟨t₀, t_init, t_star⟩,
-  generalize_hyp t_running : bpf.cfg.state.running pc regs = t at t_star,
+  generalize_hyp t_running : bpf.cfg.state.running pc regs = t at reachable,
   revert t_running regs pc,
-  induction t_star with t' t'' head tail ih,
+  induction reachable with t' t'' head tail ih,
   { intros,
-    apply init_approximation _ _ _ _ _ t_running approx t_init },
+    cases t_running,
+    apply init_approximation _ _ _ approx },
   { intros pc regs _,
     subst_vars,
     cases tail,
@@ -261,9 +256,9 @@ begin
 end
 
 /-- A state is safe in a program if it can either take another step or has already exited. -/
-def safeset (p : PGRM) : set (bpf.cfg.state CTRL) :=
+def safeset (p : PGRM) (o : bpf.oracle) : set (bpf.cfg.state CTRL) :=
 { s |
-  (∃ s', bpf.cfg.step p s s') ∨
+  (∃ s', bpf.cfg.step p o s s') ∨
   (∃ r, s = bpf.cfg.state.exited r) }
 
 /--
@@ -271,26 +266,24 @@ If the safety predicates hold then any reachable state always has an instruction
 mapped at the PC. This is proved separately since it must be proven using induction
 over the trace of states.
 -/
-theorem instruction_exists_of_secure (p : PGRM) (s : STATE) :
+theorem instruction_exists_of_secure (p : PGRM) (o : bpf.oracle) (s : STATE) :
   secure p s →
   ∀ pc regs,
-    bpf.cfg.state.running pc regs ∈ collect p →
+    bpf.cfg.state.running pc regs ∈ collect p o →
     (lookup pc p.code).is_some :=
 begin
   intros secure _ _ star,
-  rcases star with ⟨t₀, init, star⟩,
   generalize_hyp t_running : bpf.cfg.state.running pc regs = t at star,
-  induction star with t' t'' tail head ih generalizing init pc regs t_running,
-  { subst t_running,
-    cases init,
+  simp only [collect] at star,
+  induction star with t' t'' tail head ih generalizing pc regs t_running,
+  { cases t_running,
     specialize secure p.entry _ _,
     swap 2,
     { simp only [gen_safety, list.mem_cons_iff],
       exact or.inl rfl },
     exact secure },
   { subst t_running,
-    specialize ih init,
-    obtain ⟨pc', regs', backwards⟩ := bpf.cfg.running_backwards _ _ _ _ head,
+    obtain ⟨pc', regs', backwards⟩ := bpf.cfg.running_backwards _ _ _ _ _ head,
     subst backwards,
     specialize ih pc' regs' rfl,
     specialize secure pc',
@@ -336,12 +329,12 @@ If a safety predicate holds for an instruction in the program and some abstract 
 and that abstract state models some concrete state, then the concrete state will be
 able to take at least one step.
 -/
-theorem can_step_of_safety {p : PGRM} {s : STATE} {regs : bpf.reg → bpf.value} {pc : CTRL} {i : bpf.cfg.instr CTRL} :
+theorem can_step_of_safety {p : PGRM} {o : bpf.oracle} {s : STATE} {regs : bpf.reg → bpf.value} {pc : CTRL} {i : bpf.cfg.instr CTRL} :
   gen_one_safety p pc i (interpret s pc) = tt →
   lookup pc p.code = some i →
   regs ∈ γ (interpret s pc) →
   ∃ (s' : bpf.cfg.state CTRL),
-    bpf.cfg.step p (bpf.cfg.state.running pc regs) s' :=
+    bpf.cfg.step p o (bpf.cfg.state.running pc regs) s' :=
 begin
   intros check_tt fetch rel,
   cases i,
@@ -386,14 +379,13 @@ If an abstract state approximates the behavior of a program and the security che
 evaluate to `tt` for that state, then the set of reachable states of the program
 is a subset of the set of safe states.
 -/
-theorem correctness (p : PGRM) (s : STATE) :
+theorem correctness (p : PGRM) (o : bpf.oracle) (s : STATE) :
   approximates p s →
   secure p s →
-  collect p ⊆ safeset p :=
+  collect p o ⊆ safeset p o :=
 begin
   intros ap_h se_h t t_reachable,
   simp only [collect] at t_reachable,
-  rcases t_reachable with ⟨t₀, t_init, t_star⟩,
   cases t,
   case bpf.cfg.state.exited : res {
     right,
@@ -401,10 +393,10 @@ begin
     refl },
   case bpf.cfg.state.running : pc regs {
     left,
-    have fetch := instruction_exists_of_secure p s se_h pc regs ⟨_, ⟨t_init, t_star⟩⟩,
+    have fetch := instruction_exists_of_secure p o s se_h pc regs t_reachable,
     rw [option.is_some_iff_exists] at fetch,
     rcases fetch with ⟨instr, fetch⟩,
-    have gamma := correct_approximation p s ap_h pc regs ⟨_, ⟨t_init, t_star⟩⟩,
+    have gamma := correct_approximation p o s ap_h pc regs t_reachable,
     apply can_step_of_safety _ fetch gamma,
     apply se_h,
     simp only [gen_safety],
@@ -426,8 +418,8 @@ theorem safe_program_of_correct_approximation (p : PGRM) (s : STATE) :
   secure p s →
   bpf.cfg.safe p :=
 begin
-  intros approx sec t h₁ t' h₂,
-  exact correctness p s approx sec ⟨_, ⟨h₁, h₂⟩⟩
+  intros approx sec o t h₁,
+  exact correctness p o s approx sec h₁
 end
 
 namespace solver
