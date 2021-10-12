@@ -301,22 +301,36 @@ private def doALU_scalar_check : Π (op : bpf.ALU) (a b : β), state γ β
 
 def doALU_check : Π (op : bpf.ALU) (a b : symvalue β), state γ β
 | op (symvalue.scalar x) (symvalue.scalar y) := doALU_scalar_check op x y
-| op a                   b                   := mk_var $ do
-  (x : value) ← denote γ a,
-  (y : value) ← denote γ b,
-  pure (λ (_ : fin 1), ALU.doALU_check op x y)
+| op a                   b                   :=
+  if op = bpf.ALU.MOV then mk_true else mk_var $ do
+    (x : value) ← denote γ a,
+    (y : value) ← denote γ b,
+    pure (λ (_ : fin 1), ALU.doALU_check op x y)
 
 theorem doALU_check_increasing {op : ALU} {a b : symvalue β} : increasing (doALU_check op a b : state γ β) :=
 begin
   cases a,
+  simp only [doALU_check],
+  split_ifs,
+  apply le_mk_const,
+  apply le_mk_var,
+  swap,
+  simp only [doALU_check],
+  split_ifs,
+  apply le_mk_const,
   apply le_mk_var,
   cases b,
+  simp only [doALU_check],
+  split_ifs,
+  apply le_mk_const,
   apply le_mk_var,
   cases op; try{apply le_mk_const},
   apply le_mk_redor,
   apply le_mk_redor,
+  simp only [doALU_check],
+  split_ifs,
+  apply le_mk_const,
   apply le_mk_var,
-  apply le_mk_var
 end
 
 theorem sat_doALU_check ⦃g g' : γ⦄ ⦃op : bpf.ALU⦄ ⦃e₁ e₂ : symvalue β⦄ ⦃e₃ : β⦄ ⦃v₁ v₂ : bpf.value⦄ :
@@ -328,17 +342,31 @@ begin
   intros mk sat₁ sat₂,
   cases sat₁,
   case sat.sat_pointer {
+    simp only [doALU_check] at mk,
+    split_ifs at mk; subst_vars,
+    convert (sat_mk_const1 mk),
     convert (sat_mk_var mk), ext i,
     simp only [doALU_check, denote_sound sat₁, denote_sound sat₂, erased.out_mk, erased.bind_def, erased.pure_def, erased.bind_eq_out] },
   case sat.sat_unknown {
+    simp only [doALU_check] at mk,
+    split_ifs at mk; subst_vars,
+    convert (sat_mk_const1 mk),
+    simp only [bpf.ALU.doALU_check_MOV_def],
     convert (sat_mk_var mk), ext i,
     simp only [doALU_check, denote_sound sat₁, denote_sound sat₂, erased.out_mk, erased.bind_def, erased.pure_def, erased.bind_eq_out] },
   case sat.sat_scalar : _ _ sat₁' {
     cases sat₂,
     case sat.sat_pointer {
+      simp only [doALU_check] at mk,
+      split_ifs at mk; subst_vars,
+      convert (sat_mk_const1 mk),
       convert (sat_mk_var mk), ext i,
       simp only [doALU_check, denote_sound sat₁, denote_sound sat₂, erased.out_mk, erased.bind_def, erased.pure_def, erased.bind_eq_out] },
     case sat.sat_unknown {
+      simp only [doALU_check] at mk,
+      split_ifs at mk; subst_vars,
+      convert (sat_mk_const1 mk),
+      simp only [bpf.ALU.doALU_check_MOV_def],
       convert (sat_mk_var mk), ext i,
       simp only [doALU_check, denote_sound sat₁, denote_sound sat₂, erased.out_mk, erased.bind_def, erased.pure_def, erased.bind_eq_out] },
     case sat.sat_scalar : _ _ sat₂' {
