@@ -218,9 +218,6 @@ private def doALU_scalar_check : Π (op : bpf.ALU), abstr_binary_test bpf.i64 β
 | bpf.ALU.MUL := {
   test := λ _ _, tt,
   test_sound := by { intros, refl } }
-| bpf.ALU.MOV := {
-  test := λ _ _, tt,
-  test_sound := by { intros, refl } }
 | bpf.ALU.OR := {
   test := λ _ _, tt,
   test_sound := by { intros, refl } }
@@ -282,6 +279,22 @@ private def doALU_check (op : bpf.ALU) : abstr_binary_test bpf.value (with_top (
     cases h₃ with _ _ h₃',
     exact (doALU_scalar_check op).test_sound h₁ h₂' h₃' } }
 
+private def doJMP_check (op : bpf.JMP) : abstr_binary_test bpf.value (with_top (avalue β)) op.doJMP_check :=
+{ test := λ (x y : with_top (avalue β)),
+    match x, y with
+    | some (avalue.scalar x), some (avalue.scalar y) := tt
+    | _, _ := ff
+    end,
+  test_sound := by {
+    intros _ _ _ _ h₁ h₂ h₃,
+    cases u, cases h₁,
+    cases u, swap, cases h₁,
+    cases v, cases h₁,
+    cases v, swap, cases h₁,
+    cases h₂ with _ _ h₂',
+    cases h₃ with _ _ h₃',
+    refl } }
+
 private def is_scalar : abstr_unary_test bpf.value (with_top (avalue β)) (λ (x : bpf.value), to_bool x.is_scalar) :=
 { test := λ (x : with_top (avalue β)),
     match x with
@@ -302,7 +315,7 @@ private def is_scalar : abstr_unary_test bpf.value (with_top (avalue β)) (λ (x
 instance : value_abstr (with_top (avalue β)) :=
 { doALU       := λ op, with_top.lift_binary_transfer_arg (doALU op),
   doALU_check := doALU_check,
-  doJMP_check := sorry,
+  doJMP_check := doJMP_check,
   is_scalar   := is_scalar,
   doJMP_tt    := sorry }
 
