@@ -31,6 +31,7 @@ inductive instr (α : Type*)
 | JMP_X   : JMP → reg → reg → α → α → instr
 | JMP_K   : JMP → reg → lsbvector 64 → α → α → instr
 | STX     : SIZE → reg → reg → lsbvector 64 → α → instr
+| CALL    : BPF_FUNC → α → instr
 | Exit    : instr
 
 namespace instr
@@ -42,6 +43,7 @@ private meta def to_pexpr' [has_to_pexpr α] : instr α → pexpr
 | (JMP_X op r₁ r₂ if_true if_false) := ``(JMP_X %%op %%r₁ %%r₂ %%if_true %%if_false)
 | (JMP_K op r₁ imm if_true if_false) := ``(JMP_K %%op %%r₁ %%imm %%if_true %%if_false)
 | (STX size dst src off next) := ``(STX %%size %%dst %%src %%off %%next)
+| (CALL func next) := ``(CALL %%func %%next)
 | Exit := ``(Exit)
 
 meta instance [has_to_pexpr α] : has_to_pexpr (instr α) := ⟨to_pexpr'⟩
@@ -52,6 +54,7 @@ private def repr' [has_repr α] : instr α → string
 | (JMP_X op r1 r2 if_true if_false)  := "JMP_X(" ++ repr op ++ ", " ++ repr r1 ++ ", " ++ repr r2 ++ ", " ++ repr if_true ++ ", " ++ repr if_false ++ ")"
 | (JMP_K op r1 imm if_true if_false) := "JMP_K(" ++ repr op ++ ", " ++ repr r1 ++ ", " ++ repr imm ++ ", " ++ repr if_true ++ ", " ++ repr if_false ++ ")"
 | (STX size dst src off next)        := "STX(" ++ repr size ++ ", " ++ repr dst ++ ", " ++ repr src ++ ", " ++ repr off ++ ", " ++ repr next ++ ")"
+| (CALL func next)                   := "CALL(" ++ repr func ++ ", " ++ repr next ++ ")"
 | Exit                               := "Exit()"
 
 instance [has_repr α] : has_repr (instr α) := ⟨repr'⟩
@@ -146,6 +149,8 @@ private def decode_flat_instr (cur : num) (pr : trie (instr pos_num)) : bpf.inst
 | (bpf.instr.STX op dst src off) :=
   let off64 := msb_imm16_sext_to_lsb_imm64 off in
   pr.kinsert cur.succ' (instr.STX op dst src off64 (cur + 1).succ')
+| (bpf.instr.CALL func) :=
+  pr.kinsert cur.succ' (instr.CALL func (cur + 1).succ')
 | (bpf.instr.JMP_X op dst src off) :=
   let target : num := jump_off_to_jump_target cur off in
   pr.kinsert cur.succ' (instr.JMP_X op dst src target.succ' (cur + 1).succ')

@@ -114,7 +114,7 @@ inductive SIZE : Type
 
 namespace SIZE
 
-def repr : SIZE → string
+private def repr : SIZE → string
 | B  := "B"
 | H  := "H"
 | W  := "W"
@@ -149,7 +149,7 @@ structure memregion : Type
 /- A value is either a 64-bit scalar, or a memory region + offset. -/
 @[derive [decidable_eq]]
 inductive value : Type
-| scalar : i64 → value
+| scalar  : i64 → value
 | pointer : memregion → i64 → value
 
 namespace value
@@ -159,11 +159,15 @@ instance : inhabited value := ⟨value.scalar 0⟩
 abbreviation is_scalar (v : value) : Prop :=
 ∃ r, v = scalar r
 
+instance : decidable_pred is_scalar
+| (scalar x)    := decidable.is_true ⟨x, rfl⟩
+| (pointer _ _) := decidable.is_false (by { intros h, cases h with _ h, cases h })
+
 end value
 
 namespace ALU
 
-def repr : ALU → string
+private def repr : ALU → string
 | ADD  := "ADD"
 | SUB  := "SUB"
 | MUL  := "MUL"
@@ -276,7 +280,7 @@ inductive JMP : Type
 
 namespace JMP
 
-def repr : JMP → string
+private def repr : JMP → string
 | JEQ  := "JEQ"
 | JNE  := "JNE"
 | JLE  := "JLE"
@@ -321,6 +325,20 @@ def doJMP32_scalar (op : JMP) (x y : i64) : bool :=
 
 end JMP
 
+/-- Built-in BPF functions recognized by the verifier. -/
+@[derive [decidable_eq, inhabited, has_reflect, fintype]]
+inductive BPF_FUNC : Type
+| get_prandom_u32
+
+namespace BPF_FUNC
+
+private def repr : BPF_FUNC → string
+| get_prandom_u32  := "get_prandom_u32"
+
+instance : has_repr BPF_FUNC := ⟨repr⟩
+
+end BPF_FUNC
+
 /- An oracle makes the nondeterministic choices during execution of a BPF program. -/
 structure oracle : Type :=
 (initial_regs : reg → value)
@@ -351,6 +369,7 @@ inductive instr : Type
 | JMP_X   : JMP → reg → reg → msbvector 16 → instr
 | JMP_K   : JMP → reg → msbvector 32 → msbvector 16 → instr
 | STX     : SIZE → reg → reg → msbvector 16 → instr
+| CALL    : BPF_FUNC → instr
 | Exit    : instr
 
 namespace instr
@@ -361,6 +380,7 @@ private def repr' : instr → string
 | (JMP_X op dst src off) := "JMP_X " ++ repr op ++ " " ++ repr dst ++ " " ++ repr src ++ " " ++ repr off
 | (JMP_K op dst imm off) := "JMP_K " ++ repr op ++ " " ++ repr dst ++ " " ++ repr imm ++ " " ++ repr off
 | (STX size dst src off) := "STX " ++ repr size ++ " " ++ repr dst ++ " " ++ repr src ++ " " ++ repr off
+| (CALL BPF_FUNC)        := "CALL " ++ repr BPF_FUNC
 | Exit                   := "Exit"
 
 instance : has_repr instr := ⟨repr'⟩

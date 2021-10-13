@@ -123,6 +123,7 @@ def step_symeval (cfg : CFG χ η) (k : symstate β η → state γ β) : symsta
     step_jmp64_k cfg k op r₁ imm if_true if_false s
   | some (instr.Exit) := step_exit cfg k s
   | some (instr.STX size dst src imm next) := die
+  | some (instr.CALL func next) := die
   | none := die
   end
 

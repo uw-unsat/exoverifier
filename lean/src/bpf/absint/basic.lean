@@ -118,6 +118,8 @@ def gen_one_safety (p : PGRM) (current : CTRL) : bpf.cfg.instr CTRL → MEM → 
     (with_bot.lift_unary_test (regs_abstr.do_jmp_imm_check op dst imm)).test mem = tt
 | (bpf.cfg.instr.STX size dst src off next) :=
   λ _, (lookup next p.code).is_some ∧ false
+| (bpf.cfg.instr.CALL func next) :=
+  λ _, (lookup next p.code).is_some ∧ false
 | bpf.cfg.instr.Exit :=
   (with_bot.lift_unary_test (regs_abstr.is_scalar bpf.reg.R0)).test
 
@@ -366,6 +368,9 @@ begin
     apply bpf.cfg.step.JMP_K _ fetch _ rfl,
     exact (with_bot.lift_unary_test (regs_abstr.do_jmp_imm_check _ dst _)).test_sound check_tt rel },
   case bpf.cfg.instr.STX {
+    simp only [gen_one_safety, to_bool_false_eq_ff, and_false] at check_tt,
+    cases check_tt },
+  case bpf.cfg.instr.CALL {
     simp only [gen_one_safety, to_bool_false_eq_ff, and_false] at check_tt,
     cases check_tt },
   case bpf.cfg.instr.Exit {

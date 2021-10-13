@@ -899,6 +899,52 @@ static void do_test_fixup(struct bpf_test *test, enum bpf_prog_type prog_type,
     }
 }
 
+/* Print out the immediates for builtin function calls according to uapi. */
+static int print_callnumbers(void)
+{
+    FILE *out;
+
+    if (!(out = fopen("callnumbers.txt", "w"))) {
+        return -1;
+    }
+
+#ifdef PRINT_BPF_FUNC
+#error "redefined macro"
+#endif
+#define PRINT_BPF_FUNC(x) fprintf(out, #x ":\t\t\t0x%04x\n", (u32)x)
+    PRINT_BPF_FUNC(BPF_FUNC_map_lookup_elem);
+    PRINT_BPF_FUNC(BPF_FUNC_map_update_elem);
+    PRINT_BPF_FUNC(BPF_FUNC_map_delete_elem);
+    PRINT_BPF_FUNC(BPF_FUNC_trace_printk);
+    PRINT_BPF_FUNC(BPF_FUNC_get_prandom_u32);
+    PRINT_BPF_FUNC(BPF_FUNC_tail_call);
+    PRINT_BPF_FUNC(BPF_FUNC_get_cgroup_classid);
+    PRINT_BPF_FUNC(BPF_FUNC_skb_vlan_push);
+    PRINT_BPF_FUNC(BPF_FUNC_skb_vlan_pop);
+    PRINT_BPF_FUNC(BPF_FUNC_perf_event_output);
+    PRINT_BPF_FUNC(BPF_FUNC_skb_load_bytes);
+    PRINT_BPF_FUNC(BPF_FUNC_csum_diff);
+    PRINT_BPF_FUNC(BPF_FUNC_get_hash_recalc);
+    PRINT_BPF_FUNC(BPF_FUNC_get_local_storage);
+    PRINT_BPF_FUNC(BPF_FUNC_sk_release);
+    PRINT_BPF_FUNC(BPF_FUNC_spin_lock);
+    PRINT_BPF_FUNC(BPF_FUNC_spin_unlock);
+    PRINT_BPF_FUNC(BPF_FUNC_sk_fullsock);
+    PRINT_BPF_FUNC(BPF_FUNC_tcp_sock);
+    PRINT_BPF_FUNC(BPF_FUNC_get_listener_sock);
+    PRINT_BPF_FUNC(BPF_FUNC_sk_storage_get);
+    PRINT_BPF_FUNC(BPF_FUNC_probe_read_kernel);
+    PRINT_BPF_FUNC(BPF_FUNC_get_netns_cookie);
+    PRINT_BPF_FUNC(BPF_FUNC_ringbuf_reserve);
+    PRINT_BPF_FUNC(BPF_FUNC_ringbuf_submit);
+    PRINT_BPF_FUNC(BPF_FUNC_skc_to_tcp_sock);
+    PRINT_BPF_FUNC(BPF_FUNC_d_path);
+#undef PRINT_BPF_FUNC
+
+    fclose(out);
+    return 0;
+}
+
 static int dump_tests(unsigned int from, unsigned int to)
 {
     int i, err = 0;
@@ -989,6 +1035,8 @@ int main(int argc, char **argv)
             to   = t + 1;
         }
     }
+
+    print_callnumbers();
 
     return dump_tests(from, to);
 }

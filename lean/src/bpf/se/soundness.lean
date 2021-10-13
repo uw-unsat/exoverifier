@@ -279,6 +279,8 @@ begin
       apply step_jmp64_k_increasing ih },
     case instr.STX : op dst src off next {
       apply die_increasing },
+    case instr.CALL : func next {
+      apply die_increasing },
     case instr.Exit {
       apply increasing_bind; intros,
       apply le_mk_const,
@@ -828,6 +830,8 @@ begin
     case JMP_X { exact step_jmp64_x_correct k_inc ih fetch_i pre mk },
     case JMP_K { exact step_jmp64_k_correct k_inc ih fetch_i pre mk },
     case STX {
+      exact die_correct true.intro pre mk },
+    case CALL {
       exact die_correct true.intro pre mk },
     case Exit {
       exact step_exit_correct k_inc ih fetch_i pre mk } }
