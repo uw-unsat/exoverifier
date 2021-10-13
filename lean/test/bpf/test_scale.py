@@ -19,7 +19,7 @@ NITER = 20
 class TestScale(unittest.TestCase):
     @staticmethod
     def prepare_test_bin(f, ninstrs):
-        for i in range(ninstrs - 1):
+        for i in range(ninstrs):
             f.write(MOV_ONE)
         f.write(EXIT)
         f.flush()
@@ -36,7 +36,7 @@ class TestScale(unittest.TestCase):
 
     def test_absint_scaling(self):
         with tempfile.NamedTemporaryFile(mode="wb") as f:
-            for i in range(NITER):
+            for i in range(1, NITER):
                 seconds = TestScale.run_once(f, i)
                 print(f"{i} instructions, {round(seconds, 1)} seconds")
 
