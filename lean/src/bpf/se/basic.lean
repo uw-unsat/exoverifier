@@ -29,6 +29,7 @@ structure symstate (β η : Type*) :=
 (assumptions assertions : β)
 (current : η)
 (regs : reg → symvalue β)
+(next_rng : num)
 
 section impl
 
@@ -144,7 +145,8 @@ truthy : β ← mk_true,
 pure { assumptions := truthy,
        assertions  := truthy,
        regs        := bpf.reg.of_vector regs,
-       current     := cfg.entry }
+       current     := cfg.entry,
+       next_rng    := 0 }
 
 /-- Generate verification conditions for the safety of "cfg" given some fuel and initial registers. -/
 def vcgen (cfg : CFG χ η) (fuel : ℕ) (o : erased oracle) : state γ β := do

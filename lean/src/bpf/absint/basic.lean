@@ -195,23 +195,23 @@ for the BPF semantics.
 -/
 theorem correct_approximation (p : PGRM) (o : bpf.oracle) (s : STATE) :
   approximates p s →
-  ∀ (pc : CTRL) (regs : bpf.reg → bpf.value),
-    bpf.cfg.state.running pc regs ∈ collect p o →
-    regs ∈ γ (interpret s pc) :=
+  ∀ (s' : bpf.cfg.runstate CTRL),
+    bpf.cfg.state.running s' ∈ collect p o →
+    s'.regs ∈ γ (interpret s s'.pc) :=
 begin
-  intros approx pc regs reachable,
+  intros approx _ reachable,
   simp only [collect] at reachable,
-  generalize_hyp t_running : bpf.cfg.state.running pc regs = t at reachable,
-  revert t_running regs pc,
+  generalize_hyp t_running : bpf.cfg.state.running s' = t at reachable,
+  revert t_running s',
   induction reachable with t' t'' head tail ih,
   { intros,
     cases t_running,
     apply init_approximation _ _ _ approx },
-  { intros pc regs _,
+  { intros s' _,
     subst_vars,
     cases tail,
-    case bpf.cfg.step.ALU64_X : pc' regs' op dst src v next fetch check doalu {
-      specialize ih pc' regs' rfl,
+    case bpf.cfg.step.ALU64_X : s₀ op dst src v next fetch check doalu {
+      specialize ih s₀ rfl,
       clear tail,
       subst doalu,
       rw [← option.mem_def, mem_lookup_iff] at fetch,
@@ -219,8 +219,8 @@ begin
       simp only [constraint_holds, gen_one_constraint, list.nth_le] at approx,
       apply le_correct approx,
       apply (with_bot.lift_unary_transfer (regs_abstr.do_alu op dst src)).correct ih },
-    case bpf.cfg.step.ALU64_K : pc' regs' op dst imm v next fetch check doalu {
-      specialize ih pc' regs' rfl,
+    case bpf.cfg.step.ALU64_K : s₀ op dst imm v next fetch check doalu {
+      specialize ih s₀ rfl,
       clear tail,
       subst doalu,
       rw [← option.mem_def, mem_lookup_iff] at fetch,
@@ -228,8 +228,8 @@ begin
       simp only [constraint_holds, gen_one_constraint, list.nth_le] at approx,
       apply le_correct approx,
       apply (with_bot.lift_unary_transfer (regs_abstr.do_alu_imm op dst imm)).correct ih },
-    case bpf.cfg.step.JMP_X : pc' regs' op dst src v if_true if_false fetch jmpcheck dojmp {
-      specialize ih pc' regs' rfl,
+    case bpf.cfg.step.JMP_X : s₀ op dst src v if_true if_false fetch jmpcheck dojmp {
+      specialize ih s₀ rfl,
       clear tail,
       rw [← option.mem_def, mem_lookup_iff] at fetch,
       cases v,
@@ -243,8 +243,8 @@ begin
         apply (with_bot.lift_arg_unary_inversion (regs_abstr.invert_jmp_tt op dst src)).correct ih,
         symmetry,
         exact dojmp } },
-    case bpf.cfg.step.JMP_K : pc' regs' op dst imm v if_true if_false fetch dojmp {
-      specialize ih pc' regs' rfl,
+    case bpf.cfg.step.JMP_K : s₀ op dst imm v if_true if_false fetch dojmp {
+      specialize ih s₀ rfl,
       clear tail,
       rw [← option.mem_def, mem_lookup_iff] at fetch,
       cases v,
@@ -271,14 +271,14 @@ over the trace of states.
 -/
 theorem instruction_exists_of_secure (p : PGRM) (o : bpf.oracle) (s : STATE) :
   secure p s →
-  ∀ pc regs,
-    bpf.cfg.state.running pc regs ∈ collect p o →
-    (lookup pc p.code).is_some :=
+  ∀ (s' : bpf.cfg.runstate CTRL),
+    bpf.cfg.state.running s' ∈ collect p o →
+    (lookup s'.pc p.code).is_some :=
 begin
-  intros secure _ _ star,
-  generalize_hyp t_running : bpf.cfg.state.running pc regs = t at star,
+  intros secure _ star,
+  generalize_hyp t_running : bpf.cfg.state.running s' = t at star,
   simp only [collect] at star,
-  induction star with t' t'' tail head ih generalizing pc regs t_running,
+  induction star with t' t'' tail head ih generalizing s' t_running,
   { cases t_running,
     specialize secure p.entry _ _,
     swap 2,
@@ -286,30 +286,30 @@ begin
       exact or.inl rfl },
     exact secure },
   { subst t_running,
-    obtain ⟨pc', regs', backwards⟩ := bpf.cfg.running_backwards _ _ _ _ _ head,
+    obtain ⟨s₀, backwards⟩ := bpf.cfg.running_backwards _ _ _ _ head,
     subst backwards,
-    specialize ih pc' regs' rfl,
-    specialize secure pc',
+    specialize ih s₀ rfl,
+    specialize secure s₀.pc,
     simp only [option.is_some_iff_exists, ← option.mem_def, mem_lookup_iff] at ih,
     obtain ⟨instr, fetch⟩ := ih,
     simp only [gen_safety, list.mem_cons_iff, list.mem_map] at secure,
-    specialize secure (gen_one_safety p pc' instr) _,
+    specialize secure (gen_one_safety p s₀.pc instr) _,
     { right,
       existsi [_, fetch],
       refl },
     rw [← mem_lookup_iff, option.mem_def] at fetch,
     cases head,
-    case bpf.cfg.step.ALU64_X : pc' regs' op dst src v next fetch' check doalu {
+    case bpf.cfg.step.ALU64_X : _ op dst src v next fetch' check doalu {
       rw [fetch] at fetch',
       cases fetch',
       simp only [absint.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at secure,
       exact secure.1 },
-    case bpf.cfg.step.ALU64_K : pc' regs' op dst imm v next fetch' check doalu {
+    case bpf.cfg.step.ALU64_K : _ op dst imm v next fetch' check doalu {
       rw [fetch] at fetch',
       cases fetch',
       simp only [absint.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at secure,
       exact secure.1 },
-    case bpf.cfg.step.JMP_X : pc' regs' op dst src _ if_true if_false fetch' {
+    case bpf.cfg.step.JMP_X : _ op dst src _ if_true if_false fetch' {
       rw [fetch] at fetch',
       cases fetch',
       simp only [absint.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at secure,
@@ -317,7 +317,7 @@ begin
       cases head_c,
       { exact secure₂ },
       { exact secure₁ } },
-    case bpf.cfg.step.JMP_K : pc' regs' op dst imm _ if_true if_false fetch' {
+    case bpf.cfg.step.JMP_K : _ op dst imm _ if_true if_false fetch' {
       rw [fetch] at fetch',
       cases fetch',
       simp only [absint.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at secure,
@@ -332,38 +332,38 @@ If a safety predicate holds for an instruction in the program and some abstract 
 and that abstract state models some concrete state, then the concrete state will be
 able to take at least one step.
 -/
-theorem can_step_of_safety {p : PGRM} {o : bpf.oracle} {s : STATE} {regs : bpf.reg → bpf.value} {pc : CTRL} {i : bpf.cfg.instr CTRL} :
-  gen_one_safety p pc i (interpret s pc) = tt →
-  lookup pc p.code = some i →
-  regs ∈ γ (interpret s pc) →
+theorem can_step_of_safety {p : PGRM} {o : bpf.oracle} {s : STATE} {c : bpf.cfg.runstate CTRL} {i : bpf.cfg.instr CTRL} :
+  gen_one_safety p c.pc i (interpret s c.pc) = tt →
+  lookup c.pc p.code = some i →
+  c.regs ∈ γ (interpret s c.pc) →
   ∃ (s' : bpf.cfg.state CTRL),
-    bpf.cfg.step p o (bpf.cfg.state.running pc regs) s' :=
+    bpf.cfg.step p o (bpf.cfg.state.running c) s' :=
 begin
   intros check_tt fetch rel,
   cases i,
   case bpf.cfg.instr.ALU64_X : op dst src next {
     simp only [absint.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
     existsi _,
-    apply bpf.cfg.step.ALU64_X fetch _ rfl,
+    apply bpf.cfg.step.ALU64_X _ fetch _ rfl,
     cases check_tt with _ check_tt,
     exact (with_bot.lift_unary_test (regs_abstr.do_alu_check _ dst src)).test_sound check_tt rel },
   case bpf.cfg.instr.ALU64_K : op dst imm next {
     simp only [absint.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
     existsi _,
-    apply bpf.cfg.step.ALU64_K fetch _ rfl,
+    apply bpf.cfg.step.ALU64_K _ fetch _ rfl,
     cases check_tt with _ check_tt,
     exact (with_bot.lift_unary_test (regs_abstr.do_alu_imm_check _ dst imm)).test_sound check_tt rel },
   case bpf.cfg.instr.JMP_X : op dst src if_true if_false {
     simp only [absint.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
     rcases check_tt with ⟨-, -, check_tt⟩,
     existsi _,
-    apply bpf.cfg.step.JMP_X fetch _ rfl,
+    apply bpf.cfg.step.JMP_X _ fetch _ rfl,
     exact (with_bot.lift_unary_test (regs_abstr.do_jmp_check _ dst src)).test_sound check_tt rel },
   case bpf.cfg.instr.JMP_K : op dst imm if_true if_false {
     simp only [absint.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
     rcases check_tt with ⟨-, -, check_tt⟩,
     existsi _,
-    apply bpf.cfg.step.JMP_K fetch _ rfl,
+    apply bpf.cfg.step.JMP_K _ fetch _ rfl,
     exact (with_bot.lift_unary_test (regs_abstr.do_jmp_imm_check _ dst _)).test_sound check_tt rel },
   case bpf.cfg.instr.STX {
     simp only [gen_one_safety, to_bool_false_eq_ff, and_false] at check_tt,
@@ -374,7 +374,7 @@ begin
     simp only [to_bool_iff] at h_ok,
     cases h_ok with retval retval_h,
     existsi _,
-    apply bpf.cfg.step.Exit fetch retval_h },
+    apply bpf.cfg.step.Exit _ fetch retval_h },
 end
 
 /--
@@ -394,19 +394,19 @@ begin
     right,
     existsi [res],
     refl },
-  case bpf.cfg.state.running : pc regs {
+  case bpf.cfg.state.running : c {
     left,
-    have fetch := instruction_exists_of_secure p o s se_h pc regs t_reachable,
+    have fetch := instruction_exists_of_secure p o s se_h c t_reachable,
     rw [option.is_some_iff_exists] at fetch,
     rcases fetch with ⟨instr, fetch⟩,
-    have gamma := correct_approximation p o s ap_h pc regs t_reachable,
+    have gamma := correct_approximation p o s ap_h c t_reachable,
     apply can_step_of_safety _ fetch gamma,
     apply se_h,
     simp only [gen_safety],
     rw [list.mem_cons_iff],
     right,
     rw [list.mem_map],
-    existsi (⟨pc, instr⟩ : Σ (_ : CTRL), bpf.cfg.instr CTRL),
+    existsi (⟨c.pc, instr⟩ : Σ (_ : CTRL), bpf.cfg.instr CTRL),
     refine ⟨_, rfl⟩,
     simp only [← option.mem_def, mem_lookup_iff] at fetch,
     exact fetch }

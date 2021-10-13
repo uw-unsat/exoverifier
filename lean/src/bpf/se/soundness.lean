@@ -49,17 +49,19 @@ end
 
 /-- `concretizes` relates symbolic states to concrete state in some SMT factory. -/
 @[mk_iff]
-structure concretizes (g : γ) (abs : symstate β η) (asserts assumes : bool) (regs : reg → value) : Prop :=
-(asserts_ok : sat g abs.assertions (bv1 asserts))
-(assumes_ok : sat g abs.assumptions (bv1 assumes))
-(regs_ok    : ∀ (r : reg), sat g (abs.regs r) (regs r))
+structure concretizes (g : γ) (abs : symstate β η) (asserts assumes : bool) (concrete : runstate η) : Prop :=
+(asserts_ok  : sat g abs.assertions (bv1 asserts))
+(assumes_ok  : sat g abs.assumptions (bv1 assumes))
+(regs_ok     : ∀ (r : reg), sat g (abs.regs r) (concrete.regs r))
+(pc_ok       : abs.current = concrete.pc)
+(next_rng_ok : abs.next_rng = concrete.next_rng)
 
 namespace concretizes
 
-theorem of_le {abs : symstate β η} {asserts assumes : bool} {regs : reg → value} {g₁ g₂ : γ} :
+theorem of_le {abs : symstate β η} {asserts assumes : bool} {concrete : runstate η} {g₁ g₂ : γ} :
   g₁ ≤ g₂ →
-  concretizes g₁ abs asserts assumes regs →
-  concretizes g₂ abs asserts assumes regs :=
+  concretizes g₁ abs asserts assumes concrete →
+  concretizes g₂ abs asserts assumes concrete :=
 begin
   intros l c,
   cases c,
@@ -68,7 +70,9 @@ begin
   { exact sat_of_le l c_assumes_ok },
   { intros r,
     apply sat_of_le l,
-    tauto }
+    tauto },
+  { assumption },
+  { assumption }
 end
 
 end concretizes
@@ -102,11 +106,11 @@ theorem assert_assumptions_eq {s : symstate β η} {g : γ} {c : β} :
   ((assert c s).run g).fst.assumptions = s.assumptions :=
 by simpa only [assert, state_t.run_bind]
 
-theorem assert_spec {s s' : symstate β η} {g g' : γ} {c : β} {as asserts assumes : bool} {regs : reg → value} :
-  concretizes g s asserts assumes regs →
+theorem assert_spec {s s' : symstate β η} {g g' : γ} {c : β} {as asserts assumes : bool} {concrete : runstate η} :
+  concretizes g s asserts assumes concrete →
   sat g c (bv1 as) →
   (assert c s).run g = (s', g') →
-  concretizes g' s' (asserts && (bimplies assumes as)) assumes regs :=
+  concretizes g' s' (asserts && (bimplies assumes as)) assumes concrete :=
 begin
   intros pre sat mk,
   have inc : g ≤ _ := assert_increasing c s,
@@ -118,14 +122,16 @@ begin
     { exact sat_of_le (by apply le_mk_implies) pre.asserts_ok },
     { exact sat_mk_implies (by rw [prod.mk.eta]) pre.assumes_ok sat } },
   { exact sat_of_le inc pre.assumes_ok },
-  { exact λ r, sat_of_le inc (pre.regs_ok r) }
+  { exact λ r, sat_of_le inc (pre.regs_ok r) },
+  { apply pre.pc_ok },
+  { apply pre.next_rng_ok }
 end
 
-theorem assume_spec {s s' : symstate β η} {g g' : γ} {c : β} {as asserts assumes : bool} {regs : reg → value} :
-  concretizes g s asserts assumes regs →
+theorem assume_spec {s s' : symstate β η} {g g' : γ} {c : β} {as asserts assumes : bool} {concrete : runstate η} :
+  concretizes g s asserts assumes concrete →
   sat g c (bv1 as) →
   (assume_ c s).run g = (s', g') →
-  concretizes g' s' asserts (as && assumes) regs :=
+  concretizes g' s' asserts (as && assumes) concrete :=
 begin
   intros pre sat mk,
   have inc : g ≤ _ := assume_increasing c s,
@@ -135,18 +141,20 @@ begin
   apply concretizes.mk,
   { exact sat_of_le inc pre.asserts_ok },
   { exact sat_mk_and (by rw [prod.mk.eta]) sat pre.assumes_ok },
-  { exact λ r, sat_of_le inc (pre.regs_ok r) }
+  { exact λ r, sat_of_le inc (pre.regs_ok r) },
+  { apply pre.pc_ok },
+  { apply pre.next_rng_ok }
 end
 
 /-- The actual symbolic evaluation routine is continuation-based, so the
     correctness of one of these functions inductively depends on the correctness
     of the continuation. -/
 def se_correct (cfg : CFG χ η) (o : oracle) (p : set (symstate β η)) (k : symstate β η → state γ β) : Prop :=
-∀ ⦃g g' : γ⦄ ⦃c : β⦄ ⦃abs : symstate β η⦄ ⦃asserts assumes : bool⦄ ⦃regs : reg → value⦄,
+∀ ⦃g g' : γ⦄ ⦃c : β⦄ ⦃abs : symstate β η⦄ ⦃asserts assumes : bool⦄ ⦃concrete : runstate η⦄,
   -- If the abstract state is one we care about, and
   abs ∈ p →
   -- the abstract state concretizes to a legitimate state, and
-  concretizes g abs asserts assumes regs →
+  concretizes g abs asserts assumes concrete →
   -- we run the the continuation to get a vc expression and a final factory,
   (k abs).run g = (c, g') →
 
@@ -158,7 +166,7 @@ def se_correct (cfg : CFG χ η) (o : oracle) (p : set (symstate β η)) (k : sy
       -- The asserts at this point hold, and
       asserts = tt ∧
       -- Then the concrete state is safe from this point onwards.
-      bpf.cfg.safe_from_state cfg o (state.running abs.current regs))
+      bpf.cfg.safe_from_state cfg o (state.running concrete))
 
 namespace se_correct
 
@@ -339,7 +347,7 @@ end
 theorem initial_symstate_spec
   (g : γ) {g' : γ} {s : symstate β η} (cfg : CFG χ η) (o : erased oracle) :
     (initial_symstate cfg o).run g = (s, g') →
-    concretizes g' s tt tt o.out.initial_regs :=
+    concretizes g' s tt tt ⟨cfg.entry, o.out.initial_regs, 0⟩ :=
 begin
   intros mk,
   simp only [initial_symstate, state_t.run_bind] at mk,
@@ -356,7 +364,8 @@ begin
     simp only [erased.map_out, erased.map_def] at h,
     apply h,
     swap 2,
-    rw [prod.mk.eta] }
+    rw [prod.mk.eta] },
+  { refl }
 end
 
 theorem initial_symstate_current {g : γ} {cfg : CFG χ η} {o : erased oracle} :
@@ -448,26 +457,30 @@ begin
 
   have h₁₀ := symvalue.sat_doJMP_check f₁₀ (pre.regs_ok dst) (pre.regs_ok src),
   have h₁₁ := assert_spec (of_le l₁₀ pre) h₁₀ f₁₁,
+  have h₁ := symvalue.sat_doJMP f₁ (h₁₁.regs_ok dst) (h₁₁.regs_ok src),
+  have h₂ := sat_mk_not f₂ h₁,
+  have h₃ := assume_spec (of_le (le_trans l₁ l₂) h₁₁) (sat_of_le l₂ h₁) f₃,
+  simp only [bv.not] at h₂,
+  have h₅ := assume_spec (of_le (le_trans (le_trans l₁ l₂) (le_trans l₃ l₄)) h₁₁) (sat_of_le (le_trans l₃ l₄) h₂) f₅,
 
   rename ih → ih₁,
   have ih₂ := ih₁,
-  specialize @ih₁ g₃ g₄ true_condition {current := if_true, ..truestate} (asserts && bimplies assumes (op.doJMP_check (regs dst) (regs src))) ((bpf.JMP.doJMP op (regs dst) (regs src)) && assumes) regs true.intro _ f₄,
-  { convert (assume_spec _ _ f₃) using 0,
-    { simp only [concretizes_iff] },
-    { refine of_le (le_trans l₁ l₂) h₁₁ },
-    { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₂, simp only at r, rw [← r], clear r,
-      obtain ⟨l, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₁, simp only at l r, rw [← l, ← r], clear l, clear r,
-      refine sat_of_le le_mk_not _,
-      exact symvalue.sat_doJMP (by rw [prod.mk.eta]) (h₁₁.regs_ok dst) (h₁₁.regs_ok src) } },
-  specialize @ih₂ g₅ g₆ false_condition {current := if_false, ..falsestate} (asserts && bimplies assumes (op.doJMP_check (regs dst) (regs src))) (!(bpf.JMP.doJMP op (regs dst) (regs src)) && assumes) regs true.intro _ f₆,
-  { convert (assume_spec _ _ f₅) using 0,
-    { simp only [concretizes_iff] },
-    { refine of_le (le_trans (le_trans l₁ l₂) (le_trans l₃ l₄)) h₁₁ },
-    { refine sat_of_le (le_trans l₃ l₄) _,
-      obtain ⟨l, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₂, simp only at l r, rw [← l, ← r], clear l, clear r,
-      refine sat_mk_not (by rw [prod.mk.eta]) _,
-      obtain ⟨l, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₁, simp only at l r, rw [← l, ← r], clear l, clear r,
-      refine symvalue.sat_doJMP (by rw [prod.mk.eta]) (h₁₁.regs_ok dst) (h₁₁.regs_ok src) } },
+  specialize @ih₁ g₃ g₄ true_condition _ (asserts && bimplies assumes (op.doJMP_check (concrete.regs dst) (concrete.regs src))) ((bpf.JMP.doJMP op (concrete.regs dst) (concrete.regs src)) && assumes) { pc := if_true, ..concrete } true.intro _ f₄,
+  { apply concretizes.mk,
+    { apply h₃.asserts_ok },
+    { apply h₃.assumes_ok },
+    { intros r,
+      apply h₃.regs_ok r },
+    { refl },
+    { apply h₃.next_rng_ok } },
+  specialize @ih₂ g₅ g₆ false_condition _ (asserts && bimplies assumes (op.doJMP_check (concrete.regs dst) (concrete.regs src))) (!(bpf.JMP.doJMP op (concrete.regs dst) (concrete.regs src)) && assumes) { pc := if_false, ..concrete } true.intro _ f₆,
+  { apply concretizes.mk,
+    { apply h₅.asserts_ok },
+    { apply h₅.assumes_ok },
+    { intros r,
+      apply h₅.regs_ok r },
+    { refl },
+    { apply h₅.next_rng_ok } },
   rcases ih₁ with ⟨vc₁, vc₁_sat, vc₁_sound⟩,
   rcases ih₂ with ⟨vc₂, vc₂_sat, vc₂_sound⟩,
   existsi (vc₁ && vc₂),
@@ -480,14 +493,15 @@ begin
     rcases vcs_true with ⟨⟨⟩, ⟨⟩⟩,
     simp only [eq_self_iff_true, to_bool_iff, forall_true_left, band_tt] at vc₁_sound,
     simp only [bnot_eq_true_eq_eq_ff, bool.to_bool_not, eq_self_iff_true, to_bool_ff_iff, forall_true_left, band_tt] at vc₂_sound,
-    cases cond : bpf.JMP.doJMP op (regs dst) (regs src),
+    cases cond : bpf.JMP.doJMP op (concrete.regs dst) (concrete.regs src),
     case tt {
       clear vc₂_sound,
       obtain ⟨as_ok, tail⟩ := vc₁_sound cond,
       simp only [band_eq_true_eq_eq_tt_and_eq_tt, bimplies] at as_ok,
       refine ⟨as_ok.1, _⟩,
-      apply bpf.cfg.safe_from_state_of_det_step tail _ (bpf.cfg.step_jmp_x_det fetch_i),
-      have step := bpf.cfg.step.JMP_X fetch_i as_ok.2 rfl,
+      simp only [set.mem_def, pre.pc_ok] at fetch_i,
+      apply bpf.cfg.safe_from_state_of_det_step tail _ (bpf.cfg.step_jmp_x_det concrete fetch_i),
+      have step := bpf.cfg.step.JMP_X concrete fetch_i as_ok.2 rfl,
       rw [cond] at step,
       exact step },
     case ff {
@@ -495,8 +509,9 @@ begin
       obtain ⟨as_ok, tail⟩ := vc₂_sound cond,
       simp only [band_eq_true_eq_eq_tt_and_eq_tt, bimplies] at as_ok,
       refine ⟨as_ok.1, _⟩,
-      apply bpf.cfg.safe_from_state_of_det_step tail _ (bpf.cfg.step_jmp_x_det fetch_i),
-      have step := bpf.cfg.step.JMP_X fetch_i as_ok.2 rfl,
+      simp only [set.mem_def, pre.pc_ok] at fetch_i,
+      apply bpf.cfg.safe_from_state_of_det_step tail _ (bpf.cfg.step_jmp_x_det concrete fetch_i),
+      have step := bpf.cfg.step.JMP_X concrete fetch_i as_ok.2 rfl,
       rw [cond] at step,
       exact step } }
 end
@@ -560,33 +575,30 @@ begin
   have h₀₀ := symvalue.sat_mk_scalar f₀₀,
   have h₁₀ := symvalue.sat_doJMP_check f₁₀ (sat_of_le l₀₀ (pre.regs_ok dst)) h₀₀,
   have h₁₁ := assert_spec (of_le (le_trans l₀₀ l₁₀) pre) h₁₀ f₁₁,
+  have h₁ := symvalue.sat_doJMP f₁ (h₁₁.regs_ok dst) (sat_of_le (le_trans l₁₀ l₁₁) h₀₀),
+  have h₂ := sat_mk_not f₂ h₁,
+  have h₃ := assume_spec (of_le (le_trans l₁ l₂) h₁₁) (sat_of_le l₂ h₁) f₃,
+  simp only [bv.not] at h₂,
+  have h₅ := assume_spec (of_le (le_trans (le_trans l₁ l₂) (le_trans l₃ l₄)) h₁₁) (sat_of_le (le_trans l₃ l₄) h₂) f₅,
 
   rename ih → ih₁,
   have ih₂ := ih₁,
-  specialize @ih₁ g₃ g₄ true_condition {current := if_true, ..truestate} (asserts && bimplies assumes (op.doJMP_check (regs dst) (value.scalar (vector.nth imm)))) ((bpf.JMP.doJMP op (regs dst) (bpf.value.scalar imm.nth)) && assumes) regs true.intro _ f₄,
-  { convert (assume_spec _ _ f₃) using 0,
-    { simp only [concretizes_iff] },
-    { refine of_le (le_trans l₁ l₂) h₁₁ },
-    { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₂, simp only at r, rw [← r], clear r,
-      obtain ⟨l, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₁, simp only at l r, rw [← l, ← r], clear l, clear r,
-      refine sat_of_le le_mk_not _,
-      apply symvalue.sat_doJMP,
-      { rw [prod.mk.eta] },
-      { exact h₁₁.regs_ok dst },
-      { exact sat_of_le (le_trans l₁₀ l₁₁) h₀₀ } } },
-  specialize @ih₂ g₅ g₆ false_condition {current := if_false, ..falsestate} (asserts && bimplies assumes (op.doJMP_check (regs dst) (value.scalar (vector.nth imm)))) (!(bpf.JMP.doJMP op (regs dst) (bpf.value.scalar imm.nth)) && assumes) regs true.intro _ f₆,
-  { convert (assume_spec _ _ f₅) using 0,
-    { simp only [concretizes_iff] },
-    { refine of_le (le_trans (le_trans l₁ l₂) (le_trans l₃ l₄)) h₁₁ },
-    { refine sat_of_le (le_trans l₃ l₄) _,
-      obtain ⟨l, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₂, simp only at l r, rw [← l, ← r], clear l, clear r,
-      refine sat_mk_not (by rw [prod.mk.eta]) _,
-      obtain ⟨l, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₁, simp only at l r, rw [← l, ← r], clear l, clear r,
-      apply symvalue.sat_doJMP,
-      { rw [prod.mk.eta] },
-      { exact h₁₁.regs_ok dst },
-      { exact sat_of_le (le_trans l₁₀ l₁₁) h₀₀ } } },
-  rcases ih₁ with ⟨vc₁, vc₁_sat, vc₁_sound⟩,
+  specialize @ih₁ g₃ g₄ true_condition _ (asserts && bimplies assumes (op.doJMP_check (concrete.regs dst) (bpf.value.scalar imm.nth))) ((bpf.JMP.doJMP op (concrete.regs dst) (bpf.value.scalar imm.nth)) && assumes) { pc := if_true, ..concrete } true.intro _ f₄,
+  { apply concretizes.mk,
+    { apply h₃.asserts_ok },
+    { apply h₃.assumes_ok },
+    { intros r,
+      apply h₃.regs_ok r },
+    { refl },
+    { apply h₃.next_rng_ok } },
+  specialize @ih₂ g₅ g₆ false_condition _ (asserts && bimplies assumes (op.doJMP_check (concrete.regs dst) (bpf.value.scalar imm.nth))) (!(bpf.JMP.doJMP op (concrete.regs dst) (bpf.value.scalar imm.nth)) && assumes) { pc := if_false, ..concrete } true.intro _ f₆,
+  { apply concretizes.mk,
+    { apply h₅.asserts_ok },
+    { apply h₅.assumes_ok },
+    { intros r,
+      apply h₅.regs_ok r },
+    { refl },
+    { apply h₅.next_rng_ok } },  rcases ih₁ with ⟨vc₁, vc₁_sat, vc₁_sound⟩,
   rcases ih₂ with ⟨vc₂, vc₂_sat, vc₂_sound⟩,
   existsi (vc₁ && vc₂),
   split,
@@ -598,14 +610,15 @@ begin
     rcases vcs_true with ⟨⟨⟩, ⟨⟩⟩,
     simp only [eq_self_iff_true, to_bool_iff, forall_true_left, band_tt] at vc₁_sound,
     simp only [bnot_eq_true_eq_eq_ff, bool.to_bool_not, eq_self_iff_true, to_bool_ff_iff, forall_true_left, band_tt] at vc₂_sound,
-    cases cond : bpf.JMP.doJMP op (regs dst) (bpf.value.scalar imm.nth),
+    cases cond : bpf.JMP.doJMP op (concrete.regs dst) (bpf.value.scalar imm.nth),
     case tt {
       clear vc₂_sound,
       obtain ⟨as_ok, tail⟩ := vc₁_sound cond,
       simp only [band_eq_true_eq_eq_tt_and_eq_tt, bimplies] at as_ok,
       refine ⟨as_ok.1, _⟩,
-      apply bpf.cfg.safe_from_state_of_det_step tail _ (bpf.cfg.step_jmp_k_det fetch_i),
-      have step := bpf.cfg.step.JMP_K fetch_i as_ok.2 rfl,
+      simp only [set.mem_def, pre.pc_ok] at fetch_i,
+      apply bpf.cfg.safe_from_state_of_det_step tail _ (bpf.cfg.step_jmp_k_det _ fetch_i),
+      have step := bpf.cfg.step.JMP_K _ fetch_i as_ok.2 rfl,
       rw [cond] at step,
       exact step },
     case ff {
@@ -613,8 +626,9 @@ begin
       obtain ⟨as_ok, tail⟩ := vc₂_sound cond,
       simp only [band_eq_true_eq_eq_tt_and_eq_tt, bimplies] at as_ok,
       refine ⟨as_ok.1, _⟩,
-      apply bpf.cfg.safe_from_state_of_det_step tail _ (bpf.cfg.step_jmp_k_det fetch_i),
-      have step := bpf.cfg.step.JMP_K fetch_i as_ok.2 rfl,
+      simp only [set.mem_def, pre.pc_ok] at fetch_i,
+      apply bpf.cfg.safe_from_state_of_det_step tail _ (bpf.cfg.step_jmp_k_det _ fetch_i),
+      have step := bpf.cfg.step.JMP_K _ fetch_i as_ok.2 rfl,
       rw [cond] at step,
       exact step } }
 end
@@ -630,7 +644,7 @@ theorem step_alu64_x_correct
     se_correct cfg o (λ s, lookup s.current cfg.code = some (instr.ALU64_X op dst src next))
                (step_alu64_x cfg k op dst src next) :=
 begin
-  intros g g' c abs asserts assumes regs fetch_i pre mk,
+  intros g g' c abs asserts assumes concrete fetch_i pre mk,
   simp only [step_alu64_x, state_t.run_bind] at mk,
   rcases f₁ : (symvalue.doALU_check op (abs.regs dst) (abs.regs src)).run g with ⟨check, g₁⟩,
   cases f₂ : (assert check abs).run g₁ with s' g₂,
@@ -654,7 +668,13 @@ begin
   have h₂ := assert_spec (of_le l₁ pre) h₁ f₂,
   have h₃ := symvalue.sat_doALU f₃ (factory.sat_of_le (le_trans l₁ l₂) (pre.regs_ok dst))
                            (factory.sat_of_le (le_trans l₁ l₂) (pre.regs_ok src)),
-  specialize @ih _ _ c _ (asserts && (bimplies assumes (bpf.ALU.doALU_check op (regs dst) (regs src)))) assumes (function.update regs dst (bpf.ALU.doALU op (regs dst) (regs src))) true.intro _ f₄,
+  specialize @ih _ _ c _
+      (asserts && (bimplies assumes (bpf.ALU.doALU_check op (concrete.regs dst) (concrete.regs src))))
+      assumes
+      { regs := function.update concrete.regs dst (bpf.ALU.doALU op (concrete.regs dst) (concrete.regs src)),
+        pc := next,
+        ..concrete }
+       true.intro _ f₄,
   { apply concretizes.mk,
     { exact sat_of_le l₃ h₂.asserts_ok },
     { exact sat_of_le l₃ h₂.assumes_ok },
@@ -663,7 +683,10 @@ begin
       split_ifs,
       { subst_vars,
         exact h₃ },
-      { exact sat_of_le (le_trans (le_trans l₁ l₂) l₃) (pre.regs_ok r) } } },
+      { exact sat_of_le (le_trans (le_trans l₁ l₂) l₃) (pre.regs_ok r) } },
+    { simp only },
+    { simp only,
+      apply h₂.next_rng_ok } },
   { rcases ih with ⟨vc, vc_sat, vc_sound⟩,
     refine ⟨vc, ⟨vc_sat, _⟩⟩,
     rintros ⟨⟩ ⟨⟩,
@@ -671,8 +694,11 @@ begin
     simp only [bool.to_bool_not, band_eq_true_eq_eq_tt_and_eq_tt] at as_ok,
     rcases as_ok with ⟨⟨⟩, this_assert_ok⟩,
     refine ⟨rfl, _⟩,
-    apply bpf.cfg.safe_from_state_of_det_step tail _ (bpf.cfg.step_alu64_x_det fetch_i),
-    refine bpf.cfg.step.ALU64_X fetch_i _ rfl,
+    simp only [set.mem_def, pre.pc_ok] at fetch_i,
+    apply bpf.cfg.safe_from_state_of_det_step tail _ (bpf.cfg.step_alu64_x_det concrete fetch_i),
+    simp only,
+    have h := bpf.cfg.step.ALU64_X concrete fetch_i _ rfl,
+    exact h,
     simp only [bimplies, bnot_eq_true_eq_eq_ff, to_bool_ff_iff] at this_assert_ok,
     exact this_assert_ok }
 end
@@ -684,7 +710,7 @@ theorem step_alu64_k_correct
     se_correct cfg o (λ s, lookup s.current cfg.code = some (instr.ALU64_K op dst imm next))
                (step_alu64_k cfg k op dst imm next) :=
 begin
-  intros g g' c abs asserts assumes regs fetch_i pre mk,
+  intros g g' c abs asserts assumes concrete fetch_i pre mk,
   simp only [step_alu64_k, state_t.run_bind] at mk,
   cases f₁ : (symvalue.mk_scalar imm : state γ (symvalue β)).run g with const g₁,
   rcases f₂ : (symvalue.doALU_check op (abs.regs dst) const).run g₁ with ⟨check, g₂⟩,
@@ -713,7 +739,12 @@ begin
   have h₄ := symvalue.sat_doALU f₄ (factory.sat_of_le (le_trans l₁ (le_trans l₂ l₃)) (pre.regs_ok dst))
                            (factory.sat_of_le (le_trans l₂ l₃) (symvalue.sat_mk_scalar f₁)),
 
-  specialize @ih _ _ c _ (asserts && (bimplies assumes (bpf.ALU.doALU_check op (regs dst) (bpf.value.scalar imm.nth)))) assumes (function.update regs dst (bpf.ALU.doALU op (regs dst) (bpf.value.scalar imm.nth))) true.intro _ f₅,
+  specialize @ih _ _ c _ (asserts && (bimplies assumes (bpf.ALU.doALU_check op (concrete.regs dst) (bpf.value.scalar imm.nth))))
+                         assumes
+                         { regs := function.update concrete.regs dst (bpf.ALU.doALU op (concrete.regs dst) (bpf.value.scalar imm.nth)),
+                           pc := next,
+                          ..concrete }
+                         true.intro _ f₅,
   { constructor,
     { exact sat_of_le l₄ h₃.asserts_ok },
     { exact sat_of_le l₄ h₃.assumes_ok },
@@ -722,7 +753,10 @@ begin
       split_ifs,
       { subst_vars,
         exact h₄ },
-      { exact sat_of_le (le_trans (le_trans l₁ l₂) (le_trans l₃ l₄)) (pre.regs_ok r) } } },
+      { exact sat_of_le (le_trans (le_trans l₁ l₂) (le_trans l₃ l₄)) (pre.regs_ok r) } },
+    { simp only },
+    { simp only,
+      apply h₃.next_rng_ok } },
   { rcases ih with ⟨vc, vc_sat, vc_sound⟩,
     refine ⟨vc, ⟨vc_sat, _⟩⟩,
     rintros ⟨⟩ ⟨⟩,
@@ -730,8 +764,9 @@ begin
     simp only [bool.to_bool_not, band_eq_true_eq_eq_tt_and_eq_tt] at as_ok,
     rcases as_ok with ⟨⟨⟩, this_assert_ok⟩,
     refine ⟨rfl, _⟩,
-    apply bpf.cfg.safe_from_state_of_det_step tail _ (bpf.cfg.step_alu64_k_det fetch_i),
-    refine bpf.cfg.step.ALU64_K fetch_i _ rfl,
+    simp only [set.mem_def, pre.pc_ok] at fetch_i,
+    apply bpf.cfg.safe_from_state_of_det_step tail _ (bpf.cfg.step_alu64_k_det _ fetch_i),
+    refine bpf.cfg.step.ALU64_K _ fetch_i _ rfl,
     simp only [bimplies, bnot_eq_true_eq_eq_ff, to_bool_ff_iff] at this_assert_ok,
     exact this_assert_ok }
 end
@@ -742,7 +777,7 @@ theorem step_exit_correct
     se_correct cfg o (λ s, lookup s.current cfg.code = some instr.Exit)
                (step_exit cfg k) :=
 begin
-  intros g g' c abs asserts assumes regs fetch_i pre mk,
+  intros g g' c abs asserts assumes concrete fetch_i pre mk,
   simp only [step_exit, state_t.run_bind] at mk,
   cases f₁ : ((mk_const1 (abs.regs reg.R0).is_scalar).run g : β × γ) with noleak g',
   cases f₂ : (assert noleak abs).run g' with abs' g'',
@@ -767,10 +802,11 @@ begin
   cases noleak' with return_value return_value_h,
   have return_register_sat := pre.regs_ok reg.R0,
   rw [return_value_h] at return_register_sat,
-  generalize hreg0 : regs reg.R0 = reg_r0,
+  generalize hreg0 : concrete.regs reg.R0 = reg_r0,
   rw [hreg0] at return_register_sat,
   cases return_register_sat,
-  exact bpf.cfg.safe_from_state_of_det_step bpf.cfg.safe_from_exited (bpf.cfg.step.Exit fetch_i hreg0) (bpf.cfg.step_exit_det fetch_i)
+  simp only [set.mem_def, pre.pc_ok] at fetch_i,
+  exact bpf.cfg.safe_from_state_of_det_step bpf.cfg.safe_from_exited (bpf.cfg.step.Exit _ fetch_i hreg0) (bpf.cfg.step_exit_det _ fetch_i)
 end
 
 /-- step_symeval is correct for any state when the continuation is correct for any state. -/
@@ -821,7 +857,6 @@ begin
   { refine ⟨vc_b, ⟨sat₁, _⟩⟩,
     rintros ⟨⟩,
     obtain ⟨-, tail⟩ := sound rfl rfl,
-    simp only [initial_symstate_current] at tail,
     exact tail },
   { apply @initial_symstate_spec _ _ _ _ _,
     rw [prod.mk.eta] },

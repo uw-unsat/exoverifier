@@ -169,8 +169,16 @@ section semantics
 variables {α χ : Type*} [unordered_map α (instr α) χ]
 
 @[derive [decidable_eq]]
+structure runstate (α : Type*) :=
+(pc       : α)
+(regs     : reg → value)
+(next_rng : ℕ)
+
+instance [inhabited α] : inhabited (runstate α) := ⟨⟨default _, (λ _, default _), 0⟩⟩
+
+@[derive [decidable_eq]]
 inductive state (α : Type*)
-| running : Π (pc : α) (regs : reg → value), state
+| running : runstate α → state
 | exited  : Π (return : i64), state
 
 instance : inhabited (state α) := ⟨state.exited 0⟩
@@ -181,232 +189,232 @@ variable [decidable_eq α]
 @[mk_iff]
 inductive step (cfg : CFG χ α) (o : oracle) : state α → state α → Prop
 | ALU64_X :
-  ∀ {pc : α} {regs : reg → value} {op : ALU} {dst src : reg} {v : value} {next : α},
-    lookup pc cfg.code = some (instr.ALU64_X op dst src next) →
-    ALU.doALU_check op (regs dst) (regs src) = tt →
-    ALU.doALU op (regs dst) (regs src) = v →
-    step (state.running pc regs) (state.running next (function.update regs dst v))
+  ∀ (s : runstate α) {op : ALU} {dst src : reg} {v : value} {next : α},
+    lookup s.pc cfg.code = some (instr.ALU64_X op dst src next) →
+    ALU.doALU_check op (s.regs dst) (s.regs src) = tt →
+    ALU.doALU op (s.regs dst) (s.regs src) = v →
+    step (state.running s) (state.running { pc := next, regs := function.update s.regs dst v, ..s })
 | ALU64_K :
-  ∀ {pc : α} {regs : reg → value} {op : ALU} {dst : reg} {imm : lsbvector 64} {v : value} {next : α},
-    lookup pc cfg.code = some (instr.ALU64_K op dst imm next) →
-    ALU.doALU_check op (regs dst) (value.scalar imm.nth) = tt →
-    ALU.doALU op (regs dst) (value.scalar imm.nth) = v →
-    step (state.running pc regs) (state.running next (function.update regs dst v))
+  ∀ (s : runstate α) {op : ALU} {dst : reg} {imm : lsbvector 64} {v : value} {next : α},
+    lookup s.pc cfg.code = some (instr.ALU64_K op dst imm next) →
+    ALU.doALU_check op (s.regs dst) (value.scalar imm.nth) = tt →
+    ALU.doALU op (s.regs dst) (value.scalar imm.nth) = v →
+    step (state.running s) (state.running { pc := next, regs := function.update s.regs dst v, ..s })
 | JMP_X :
-  ∀ {pc : α} {regs : reg → value} {op : JMP} {r₁ r₂ : reg} {c : bool} {if_true if_false : α},
-    lookup pc cfg.code = some (instr.JMP_X op r₁ r₂ if_true if_false) →
-    JMP.doJMP_check op (regs r₁) (regs r₂) = tt →
-    c = JMP.doJMP op (regs r₁) (regs r₂) →
-    step (state.running pc regs) (state.running (if c then if_true else if_false) regs)
+  ∀ (s : runstate α) {op : JMP} {r₁ r₂ : reg} {c : bool} {if_true if_false : α},
+    lookup s.pc cfg.code = some (instr.JMP_X op r₁ r₂ if_true if_false) →
+    JMP.doJMP_check op (s.regs r₁) (s.regs r₂) = tt →
+    c = JMP.doJMP op (s.regs r₁) (s.regs r₂) →
+    step (state.running s) (state.running { pc := if c then if_true else if_false, ..s })
 | JMP_K :
-  ∀ {pc : α} {regs : reg → value} {op : JMP} {r₁ : reg} {imm : lsbvector 64} {c : bool} {if_true if_false : α},
-    lookup pc cfg.code = some (instr.JMP_K op r₁ imm if_true if_false) →
-    JMP.doJMP_check op (regs r₁) (value.scalar imm.nth) = tt →
-    c = JMP.doJMP op (regs r₁) (value.scalar imm.nth) →
-    step (state.running pc regs) (state.running (if c then if_true else if_false) regs)
+  ∀ (s : runstate α) {op : JMP} {r₁ : reg} {imm : lsbvector 64} {c : bool} {if_true if_false : α},
+    lookup s.pc cfg.code = some (instr.JMP_K op r₁ imm if_true if_false) →
+    JMP.doJMP_check op (s.regs r₁) (value.scalar imm.nth) = tt →
+    c = JMP.doJMP op (s.regs r₁) (value.scalar imm.nth) →
+    step (state.running s) (state.running { pc := if c then if_true else if_false, ..s })
 | Exit :
-  ∀ {pc : α} {regs : reg → value} {ret : i64},
-    lookup pc cfg.code = some instr.Exit →
-    regs reg.R0 = value.scalar ret →
-    step (state.running pc regs) (state.exited ret)
+  ∀ (s : runstate α) {ret : i64},
+    lookup s.pc cfg.code = some instr.Exit →
+    s.regs reg.R0 = value.scalar ret →
+    step (state.running s) (state.exited ret)
 
 theorem do_step_alu64_x {cfg : CFG χ α} {o : oracle} :
-  ∀ {pc regs op dst src next},
-    lookup pc cfg.code = some (instr.ALU64_X op dst src next) →
-    ∀ {s : state α},
-      step cfg o (state.running pc regs) s →
-      s = state.running next (function.update regs dst (ALU.doALU op (regs dst) (regs src))) :=
+  ∀ (s : runstate α) {op dst src next},
+    lookup s.pc cfg.code = some (instr.ALU64_X op dst src next) →
+    ∀ {s' : state α},
+      step cfg o (state.running s) s' →
+      s' = state.running { pc := next, regs := function.update s.regs dst (ALU.doALU op (s.regs dst) (s.regs src)), ..s } :=
 begin
-  intros _ _ _ _ _ _ fetch _ step₁,
+  intros _ _ _ _ _ fetch _ step₁,
   cases step₁,
-  case ALU64_X : _ _ _ _ _ _ _ fetch' {
+  case ALU64_X : _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch',
     subst_vars },
-  case ALU64_K : _ _ _ _ _ _ _ fetch' {
+  case ALU64_K : _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
-  case JMP_X : _ _ _ _ _ _ _ _ fetch' {
+  case JMP_X : _ _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
-  case JMP_K : _ _ _ _ _ _ _ _ fetch' {
+  case JMP_K : _ _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
-  case Exit : _ _ _ fetch' {
+  case Exit : _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
 end
 
 theorem step_alu64_x_det {cfg : CFG χ α} {o : oracle} :
-  ∀ {pc regs op dst src next},
-    lookup pc cfg.code = some (instr.ALU64_X op dst src next) →
-    set.subsingleton (step cfg o (state.running pc regs)) :=
+  ∀ (s : runstate α) {op dst src next},
+    lookup s.pc cfg.code = some (instr.ALU64_X op dst src next) →
+    set.subsingleton (step cfg o (state.running s)) :=
 begin
-  intros _ _ _ _ _ _ fetch s₁ step₁ s₂ step₂,
-  rw [do_step_alu64_x fetch step₁, do_step_alu64_x fetch step₂]
+  intros _ _ _ _ _ fetch s₁ step₁ s₂ step₂,
+  rw [do_step_alu64_x _ fetch step₁, do_step_alu64_x _ fetch step₂]
 end
 
 theorem do_step_alu64_k {cfg : CFG χ α} {o : oracle} :
-  ∀ {pc regs op dst imm next},
-    lookup pc cfg.code = some (instr.ALU64_K op dst imm next) →
-    ∀ {s : state α},
-      step cfg o (state.running pc regs) s →
-      s = state.running next (function.update regs dst (ALU.doALU op (regs dst) (value.scalar imm.nth))) :=
+  ∀ (s : runstate α) {op dst imm next},
+    lookup s.pc cfg.code = some (instr.ALU64_K op dst imm next) →
+    ∀ {s' : state α},
+      step cfg o (state.running s) s' →
+      s' = state.running { pc := next, regs := function.update s.regs dst (ALU.doALU op (s.regs dst) (value.scalar imm.nth)), ..s } :=
 begin
-  intros _ _ _ _ _ _ fetch _ step₁,
+  intros _ _ _ _ _ fetch _ step₁,
   cases step₁,
-  case ALU64_X : _ _ _ _ _ _ _ fetch' {
+  case ALU64_X : _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
-  case ALU64_K : _ _ _ _ _ _ _ fetch' {
+  case ALU64_K : _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch',
     subst_vars },
-  case JMP_X : _ _ _ _ _ _ _ _ fetch' {
+  case JMP_X : _ _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
-  case JMP_K : _ _ _ _ _ _ _ _ fetch' {
+  case JMP_K : _ _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
-  case Exit : _ _ _ fetch' {
+  case Exit : _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
 end
 
 theorem step_alu64_k_det {cfg : CFG χ α} {o : oracle} :
-  ∀ {pc regs op dst imm next},
-    lookup pc cfg.code = some (instr.ALU64_K op dst imm next) →
-    set.subsingleton (step cfg o (state.running pc regs)) :=
+  ∀ (s : runstate α) {op dst imm next},
+    lookup s.pc cfg.code = some (instr.ALU64_K op dst imm next) →
+    set.subsingleton (step cfg o (state.running s)) :=
 begin
-  intros _ _ _ _ _ _ fetch s₁ step₁ s₂ step₂,
-  rw [do_step_alu64_k fetch step₁, do_step_alu64_k fetch step₂]
+  intros _ _ _ _ _ fetch s₁ step₁ s₂ step₂,
+  rw [do_step_alu64_k _ fetch step₁, do_step_alu64_k _ fetch step₂]
 end
 
 theorem do_step_jmp_x {cfg : CFG χ α} {o : oracle} :
-  ∀ {pc regs op r₁ r₂ if_true if_false},
-    lookup pc cfg.code = some (instr.JMP_X op r₁ r₂ if_true if_false) →
-    ∀ {s : state α},
-      step cfg o (state.running pc regs) s →
-      s = state.running (if JMP.doJMP op (regs r₁) (regs r₂) then if_true else if_false) regs :=
+  ∀ (s : runstate α) {op r₁ r₂ if_true if_false},
+    lookup s.pc cfg.code = some (instr.JMP_X op r₁ r₂ if_true if_false) →
+    ∀ {s' : state α},
+      step cfg o (state.running s) s' →
+      s' = state.running { pc := if JMP.doJMP op (s.regs r₁) (s.regs r₂) then if_true else if_false, ..s } :=
 begin
-  intros _ _ _ _ _ _ _ fetch _ step₁,
+  intros _ _ _ _ _ _ fetch _ step₁,
   cases step₁,
-  case ALU64_X : _ _ _ _ _ _ _ fetch' {
+  case ALU64_X : _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
-  case ALU64_K : _ _ _ _ _ _ _ fetch' {
+  case ALU64_K : _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
-  case JMP_X : _ _ _ _ _ _ _ _ fetch' {
+  case JMP_X : _ _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch',
     subst_vars },
-  case JMP_K : _ _ _ _ _ _ _ _ fetch' {
+  case JMP_K : _ _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
-  case Exit : _ _ _ fetch' {
+  case Exit : _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
 end
 
 theorem step_jmp_x_det {cfg : CFG χ α} {o : oracle} :
-  ∀ {pc regs op r₁ r₂ if_true if_false},
-    lookup pc cfg.code = some (instr.JMP_X op r₁ r₂ if_true if_false) →
-    set.subsingleton (step cfg o (state.running pc regs)) :=
+  ∀ (s : runstate α) {op r₁ r₂ if_true if_false},
+    lookup s.pc cfg.code = some (instr.JMP_X op r₁ r₂ if_true if_false) →
+    set.subsingleton (step cfg o (state.running s)) :=
 begin
-  intros _ _ _ _ _ _ _ fetch s₁ step₁ s₂ step₂,
-  rw [do_step_jmp_x fetch step₁, do_step_jmp_x fetch step₂]
+  intros _ _ _ _ _ _ fetch s₁ step₁ s₂ step₂,
+  rw [do_step_jmp_x _ fetch step₁, do_step_jmp_x _ fetch step₂]
 end
 
 theorem do_step_jmp_k {cfg : CFG χ α} {o : oracle} :
-  ∀ {pc regs op r₁ imm if_true if_false},
-    lookup pc cfg.code = some (instr.JMP_K op r₁ imm if_true if_false) →
-    ∀ {s : state α},
-      step cfg o (state.running pc regs) s →
-      s = state.running (if JMP.doJMP op (regs r₁) (value.scalar imm.nth) then if_true else if_false) regs :=
+  ∀ (s : runstate α) {op r₁ imm if_true if_false},
+    lookup s.pc cfg.code = some (instr.JMP_K op r₁ imm if_true if_false) →
+    ∀ {s' : state α},
+      step cfg o (state.running s) s' →
+      s' = state.running { pc := if JMP.doJMP op (s.regs r₁) (value.scalar imm.nth) then if_true else if_false, ..s } :=
 begin
-  intros _ _ _ _ _ _ _ fetch _ step₁,
+  intros _ _ _ _ _ _ fetch _ step₁,
   cases step₁,
-  case ALU64_X : _ _ _ _ _ _ _ fetch' {
+  case ALU64_X : _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
-  case ALU64_K : _ _ _ _ _ _ _ fetch' {
+  case ALU64_K : _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
-  case JMP_X : _ _ _ _ _ _ _ _ fetch' {
+  case JMP_X : _ _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
-  case JMP_K : _ _ _ _ _ _ _ _ fetch' {
+  case JMP_K : _ _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch',
     subst_vars },
-  case Exit : _ _ _ fetch' {
+  case Exit : _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
 end
 
 theorem step_jmp_k_det {cfg : CFG χ α} {o : oracle} :
-  ∀ {pc regs op r₁ imm if_true if_false},
-    lookup pc cfg.code = some (instr.JMP_K op r₁ imm if_true if_false) →
-    set.subsingleton (step cfg o (state.running pc regs)) :=
+  ∀ (s : runstate α) {op r₁ imm if_true if_false},
+    lookup s.pc cfg.code = some (instr.JMP_K op r₁ imm if_true if_false) →
+    set.subsingleton (step cfg o (state.running s)) :=
 begin
-  intros _ _ _ _ _ _ _ fetch s₁ step₁ s₂ step₂,
-  rw [do_step_jmp_k fetch step₁, do_step_jmp_k fetch step₂]
+  intros _ _ _ _ _ _ fetch s₁ step₁ s₂ step₂,
+  rw [do_step_jmp_k _ fetch step₁, do_step_jmp_k _ fetch step₂]
 end
 
 theorem do_step_exit {cfg : CFG χ α} {o : oracle} :
-  ∀ {pc regs},
-    lookup pc cfg.code = some instr.Exit →
-    ∀ {s : state α},
-      step cfg o (state.running pc regs) s →
+  ∀ (s : runstate α),
+    lookup s.pc cfg.code = some instr.Exit →
+    ∀ {s' : state α},
+      step cfg o (state.running s) s' →
       ∃ (ret : i64),
-        regs reg.R0 = value.scalar ret ∧
-        s = state.exited ret :=
+        s.regs reg.R0 = value.scalar ret ∧
+        s' = state.exited ret :=
 begin
-  intros _ _ fetch _ step₁,
+  intros _ fetch _ step₁,
   cases step₁,
-  case ALU64_X : _ _ _ _ _ _ _ fetch' {
+  case ALU64_X : _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
-  case ALU64_K : _ _ _ _ _ _ _ fetch' {
+  case ALU64_K : _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
-  case JMP_X : _ _ _ _ _ _ _ _ fetch' {
+  case JMP_X : _ _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
-  case JMP_K : _ _ _ _ _ _ _ _ fetch' {
+  case JMP_K : _ _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
-  case Exit : _ _ step₁_ret fetch' {
+  case Exit : _ step₁_ret fetch' {
     existsi step₁_ret,
     tauto },
 end
 
 theorem step_exit_det {cfg : CFG χ α} {o : oracle} :
-  ∀ {pc regs},
-    lookup pc cfg.code = some instr.Exit →
-    set.subsingleton (step cfg o (state.running pc regs)) :=
+  ∀ (s : runstate α),
+    lookup s.pc cfg.code = some instr.Exit →
+    set.subsingleton (step cfg o (state.running s)) :=
 begin
-  intros _ _ fetch s₁ step₁ s₂ step₂,
-  obtain ⟨h₁, h₁', h₁''⟩ := do_step_exit fetch step₁,
-  obtain ⟨h₂, h₂', h₂''⟩ := do_step_exit fetch step₂,
+  intros _ fetch s₁ step₁ s₂ step₂,
+  obtain ⟨h₁, h₁', h₁''⟩ := do_step_exit _ fetch step₁,
+  obtain ⟨h₂, h₂', h₂''⟩ := do_step_exit _ fetch step₂,
   rw [h₁'] at h₂',
   cases h₂',
   rw [h₁'', h₂'']
 end
 
 theorem running_backwards (cfg : CFG χ α) (s : state α) (o : oracle) :
-  ∀ pc regs,
-  step cfg o s (state.running pc regs) →
-  ∃ pc' regs',
-    s = state.running pc' regs' :=
+  ∀ (s' : runstate α),
+  step cfg o s (state.running s') →
+  ∃ s'',
+    s = state.running s'' :=
 begin
-  intros _ _ step,
+  intros _ step,
   cases step; tauto
 end
 
 def initial_state (cfg : CFG χ α) (o : oracle) : state α :=
-state.running (CFG.entry cfg) o.initial_regs
+state.running { pc := CFG.entry cfg, regs := o.initial_regs, next_rng := 0 }
 
 @[reducible]
 def star (cfg : CFG χ α) (o : oracle) : state α → state α → Prop :=
