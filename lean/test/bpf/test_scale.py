@@ -8,8 +8,8 @@ import time
 import timeit
 import test.bpf.test_absint as test_absint
 
-# r1 = 1
-MOV_ONE = b"\xb7\x01\x00\x00\x01\x00\x00\x00"
+# r0 = 1
+MOV_ONE = b"\xb7\x00\x00\x00\x01\x00\x00\x00"
 # exit
 EXIT = b"\x95\x00\x00\x00\x00\x00\x00\x00"
 
