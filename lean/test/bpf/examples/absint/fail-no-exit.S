@@ -1,1 +1,0 @@
-../common/fail-no-exit.S
