@@ -28,7 +28,7 @@ open unordered_map
 structure symstate (β η : Type*) :=
 (assumptions assertions : β)
 (current : η)
-(regs : reg → symvalue β)
+(regs : vector (symvalue β) bpf.nregs)
 (next_rng : num)
 
 section impl
@@ -64,26 +64,26 @@ mk_not s.assumptions
 
 /-- Step symbolic evaluation for an ALU64_X instruction. -/
 def step_alu64_x (cfg : CFG χ η) (k : symstate β η → state γ β) (op : ALU) (dst src : reg) (next : η) (s : symstate β η) : state γ β := do
-check ← symvalue.doALU_check op (s.regs dst) (s.regs src),
+check ← symvalue.doALU_check op (s.regs.nth dst.to_fin) (s.regs.nth src.to_fin),
 s' ← assert check s,
-val ← symvalue.doALU op (s.regs dst) (s.regs src),
-k {regs        := function.update s.regs dst val,
+val ← symvalue.doALU op (s.regs.nth dst.to_fin) (s.regs.nth src.to_fin),
+k {regs        := s.regs.update_nth dst.to_fin val,
    current     := next, ..s'}
 
 /-- Step symbolic evaluation for an ALU64_K instruction. -/
 def step_alu64_k (cfg : CFG χ η) (k : symstate β η → state γ β) (op : ALU) (dst : reg) (imm : lsbvector 64) (next : η) (s : symstate β η) : state γ β := do
 (const : symvalue β) ← symvalue.mk_scalar imm,
-check ← symvalue.doALU_check op (s.regs dst) const,
+check ← symvalue.doALU_check op (s.regs.nth dst.to_fin) const,
 s' ← assert check s,
-val ← symvalue.doALU op (s.regs dst) const,
-k {regs        := function.update s.regs dst val,
+val ← symvalue.doALU op (s.regs.nth dst.to_fin) const,
+k {regs        := s.regs.update_nth dst.to_fin val,
    current     := next, ..s'}
 
 /-- Step symbolic evaluation for a JMP_X instruction. -/
 def step_jmp64_x (cfg : CFG χ η) (k : symstate β η → state γ β) (op : JMP) (dst src : reg) (if_true if_false : η) (s : symstate β η) : state γ β := do
-check ← symvalue.doJMP_check op (s.regs dst) (s.regs src),
+check ← symvalue.doJMP_check op (s.regs.nth dst.to_fin) (s.regs.nth src.to_fin),
 s' ← assert check s,
-cond ← symvalue.doJMP op (s'.regs dst) (s'.regs src),
+cond ← symvalue.doJMP op (s'.regs.nth dst.to_fin) (s'.regs.nth src.to_fin),
 ncond ← mk_not cond,
 truestate ← assume_ cond s',
 true_condition ← k {current := if_true, ..truestate},
@@ -94,9 +94,9 @@ mk_and true_condition false_condition
 /-- Step symbolic evaluation for a JMP_K instruction. -/
 def step_jmp64_k (cfg : CFG χ η) (k : symstate β η → state γ β) (op : JMP) (dst : reg) (imm : lsbvector 64) (if_true if_false : η) (s : symstate β η) : state γ β := do
 (const : symvalue β) ← symvalue.mk_scalar imm,
-check ← symvalue.doJMP_check op (s.regs dst) const,
+check ← symvalue.doJMP_check op (s.regs.nth dst.to_fin) const,
 s' ← assert check s,
-cond ← symvalue.doJMP op (s'.regs dst) const,
+cond ← symvalue.doJMP op (s'.regs.nth dst.to_fin) const,
 ncond ← mk_not cond,
 truestate ← assume_ cond s',
 true_condition ← k {current := if_true, ..truestate},
@@ -105,7 +105,7 @@ false_condition ← k {current := if_false, ..falsestate},
 mk_and true_condition false_condition
 
 def step_exit (cfg : CFG χ η) (k : symstate β η → state γ β) (s : symstate β η) : state γ β := do
-(noleak : β) ← mk_const1 (s.regs reg.R0).is_scalar,
+(noleak : β) ← mk_const1 (s.regs.nth reg.R0.to_fin).is_scalar,
 s ← assert noleak s,
 pure s.assertions
 
@@ -137,7 +137,7 @@ def initial_symstate (cfg : CFG χ η) (o : erased oracle) : state γ (symstate 
 truthy : β ← mk_true,
 pure { assumptions := truthy,
        assertions  := truthy,
-       regs        := bpf.reg.of_vector (vector.repeat symvalue.uninitialized _),
+       regs        := vector.repeat symvalue.uninitialized bpf.nregs,
        current     := cfg.entry,
        next_rng    := 0 }
 

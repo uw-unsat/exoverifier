@@ -45,6 +45,10 @@ inductive reg : Type
 
 namespace reg
 
+/-- Caller-saved registers according to the BPF semantics. -/
+def caller_saved : list reg :=
+[R0, R1, R2, R3, R4, R5]
+
 def to_vector {α : Type*} (regs : reg → α) : vector α nregs :=
 regs R0 ::ᵥ regs R1 ::ᵥ regs R2 ::ᵥ regs R3 ::ᵥ regs R4 ::ᵥ
 regs R5 ::ᵥ regs R6 ::ᵥ regs R7 ::ᵥ regs R8 ::ᵥ regs R9 ::ᵥ
@@ -65,6 +69,15 @@ begin
   simp only [to_fin],
   intros h₂,
   apply equiv.injective (fin_enum.equiv reg) h₂
+end
+
+theorem to_fin_ne_of_ne {r₁ r₂ : reg} :
+  r₁ ≠ r₂ →
+  (to_fin r₁) ≠ (to_fin r₂) :=
+begin
+  intros h,
+  contrapose! h,
+  exact to_fin_inj h
 end
 
 def of_vector {α : Type*} (v : vector α nregs) (r : reg) : α :=

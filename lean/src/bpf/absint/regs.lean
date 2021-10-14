@@ -139,11 +139,8 @@ private def do_alu (op : bpf.ALU) (dst src : bpf.reg) :
       simp only [interpret, option.get_or_else_some, vector.nth_update_nth_same],
       exact (value_abstr.doALU op).correct (h₁ r) (h₁ src) },
     { simp only [interpret],
-      rw [vector.nth_update_nth_of_ne _],
-      exact h₁ r,
-      contrapose! h,
-      symmetry,
-      apply bpf.reg.to_fin_inj h } } }
+      rw [vector.nth_update_nth_of_ne (bpf.reg.to_fin_ne_of_ne (ne.symm h))],
+      exact h₁ r } } }
 
 private def do_alu_imm (op : bpf.ALU) (dst : bpf.reg) (imm : lsbvector 64) :
   abstr_unary_transfer (bpf.reg → bpf.value) (aregs β) (aregs β)
@@ -157,11 +154,8 @@ private def do_alu_imm (op : bpf.ALU) (dst : bpf.reg) (imm : lsbvector 64) :
       simp only [interpret, option.get_or_else_some, vector.nth_update_nth_same],
       exact (value_abstr.doALU op).correct (h₁ r) (abstract_correct _) },
     { simp only [interpret],
-      rw [vector.nth_update_nth_of_ne _],
-      exact h₁ r,
-      contrapose! h,
-      symmetry,
-      apply bpf.reg.to_fin_inj h } } }
+      rw [vector.nth_update_nth_of_ne (bpf.reg.to_fin_ne_of_ne (ne.symm h))],
+      exact h₁ r } } }
 
 private def do_jmp_check (op : bpf.JMP) (dst src : bpf.reg) :
   abstr_unary_test (bpf.reg → bpf.value) (aregs β)

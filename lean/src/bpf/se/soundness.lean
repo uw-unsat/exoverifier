@@ -52,7 +52,7 @@ end
 structure concretizes (g : γ) (abs : symstate β η) (asserts assumes : bool) (concrete : runstate η) : Prop :=
 (asserts_ok  : sat g abs.assertions (bv1 asserts))
 (assumes_ok  : sat g abs.assumptions (bv1 assumes))
-(regs_ok     : ∀ (r : reg), sat g (abs.regs r) (concrete.regs r))
+(regs_ok     : ∀ (r : reg), sat g (abs.regs.nth r.to_fin) (concrete.regs r))
 (pc_ok       : abs.current = concrete.pc)
 (next_rng_ok : abs.next_rng = concrete.next_rng)
 
@@ -311,7 +311,7 @@ end
 theorem initial_symstate_spec
   (g : γ) {g' : γ} {s : symstate β η} (cfg : CFG χ η) (o : erased oracle) :
     (initial_symstate cfg o).run g = (s, g') →
-    concretizes g' s tt tt ⟨cfg.entry, (λ _, value.uninitialized), 0⟩ :=
+    concretizes g' s tt tt ⟨cfg.entry, (λ (_ : bpf.reg), value.uninitialized), 0⟩ :=
 begin
   intros mk,
   simp only [initial_symstate, state_t.run_bind] at mk,
@@ -319,9 +319,8 @@ begin
   apply concretizes.mk; simp only,
   { exact (sat_mk_true (by rw [prod.mk.eta])) },
   { exact (sat_mk_true (by rw [prod.mk.eta])) },
-  { simp only [reg.of_vector],
+  { simp only [vector.nth_repeat],
     intros r,
-    simp only [vector.nth_repeat],
     constructor },
   { refl }
 end
@@ -372,9 +371,9 @@ theorem step_jmp64_x_correct
 begin
   intros _ _ vc _ _ _ _ fetch_i pre mk,
   simp only [step_jmp64_x, state_t.run_bind] at mk,
-  cases f₁₀ : (symvalue.doJMP_check op (abs.regs dst) (abs.regs src)).run g with check g₁₀,
+  cases f₁₀ : (symvalue.doJMP_check op (abs.regs.nth dst.to_fin) (abs.regs.nth src.to_fin)).run g with check g₁₀,
   cases f₁₁ : (assert check abs).run g₁₀ with s' g₁₁,
-  cases f₁ : (symvalue.doJMP op (s'.regs dst) (s'.regs src)).run g₁₁ with eq g₁,
+  cases f₁ : (symvalue.doJMP op (s'.regs.nth dst.to_fin) (s'.regs.nth src.to_fin)).run g₁₁ with eq g₁,
   cases f₂ : (mk_not eq).run g₁ with neq g₂,
   cases f₃ : (assume_ eq s').run g₂ with truestate g₃,
   cases f₄ : (k {current := if_true, ..truestate}).run g₃ with true_condition g₄,
@@ -484,9 +483,9 @@ begin
   intros _ _ vc _ _ _ _ fetch_i pre mk,
   simp only [step_jmp64_k, state_t.run_bind] at mk,
   cases f₀₀ : (symvalue.mk_scalar imm : state γ (symvalue β)).run g with const g₀₀,
-  cases f₁₀ : (symvalue.doJMP_check op (abs.regs dst) const).run g₀₀ with check g₁₀,
+  cases f₁₀ : (symvalue.doJMP_check op (abs.regs.nth dst.to_fin) const).run g₀₀ with check g₁₀,
   cases f₁₁ : (assert check abs).run g₁₀ with s' g₁₁,
-  cases f₁ : (symvalue.doJMP op (s'.regs dst) const).run g₁₁ with eq g₁,
+  cases f₁ : (symvalue.doJMP op (s'.regs.nth dst.to_fin) const).run g₁₁ with eq g₁,
   cases f₂ : (mk_not eq).run g₁ with neq g₂,
   cases f₃ : (assume_ eq s').run g₂ with truestate g₃,
   cases f₄ : (k {current := if_true, ..truestate}).run g₃ with true_condition g₄,
@@ -604,10 +603,10 @@ theorem step_alu64_x_correct
 begin
   intros g g' c abs asserts assumes concrete fetch_i pre mk,
   simp only [step_alu64_x, state_t.run_bind] at mk,
-  rcases f₁ : (symvalue.doALU_check op (abs.regs dst) (abs.regs src)).run g with ⟨check, g₁⟩,
+  rcases f₁ : (symvalue.doALU_check op (abs.regs.nth dst.to_fin) (abs.regs.nth src.to_fin)).run g with ⟨check, g₁⟩,
   cases f₂ : (assert check abs).run g₁ with s' g₂,
-  rcases f₃ : (symvalue.doALU op (abs.regs dst) (abs.regs src)).run g₂ with ⟨val, g₃⟩,
-  cases f₄ : (k {regs := function.update abs.regs dst val,
+  rcases f₃ : (symvalue.doALU op (abs.regs.nth dst.to_fin) (abs.regs.nth src.to_fin)).run g₂ with ⟨val, g₃⟩,
+  cases f₄ : (k {regs := abs.regs.update_nth dst.to_fin val,
                  current := next, ..s'}).run g₃ with vc' g₄,
   simp only [(>>=), id_bind] at mk,
   rw [f₁, f₂, f₃, f₄] at mk, cases mk, clear mk,
@@ -638,10 +637,12 @@ begin
     { exact sat_of_le l₃ h₂.assumes_ok },
     { intros r,
       simp only [function.update],
-      split_ifs,
+      split_ifs with h,
       { subst_vars,
+        simp only [vector.nth_update_nth_same],
         exact h₃ },
-      { exact sat_of_le (le_trans (le_trans l₁ l₂) l₃) (pre.regs_ok r) } },
+      { simp only [vector.nth_update_nth_of_ne (reg.to_fin_ne_of_ne (ne.symm h))],
+        exact sat_of_le (le_trans (le_trans l₁ l₂) l₃) (pre.regs_ok r) } },
     { simp only },
     { simp only,
       apply h₂.next_rng_ok } },
@@ -671,10 +672,10 @@ begin
   intros g g' c abs asserts assumes concrete fetch_i pre mk,
   simp only [step_alu64_k, state_t.run_bind] at mk,
   cases f₁ : (symvalue.mk_scalar imm : state γ (symvalue β)).run g with const g₁,
-  rcases f₂ : (symvalue.doALU_check op (abs.regs dst) const).run g₁ with ⟨check, g₂⟩,
+  rcases f₂ : (symvalue.doALU_check op (abs.regs.nth dst.to_fin) const).run g₁ with ⟨check, g₂⟩,
   cases f₃ : (assert check abs).run g₂ with s' g₃,
-  rcases f₄ : (symvalue.doALU op (abs.regs dst) const).run g₃ with ⟨val, g₄⟩,
-  cases f₅ : (k {regs := function.update abs.regs dst val,
+  rcases f₄ : (symvalue.doALU op (abs.regs.nth dst.to_fin) const).run g₃ with ⟨val, g₄⟩,
+  cases f₅ : (k {regs := abs.regs.update_nth dst.to_fin val,
                  current := next, ..s'}).run g₄ with vc' g₅,
   simp only [(>>=), id_bind] at mk,
   rw [f₁, f₂, f₃, f₄, f₅] at mk, cases mk, clear mk,
@@ -708,10 +709,12 @@ begin
     { exact sat_of_le l₄ h₃.assumes_ok },
     { intros r,
       simp only [function.update],
-      split_ifs,
+      split_ifs with h,
       { subst_vars,
+        simp only [vector.nth_update_nth_same],
         exact h₄ },
-      { exact sat_of_le (le_trans (le_trans l₁ l₂) (le_trans l₃ l₄)) (pre.regs_ok r) } },
+      { simp only [vector.nth_update_nth_of_ne (reg.to_fin_ne_of_ne (ne.symm h))],
+        exact sat_of_le (le_trans (le_trans l₁ l₂) (le_trans l₃ l₄)) (pre.regs_ok r) } },
     { simp only },
     { simp only,
       apply h₃.next_rng_ok } },
@@ -737,7 +740,7 @@ theorem step_exit_correct
 begin
   intros g g' c abs asserts assumes concrete fetch_i pre mk,
   simp only [step_exit, state_t.run_bind] at mk,
-  cases f₁ : ((mk_const1 (abs.regs reg.R0).is_scalar).run g : β × γ) with noleak g',
+  cases f₁ : ((mk_const1 (abs.regs.nth reg.R0.to_fin).is_scalar).run g : β × γ) with noleak g',
   cases f₂ : (assert noleak abs).run g' with abs' g'',
   simp only [(>>=), id_bind] at mk,
   rw [f₁, f₂] at mk,
