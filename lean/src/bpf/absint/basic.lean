@@ -73,7 +73,7 @@ def gen_one_constraint (current : CTRL) : bpf.cfg.instr CTRL → list constraint
 def gen_constraints (p : PGRM) : list constraint :=
 { target  := p.entry,
   source  := p.entry,
-  compute := λ _, ⊤ } ::
+  compute := λ _, abstract (λ (_ : bpf.reg), bpf.value.uninitialized) } ::
 (to_list p.code).bind (λ p, gen_one_constraint p.1 p.2)
 
 /--
@@ -178,16 +178,17 @@ def collect (p : PGRM) (o : bpf.oracle) : set (bpf.cfg.state CTRL) :=
 /--
 Any initial BPF state is correctly approximated by the constraints.
 -/
-theorem init_approximation (p : PGRM) (s : STATE) (o : bpf.oracle) :
+theorem init_approximation (p : PGRM) (s : STATE) :
   approximates p s →
-  o.initial_regs ∈ γ (interpret s p.entry) :=
+  (λ _, bpf.value.uninitialized : bpf.reg → bpf.value) ∈ γ (interpret s p.entry) :=
 begin
   intros approx,
   specialize approx _,
   swap 2,
   { simp only [gen_constraints, list.mem_cons_iff],
     exact or.inl rfl },
-  exact le_correct approx (top_correct _)
+  apply le_correct approx _,
+  apply abstract_correct
 end
 
 /--
@@ -208,7 +209,7 @@ begin
   induction reachable with t' t'' head tail ih,
   { intros,
     cases t_running,
-    apply init_approximation _ _ _ approx },
+    apply init_approximation _ _ approx },
   { intros s' _,
     subst_vars,
     cases tail,

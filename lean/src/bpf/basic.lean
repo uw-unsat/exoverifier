@@ -146,11 +146,12 @@ inductive ALU : Type
 @[derive [decidable_eq, has_reflect, inhabited]]
 structure memregion : Type
 
-/- A value is either a 64-bit scalar, or a memory region + offset. -/
+/- A value is either a 64-bit scalar, a memory region + offset, or uninitialized. -/
 @[derive [decidable_eq]]
 inductive value : Type
-| scalar  : i64 → value
-| pointer : memregion → i64 → value
+| scalar        : i64 → value
+| pointer       : memregion → i64 → value
+| uninitialized : value
 
 namespace value
 
@@ -162,6 +163,10 @@ abbreviation is_scalar (v : value) : Prop :=
 instance : decidable_pred is_scalar
 | (scalar x)    := decidable.is_true ⟨x, rfl⟩
 | (pointer _ _) := decidable.is_false (by { intros h, cases h with _ h, cases h })
+| uninitialized := decidable.is_false (by { intros h, cases h with _ h, cases h })
+
+abbreviation is_uninitialized (v : value) : Prop :=
+v = uninitialized
 
 end value
 
@@ -195,11 +200,9 @@ def doALU_scalar_check {n : ℕ} : ALU → (fin n → bool) → (fin n → bool)
 def doALU_check : ALU → value → value → bool
 | op (value.scalar x) (value.scalar y) := doALU_scalar_check op x y
 
-/-
-MOV is always legal. redundant with the previous rule, but simplifies proof to deal
-with the scalar case uniformly.
--/
-| ALU.MOV _ _ := tt
+/- It is legal to move pointers and scalars into uninitialized registers. -/
+| op _ (value.pointer _ _) := if op = ALU.MOV then tt else ff
+| op _ (value.scalar _)    := if op = ALU.MOV then tt else ff
 
 /- Remaining ops are illegal. -/
 | _ _ _       := ff
@@ -230,12 +233,14 @@ def doALU : ALU → value → value → value
 /- Remaining illegal ops (for which ALU_check is ff) are nops here. -/
 | _ dst _ := dst
 
+/- A MOV is legal as long as source is not uninitalized. -/
 theorem doALU_check_MOV_def (x y : value) :
-  MOV.doALU_check x y = tt :=
+  MOV.doALU_check x y = !y.is_uninitialized :=
 begin
   cases x; cases y; refl
 end
 
+/- MOV always returns its second operand. -/
 theorem doALU_MOV_def (x y : value) :
   MOV.doALU x y = y :=
 begin
@@ -248,10 +253,22 @@ begin
   cases op; simp [doALU]
 end
 
-theorem doALU_scalar_check_def (op : ALU) (x y : i64) :
+theorem doALU_check_scalar_scalar_def (op : ALU) (x y : i64) :
   doALU_check op (value.scalar x) (value.scalar y) = doALU_scalar_check op x y :=
 begin
   cases op; refl
+end
+
+theorem doALU_check_any_pointer_def (op : ALU) (m : bpf.memregion) (a) (y : i64) :
+  doALU_check op a (value.pointer m y) = if op = ALU.MOV then tt else ff :=
+begin
+  cases op; cases a; refl
+end
+
+theorem doALU_check_any_uninitialized_def (op : ALU) (a) :
+  doALU_check op a value.uninitialized = ff:=
+begin
+  cases op; cases a; refl
 end
 
 /--
@@ -341,14 +358,12 @@ end BPF_FUNC
 
 /- An oracle makes the nondeterministic choices during execution of a BPF program. -/
 structure oracle : Type :=
-(initial_regs : reg → value)
 (rng          : ℕ → i64)
 
 namespace oracle
 
 instance : inhabited oracle :=
-⟨⟨ λ _, default _,
-   λ _, default _ ⟩⟩
+⟨⟨ λ _, default _ ⟩⟩
 
 end oracle
 

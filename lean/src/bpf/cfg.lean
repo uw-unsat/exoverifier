@@ -419,7 +419,7 @@ begin
 end
 
 def initial_state (cfg : CFG χ α) (o : oracle) : state α :=
-state.running { pc := CFG.entry cfg, regs := o.initial_regs, next_rng := 0 }
+state.running { pc := CFG.entry cfg, regs := λ _, value.uninitialized, next_rng := 0 }
 
 @[reducible]
 def star (cfg : CFG χ α) (o : oracle) : state α → state α → Prop :=

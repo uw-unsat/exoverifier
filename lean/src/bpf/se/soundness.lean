@@ -299,74 +299,30 @@ begin
     assumption }
 end
 
-theorem initial_regs_increasing : ∀ {n : ℕ} {r : erased (vector value n)},
-  increasing (se.initial_regs r : state γ (vector (symvalue β) n))
-| 0       := λ _, by apply increasing_pure
-| (n + 1) := by {
-  intro regs,
-  simp only [se.initial_regs],
-  apply increasing_bind,
-  { apply symvalue.le_mk_unknown },
-  intro c,
-  apply increasing_bind,
-  { apply @initial_regs_increasing },
-  intro c',
-  apply increasing_pure }
-
-theorem initial_regs_spec : ∀ {n : ℕ} (regs : erased (vector value n)) {regs' : vector (symvalue β) n} {g g' : γ},
-  (se.initial_regs regs).run g = (regs', g') →
-  ∀ {r : fin n},
-    sat g' (regs'.nth r) (regs.out.nth r)
-| 0       _    _     _ _  _   := fin.elim0
-| (n + 1) regs regs' g g' mk' := λ r, by {
-  simp only [se.initial_regs, state_t.run_bind] at mk',
-  cases mk', clear mk',
-  refine fin.cases _ _ r,
-  { simp only [vector.nth_zero, vector.cons_head],
-    refine sat_of_le (by apply initial_regs_increasing) _,
-    rw [← erased.out_mk (regs.out.head)],
-    apply symvalue.sat_mk_unknown,
-    simp only [vector.nth_zero, erased.map, erased.bind_eq_out, prod.mk.eta] },
-  { simp only [vector.nth_cons_succ],
-    intros i,
-    simp only [erased.map, erased.bind_eq_out, erased.out_mk, erased.mk_out, function.comp],
-    rw [← vector.cons_head_tail regs.out, vector.tail_cons, vector.head_cons, vector.nth_cons_succ],
-    rw [← erased.out_mk (regs.out.tail)],
-    apply initial_regs_spec,
-    simp only [erased.mk_out, erased.out_mk, prod.mk.eta] } }
-
 theorem initial_state_increasing (cfg : CFG χ η) (o : erased oracle) :
   increasing (initial_symstate cfg o : state γ (symstate β η)) :=
 begin
   simp only [initial_symstate],
   apply increasing_bind,
   apply le_mk_const,
-  intro c, apply increasing_bind,
-  apply initial_regs_increasing,
   intro c, apply increasing_pure
 end
 
 theorem initial_symstate_spec
   (g : γ) {g' : γ} {s : symstate β η} (cfg : CFG χ η) (o : erased oracle) :
     (initial_symstate cfg o).run g = (s, g') →
-    concretizes g' s tt tt ⟨cfg.entry, o.out.initial_regs, 0⟩ :=
+    concretizes g' s tt tt ⟨cfg.entry, (λ _, value.uninitialized), 0⟩ :=
 begin
   intros mk,
   simp only [initial_symstate, state_t.run_bind] at mk,
   injection mk with h₁ h₂, subst h₁, subst h₂, clear mk,
   apply concretizes.mk; simp only,
-  { exact sat_of_le (by apply initial_regs_increasing) (sat_mk_true (by rw [prod.mk.eta])) },
-  { exact sat_of_le (by apply initial_regs_increasing) (sat_mk_true (by rw [prod.mk.eta])) },
+  { exact (sat_mk_true (by rw [prod.mk.eta])) },
+  { exact (sat_mk_true (by rw [prod.mk.eta])) },
   { simp only [reg.of_vector],
     intros r,
-    have : o.out.initial_regs r = (reg.to_vector o.out.initial_regs).nth r.to_fin,
-    { cases r; refl },
-    rw this,
-    have h := initial_regs_spec ((λ (o' : oracle), reg.to_vector o'.initial_regs) <$> o) _,
-    simp only [erased.map_out, erased.map_def] at h,
-    apply h,
-    swap 2,
-    rw [prod.mk.eta] },
+    simp only [vector.nth_repeat],
+    constructor },
   { refl }
 end
 

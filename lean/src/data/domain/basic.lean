@@ -128,6 +128,8 @@ variables {β α : Type*}
 
 instance [has_decidable_γ β α] (x : α) : decidable_pred (γ x) := has_decidable_γ.dec_γ _
 
+instance [has_decidable_γ β α] (x : α) (y : β) : decidable (y ∈ γ x) := has_decidable_γ.dec_γ _ _
+
 namespace abstr_join
 instance to_has_sup [has_γ β α] [abstr_join β α α] : has_sup α := ⟨abstr_join.join⟩
 end abstr_join
@@ -188,9 +190,7 @@ instance [fintype κ] [has_γ β α] [abstr_le β α] : abstr_le (κ → β) (κ
 
 instance [fintype κ] [has_decidable_γ β α] : has_decidable_γ (κ → β) (κ → α) :=
 { dec_γ := λ _ _, by {
-    apply' fintype.decidable_forall_fintype,
-    simp only [set.mem_def],
-    apply_instance } }
+    apply' fintype.decidable_forall_fintype } }
 
 instance [has_γ β α] [abstr_top β α] : abstr_top (κ → β) (κ → α) :=
 { top_correct := λ _ _, by apply top_correct }

@@ -132,20 +132,12 @@ def symeval (cfg : CFG χ η) : ∀ (fuel : ℕ), symstate β η → state γ β
 | 0       := infeasible
 | (n + 1) := step_symeval cfg (symeval n)
 
-protected def initial_regs : ∀ {n : ℕ}, erased (vector value n) → state γ (vector (symvalue β) n)
-| 0 _ := pure vector.nil
-| (n + 1) regs := do
-  (x : symvalue β) ← symvalue.mk_unknown (regs.map vector.head),
-  xs ← @initial_regs n $ regs.map vector.tail,
-  pure $ vector.cons x xs
-
 /-- Construct the initial symbolic state from cfg and registers. -/
 def initial_symstate (cfg : CFG χ η) (o : erased oracle) : state γ (symstate β η) := do
 truthy : β ← mk_true,
-(regs : vector (symvalue β) nregs) ← se.initial_regs ((λ (o' : oracle), reg.to_vector $ o'.initial_regs) <$> o),
 pure { assumptions := truthy,
        assertions  := truthy,
-       regs        := bpf.reg.of_vector regs,
+       regs        := bpf.reg.of_vector (vector.repeat symvalue.uninitialized _),
        current     := cfg.entry,
        next_rng    := 0 }
 

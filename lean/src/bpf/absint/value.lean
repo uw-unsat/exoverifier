@@ -36,119 +36,91 @@ class value_abstr (α : Type*) extends
 inductive avalue (β : Type) : Type
 | scalar  : β → avalue
 | pointer : bpf.memregion → β → avalue
+| uninitialized : avalue
 
 namespace avalue
 
 variables {β : Type} [bv_abstr 64 β]
 
+section has_repr
+variable [has_repr β]
+
+private def repr' : avalue β → string
+| (scalar x) := "(scalar " ++ repr x ++ ")"
+| (pointer _ o) := "(pointer X " ++ repr o ++ ")"
+| uninitialized := "(uninitialized)"
+
+instance : has_repr (avalue β) := ⟨repr'⟩
+
+end has_repr
+
 section has_to_pexpr
 variable [has_to_pexpr β]
 
 private meta def to_pexpr' : avalue β → pexpr
-| (scalar x)    := ``(scalar %%x)
-| (pointer m x) := ``(pointer %%m %%x)
+| (scalar x)      := ``(scalar %%x)
+| (pointer m x)   := ``(pointer %%m %%x)
+| (uninitialized) := ``(uninitialized)
 
 meta instance : has_to_pexpr (avalue β) := ⟨to_pexpr'⟩
 
 end has_to_pexpr
 
-@[mk_iff]
-inductive γ : avalue β → bpf.value → Prop
-| scalar {x y} :
-  y ∈ has_γ.γ x →
-  γ (avalue.scalar x) (bpf.value.scalar y)
-| pointer {m x y} :
-  y ∈ has_γ.γ x →
-  γ (avalue.pointer m x) (bpf.value.pointer m y)
+def γ : avalue β → bpf.value → Prop
+| (avalue.scalar x) (bpf.value.scalar y) := y ∈ has_γ.γ x
+| (avalue.pointer m₁ x) (bpf.value.pointer m₂ y) :=
+  m₁ = m₂ ∧ y ∈ has_γ.γ x
+| (avalue.uninitialized) (bpf.value.uninitialized) := true
+| _ _ := false
+
+private def dec_γ : Π (a : avalue β) (b : bpf.value), decidable (γ a b) :=
+begin
+  intros a b,
+  cases a; cases b; simp only [γ]; apply_instance
+end
 
 private def abstract : bpf.value → avalue β
-| (bpf.value.scalar x)    := (avalue.scalar (has_γ.abstract x))
-| (bpf.value.pointer m x) := (avalue.pointer m (has_γ.abstract x))
+| (bpf.value.scalar x)      := (avalue.scalar (has_γ.abstract x))
+| (bpf.value.pointer m x)   := (avalue.pointer m (has_γ.abstract x))
+| (bpf.value.uninitialized) := (avalue.uninitialized)
 
 instance : has_decidable_γ bpf.value (avalue β) :=
 { γ     := γ,
-  dec_γ := by {
-    intros x y,
-    cases x with _ m₁ x; cases y with _ m₂ y,
-    { simp only [γ_iff, exists_false, or_false, exists_eq_right', exists_eq_right_right', and_false],
-      apply has_decidable_γ.dec_γ },
-    { simp only [γ_iff, exists_false, and_false, false_and, or_self],
-      apply_instance },
-    { simp only [γ_iff, exists_false, and_false, false_and, or_self],
-      apply_instance },
-    { simp only [γ_iff, false_or, exists_false, and_false],
-      by_cases m₁ = m₂,
-      { subst_vars,
-        cases has_decidable_γ.dec_γ x y with h,
-        case decidable.is_true {
-          apply decidable.is_true,
-          existsi [m₂, _, _, h],
-          tauto },
-        case decidable.is_false {
-          apply decidable.is_false,
-          contrapose! h,
-          rcases h with ⟨_, _, _, _, ⟨_, _⟩, ⟨_, _⟩, ⟨_, _⟩⟩,
-          subst_vars,
-          assumption } },
-       { apply decidable.is_false,
-          contrapose! h,
-          rcases h with ⟨_, _, _, _, ⟨_, _⟩, ⟨_, _⟩, ⟨_, _⟩⟩,
-          subst_vars } } },
+  dec_γ := dec_γ,
   abstract         := abstract,
   abstract_correct := by {
     intros x,
     cases x,
-    { constructor,
+    { apply has_γ.abstract_correct },
+    { refine ⟨rfl, _⟩,
       apply has_γ.abstract_correct },
-    { constructor,
-      apply has_γ.abstract_correct } } }
+    { triv } } }
 
-@[mk_iff]
-inductive le : avalue β → avalue β → Prop
-| scalar {x y : β} :
-  x ≤ y →
-  le (avalue.scalar x) (avalue.scalar y)
-| pointer {x y : β} {m} :
-  x ≤ y →
-  le (avalue.pointer m x) (avalue.pointer m y)
-
-private def dec_le : Π (a b : avalue β), decidable (le a b)
-| (avalue.scalar x) (avalue.scalar y) :=
-  if h : x ≤ y
-  then decidable.is_true (le.scalar h)
-  else decidable.is_false $ by {
-    contrapose! h,
-    cases h,
-    assumption }
+def le : avalue β → avalue β → Prop
+| (avalue.scalar x) (avalue.scalar y) := x ≤ y
 | (avalue.pointer m₁ x) (avalue.pointer m₂ y) :=
-  if h : m₁ = m₂ ∧ x ≤ y
-  then decidable.is_true $ by {
-    cases h, subst_vars,
-    constructor, assumption }
-  else decidable.is_false $ by {
-    contrapose! h,
-    cases h, tauto }
-| (avalue.scalar x) (avalue.pointer m y) :=
-  decidable.is_false $ by { intros h, cases h }
-| (avalue.pointer m x) (avalue.scalar y) :=
-  decidable.is_false $ by { intros h, cases h }
+  m₁ = m₂ ∧ x ≤ y
+| (avalue.uninitialized) (avalue.uninitialized) := true
+| _ _ := false
+
+private def dec_le : Π (a b : avalue β), decidable (le a b) :=
+begin
+  intros a b,
+  cases a; cases b; simp only [le]; apply_instance
+end
 
 instance : abstr_le bpf.value (avalue β) :=
 { le         := le,
   dec_le     := dec_le,
   le_correct := by {
     intros x y h₁ val h₂,
-    cases x; cases y,
-    { cases h₁,
-      cases h₂,
-      constructor,
+    cases x; cases val; try{cases h₂};
+    cases y; try{cases h₁},
+    { apply abstr_le.le_correct h₁ h₂, },
+    { subst_vars,
+      refine ⟨rfl, _⟩,
       apply abstr_le.le_correct; assumption },
-    { cases h₁ },
-    { cases h₁ },
-    { cases h₁,
-      cases h₂,
-      constructor,
-      apply abstr_le.le_correct; assumption } } }
+    { triv } } }
 
 instance avalue_join : abstr_join bpf.value (avalue β) (with_top (avalue β)) :=
 { join := λ (x y : avalue β),
@@ -158,23 +130,22 @@ instance avalue_join : abstr_join bpf.value (avalue β) (with_top (avalue β)) :
       if m₁ = m₂
       then pure $ avalue.pointer m₁ (x' ⊔ y')
       else ⊤
+    | avalue.uninitialized, avalue.uninitialized := some avalue.uninitialized
     | _, _ := ⊤
     end,
   join_correct := by {
     intros x y val h₁,
-    cases x; cases y,
-    { cases h₁; cases h₁; constructor; apply abstr_join.join_correct,
-      { left, tauto },
-      { right, tauto } },
-    { simp only [avalue_join._match_1] },
-    { simp only [avalue_join._match_1] },
-    { simp only [avalue_join._match_1],
-      split_ifs,
-      { subst h,
-        cases h₁; cases h₁; constructor; apply abstr_join.join_correct,
-        { left, tauto },
-        { right, tauto } },
-      { apply abstr_top.top_correct } } } }
+    cases x; cases y; cases h₁; cases val; try{cases h₁}; simp only [avalue_join._match_1],
+    { apply abstr_join.join_correct, left, exact h₁ },
+    { apply abstr_join.join_correct, right, exact h₁ },
+    { split_ifs; subst_vars,
+      refine ⟨rfl, _⟩,
+      apply abstr_join.join_correct, left, assumption,
+      apply abstr_top.top_correct },
+    { split_ifs; subst_vars,
+      refine ⟨rfl, _⟩,
+      apply abstr_join.join_correct, right, assumption,
+      apply abstr_top.top_correct } } }
 
 private def doALU_scalar : Π (op : bpf.ALU), abstr_binary_transfer bpf.i64 β β op.doALU_scalar
 | bpf.ALU.ADD  := bv_abstr.add
@@ -193,16 +164,40 @@ private def doALU (op : bpf.ALU) : abstr_binary_transfer bpf.value (avalue β) (
 { op := λ (x y : avalue β),
     match x, y with
     | avalue.scalar x', avalue.scalar y' := some $ avalue.scalar $ (doALU_scalar op).op x' y'
-    | _, _ := ⊤
+    | _, src := if op = bpf.ALU.MOV then pure src else ⊤
     end,
   correct := by {
     intros _ _ _ _ h₁ h₂,
-    cases u; cases v,
-    { cases h₁, cases h₂,
-      simp only [bpf.ALU.doALU_scalar_def],
-      constructor,
-      apply (doALU_scalar op).correct; assumption },
-    all_goals { apply abstr_top.top_correct } } }
+    cases u,
+    case pointer {
+      simp only [doALU._match_1],
+      split_ifs; subst_vars,
+      simp only [bpf.ALU.doALU_MOV_def],
+      exact h₂,
+      apply abstr_top.top_correct },
+    case uninitialized {
+      simp only [doALU._match_1],
+      split_ifs; subst_vars,
+      simp only [bpf.ALU.doALU_MOV_def],
+      exact h₂,
+      apply abstr_top.top_correct },
+    cases x; try{cases h₁},
+    cases v,
+    case pointer {
+      simp only [doALU._match_1],
+      split_ifs; subst_vars,
+      simp only [bpf.ALU.doALU_MOV_def],
+      exact h₂,
+      apply abstr_top.top_correct },
+    case uninitialized {
+      simp only [doALU._match_1],
+      split_ifs; subst_vars,
+      simp only [bpf.ALU.doALU_MOV_def],
+      exact h₂,
+      apply abstr_top.top_correct },
+    cases y; try{cases h₂},
+    simp only [doALU._match_1, bpf.ALU.doALU_scalar_def],
+    apply (doALU_scalar op).correct h₁ h₂ } }
 
 /--
 Lift doALU to work on `with_top`. Specialize this because ALU.MOV can be made precise even when
@@ -294,33 +289,43 @@ private def doALU_check (op : bpf.ALU) : abstr_binary_test bpf.value (with_top (
 { test := λ (x y : with_top (avalue β)),
     match x, y with
     | some (avalue.scalar x), some (avalue.scalar y) := (doALU_scalar_check op).test x y
-    | _, _ := if op = bpf.ALU.MOV then tt else ff
+    | _, some (avalue.pointer _ _) := if op = bpf.ALU.MOV then tt else ff
+    | _, some (avalue.scalar _) := if op = bpf.ALU.MOV then tt else ff
+    | _, _ := ff
     end,
   test_sound := by {
     intros _ _ _ _ h₁ h₂ h₃,
-    cases u,
-    simp only [doALU_check._match_1] at h₁,
-    split_ifs at h₁; subst_vars,
-    simp only [bpf.ALU.doALU_check_MOV_def],
-    cases h₁,
-    cases u, swap,
-    simp only [doALU_check._match_1] at h₁,
-    split_ifs at h₁; subst_vars,
-    simp only [bpf.ALU.doALU_check_MOV_def],
-    cases h₁,
-    cases v,
-    simp only [doALU_check._match_1] at h₁,
-    split_ifs at h₁; subst_vars,
-    simp only [bpf.ALU.doALU_check_MOV_def],
-    cases h₁,
-    cases v, swap,
-    simp only [doALU_check._match_1] at h₁,
-    split_ifs at h₁; subst_vars,
-    simp only [bpf.ALU.doALU_check_MOV_def],
-    cases h₁,    cases h₂ with _ _ h₂',
-    cases h₃ with _ _ h₃',
-    simp only [bpf.ALU.doALU_scalar_check_def],
-    exact (doALU_scalar_check op).test_sound h₁ h₂' h₃' } }
+    cases v with v',
+    { cases u with u'; try{cases u'}; cases h₁ },
+    { cases v',
+      case pointer {
+        cases y; try{cases h₃}; subst_vars;
+        cases u with u'; try{cases u'};
+        simp [doALU_check._match_1] at h₁; subst h₁;
+        cases x; try{cases h₂}; subst_vars; refl },
+      case uninitialized {
+        cases y; try{cases h₃}; subst_vars;
+        cases u with u'; try{cases u'}; simp [doALU_check._match_1] at h₁; cases h₁ },
+      case scalar {
+        cases u,
+        { cases op; cases h₁,
+          cases y; try{cases h₃},
+          cases x; refl },
+        { cases u,
+          { simp only [doALU_check._match_1] at h₁,
+            cases y; try{cases h₃},
+            cases x; try{cases h₂},
+            apply (doALU_scalar_check op).test_sound h₁ h₂ h₃ },
+          { simp only [doALU_check._match_1] at h₁,
+            simp only [and_true, eq_self_iff_true, if_false_right_eq_and, ite_eq_tt_distrib] at h₁,
+            subst h₁,
+            cases y; try{cases h₃},
+            cases x; refl },
+          { simp only [doALU_check._match_1] at h₁,
+            simp only [and_true, eq_self_iff_true, if_false_right_eq_and, ite_eq_tt_distrib] at h₁,
+            subst h₁,
+            cases y; try{cases h₃},
+            cases x; refl } } } } } }
 
 private def doJMP_check (op : bpf.JMP) : abstr_binary_test bpf.value (with_top (avalue β)) op.doJMP_check :=
 { test := λ (x y : with_top (avalue β)),
@@ -331,11 +336,10 @@ private def doJMP_check (op : bpf.JMP) : abstr_binary_test bpf.value (with_top (
   test_sound := by {
     intros _ _ _ _ h₁ h₂ h₃,
     cases u, cases h₁,
-    cases u, swap, cases h₁,
-    cases v, cases h₁,
-    cases v, swap, cases h₁,
-    cases h₂ with _ _ h₂',
-    cases h₃ with _ _ h₃',
+    cases v, cases u; cases h₁,
+    cases u; cases v; cases h₁,
+    cases x; try{cases h₂},
+    cases y; try{cases h₃},
     refl } }
 
 private def is_scalar : abstr_unary_test bpf.value (with_top (avalue β)) (λ (x : bpf.value), to_bool x.is_scalar) :=
@@ -348,12 +352,10 @@ private def is_scalar : abstr_unary_test bpf.value (with_top (avalue β)) (λ (x
     intros _ _ h₁ h₂,
     cases u,
     cases h₁,
-    cases u,
-    cases h₁,
-    cases h₂,
+    cases u; try{cases h₁},
+    cases x; try{cases h₂},
     dunfold bpf.value.is_scalar,
-    simp only [to_bool_true_eq_tt, exists_eq'],
-    cases h₁ } }
+    simp only [to_bool_true_eq_tt, exists_eq'] } }
 
 private def doJMP_tt (op : bpf.JMP) :
   abstr_binary_inversion bpf.value (with_top (avalue β)) (with_bot (with_top (avalue β)))
