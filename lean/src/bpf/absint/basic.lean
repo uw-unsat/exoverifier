@@ -18,10 +18,8 @@ open unordered_map has_γ abstr_le abstr_top
 
 abbreviation PGRM : Type := bpf.cfg.CFG (map (bpf.cfg.instr CTRL)) CTRL
 
-/- Abstraction for memory. -/
 abbreviation MEM := with_bot REGS
 
-/- Abstract states are maps from CTRL → MEM. -/
 abbreviation STATE := map MEM
 
 /-- Interpret an abstract state. Use ⊥ for unmapped control points. -/
@@ -70,7 +68,7 @@ def gen_one_constraint (current : CTRL) : bpf.cfg.instr CTRL → list constraint
 | (bpf.cfg.instr.CALL func next) :=
   [{ target  := next,
      source  := current,
-     compute := λ mem, ⊤ }]
+     compute := λ mem, (regs_abstr.do_call func) <$> mem }]
 | _ := []
 
 /-- Generate the constraints for an entire program. -/
@@ -123,7 +121,9 @@ def gen_one_safety (p : PGRM) (current : CTRL) : bpf.cfg.instr CTRL → MEM → 
 | (bpf.cfg.instr.STX size dst src off next) :=
   λ _, (lookup next p.code).is_some ∧ false
 | (bpf.cfg.instr.CALL func next) :=
-  λ _, (lookup next p.code).is_some ∧ false
+  λ mem,
+    (lookup next p.code).is_some ∧
+    (with_bot.lift_unary_test (regs_abstr.do_call_check func)).test mem = tt
 | bpf.cfg.instr.Exit :=
   (with_bot.lift_unary_test (regs_abstr.is_scalar bpf.reg.R0)).test
 
@@ -268,7 +268,9 @@ begin
       rw [← option.mem_def, mem_lookup_iff] at fetch,
       specialize approx (gen_one_constraint_mem fetch 0),
       apply le_correct approx,
-      apply abstr_top.top_correct } }
+      cases interpret s s₀.pc,
+      { cases ih },
+      { apply regs_abstr.do_call_correct ih } } }
 end
 
 /-- A state is safe in a program if it can either take another step or has already exited. -/
@@ -342,9 +344,8 @@ begin
       rw [fetch] at fetch',
       cases fetch',
       simp only [absint.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at secure,
-      rcases secure with ⟨secure₁, secure₂⟩,
-      simp only [to_bool_false_eq_ff] at secure₂,
-      cases secure₂ } }
+      rcases secure with ⟨secure₁, -⟩,
+      exact secure₁ } }
 end
 
 /--
@@ -389,8 +390,11 @@ begin
     simp only [gen_one_safety, to_bool_false_eq_ff, and_false] at check_tt,
     cases check_tt },
   case bpf.cfg.instr.CALL {
-    simp only [gen_one_safety, to_bool_false_eq_ff, and_false] at check_tt,
-    cases check_tt },
+    simp only [absint.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
+    rcases check_tt with ⟨-, check_tt⟩,
+    existsi _,
+    apply bpf.cfg.step.CALL _ fetch _,
+    apply (with_bot.lift_unary_test (regs_abstr.do_call_check _)).test_sound check_tt rel },
   case bpf.cfg.instr.Exit {
     simp only [absint.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
     have h_ok := (with_bot.lift_unary_test (regs_abstr.is_scalar _)).test_sound check_tt rel,

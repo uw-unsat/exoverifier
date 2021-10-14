@@ -61,7 +61,15 @@ private def decode_jmp_x : reg → reg → msbvector 16 → list bool → option
   op' ← decode_jmp_op op,
   pure $ instr.JMP_X op' dst src off
 
+private def decode_call : list bool → option instr
+| [ff, ff, ff, ff, ff, ff, ff, ff,
+   ff, ff, ff, ff, ff, ff, ff, ff,
+   ff, ff, ff, ff, ff, ff, ff, ff,
+   ff, ff, ff, ff, ff, tt, tt, tt] := some $ instr.CALL BPF_FUNC.get_prandom_u32
+| _ := none
+
 private def decode_jmp_k : reg → msbvector 32 → msbvector 16 → list bool → option instr
+| dst imm off [tt, ff, ff, ff] := decode_call imm.to_list
 | dst imm off [tt, ff, ff, tt] := some $ instr.Exit
 | dst imm off op := do
   op' ← decode_jmp_op op,

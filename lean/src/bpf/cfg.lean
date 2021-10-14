@@ -191,16 +191,6 @@ instance : inhabited (state α) := ⟨state.exited 0⟩
 open unordered_map
 variable [decidable_eq α]
 
-private def do_call_check (s : runstate α) : BPF_FUNC → bool
-| BPF_FUNC.get_prandom_u32 := tt
-
-private def do_call (o : oracle) (s : runstate α) : BPF_FUNC → α → runstate α
-| BPF_FUNC.get_prandom_u32 next :=
-  let regs' : reg → value := λ r, if r ∈ reg.caller_saved then value.uninitialized else s.regs r,
-      return : i64 := o.rng s.next_rng,
-      regs'' : reg → value := function.update regs' reg.R0 (value.scalar return) in
-    { regs := regs'', next_rng := s.next_rng + 1, ..s }
-
 @[mk_iff]
 inductive step (cfg : CFG χ α) (o : oracle) : state α → state α → Prop
 | ALU64_X :
@@ -230,8 +220,8 @@ inductive step (cfg : CFG χ α) (o : oracle) : state α → state α → Prop
 | CALL :
   ∀ (s : runstate α) {func : BPF_FUNC} {next : α},
     lookup s.pc cfg.code = some (instr.CALL func next) →
-    do_call_check s func = tt →
-    step (state.running s) (state.running { pc := next, ..(do_call o s func next) })
+    func.do_call_check s.regs = tt →
+    step (state.running s) (state.running { pc := next, next_rng := s.next_rng.succ, regs := func.do_call o s.next_rng s.regs, ..s })
 | Exit :
   ∀ (s : runstate α) {ret : i64},
     lookup s.pc cfg.code = some instr.Exit →

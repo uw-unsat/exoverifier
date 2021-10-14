@@ -62,6 +62,17 @@ class regs_abstr (α : Type*) extends
   abstr_unary_test (bpf.reg → bpf.value) α
     (λ (cregs : bpf.reg → bpf.value), (cregs r).is_scalar))
 
+(do_call_check (func : bpf.BPF_FUNC) :
+  abstr_unary_test (bpf.reg → bpf.value) α
+    (λ (cregs : bpf.reg → bpf.value), func.do_call_check cregs))
+
+(do_call : bpf.BPF_FUNC → α → α)
+
+(do_call_correct :
+  ∀ {func : bpf.BPF_FUNC} {o : bpf.oracle} {next_rng : ℕ} {c : bpf.reg → bpf.value} {a : α},
+    c ∈ γ a →
+    func.do_call o next_rng c ∈ γ (do_call func a))
+
 namespace nonrelational
 
 variables {β : Type} [value_abstr β]
@@ -217,8 +228,55 @@ private def is_scalar (r : bpf.reg) :
     intros _ _ h₁ h₂,
     apply value_abstr.is_scalar.test_sound h₁ (h₂ _) } }
 
+private def do_call (func : bpf.BPF_FUNC) (l : aregs β) : aregs β :=
+let l₁ := list.foldl (λ (l' : aregs β) (r : bpf.reg), l'.update_nth r.to_fin (abstract bpf.value.uninitialized)) l bpf.reg.caller_saved in
+l₁.update_nth bpf.reg.R0.to_fin value_abstr.fresh_i64
+
+private theorem do_call_correct ⦃func : bpf.BPF_FUNC⦄ {o : bpf.oracle} {next_rng : ℕ} {c : bpf.reg → bpf.value} {a : aregs β} :
+  c ∈ γ a →
+  func.do_call o next_rng c ∈ γ (do_call func a) :=
+begin
+  intros h₁ r,
+  cases func,
+  simp only [do_call, bpf.BPF_FUNC.do_call, bpf.reg.caller_saved, list.mem_cons_iff, list.foldl_cons, list.foldl_nil, list.mem_singleton, list.foldl, interpret],
+  cases r; simp [vector.nth_update_nth_eq_if],
+  case R0 {
+    apply value_abstr.fresh_i64_correct },
+  case R1 {
+    apply abstract_correct },
+  case R2 {
+    apply abstract_correct },
+  case R3 {
+    apply abstract_correct },
+  case R4 {
+    apply abstract_correct },
+  case R5 {
+    apply abstract_correct },
+  case R6 {
+    exact h₁ _ },
+  case R7 {
+    exact h₁ _ },
+  case R8 {
+    exact h₁ _ },
+  case R9 {
+    exact h₁ _ },
+  case FP {
+    exact h₁ _ },
+  case AX {
+    exact h₁ _ }
+end
+
+private def do_call_check (func : bpf.BPF_FUNC) :
+  abstr_unary_test (bpf.reg → bpf.value) (aregs β) (λ (cregs : bpf.reg → bpf.value), func.do_call_check cregs) :=
+{ test := λ _, tt,
+  test_sound := by {
+    intros, cases func, refl } }
+
 instance : regs_abstr (aregs β) :=
 { do_alu           := do_alu,
+  do_call          := do_call,
+  do_call_correct  := do_call_correct,
+  do_call_check    := do_call_check,
   do_alu_check     := do_alu_check,
   do_alu_imm       := do_alu_imm,
   do_alu_imm_check := do_alu_imm_check,

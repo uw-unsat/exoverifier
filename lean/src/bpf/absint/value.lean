@@ -33,6 +33,11 @@ class value_abstr (α : Type*) extends
 
 (is_scalar : abstr_unary_test bpf.value α (λ x, to_bool x.is_scalar))
 
+(fresh_i64 : α)
+
+(fresh_i64_correct :
+  ∀ (i : bpf.i64), bpf.value.scalar i ∈ γ fresh_i64)
+
 inductive avalue (β : Type) : Type
 | scalar  : β → avalue
 | pointer : bpf.memregion → β → avalue
@@ -383,7 +388,9 @@ instance : value_abstr (with_top (avalue β)) :=
   doALU_check := doALU_check,
   doJMP_check := doJMP_check,
   is_scalar   := is_scalar,
-  doJMP_tt    := doJMP_tt }
+  doJMP_tt    := doJMP_tt,
+  fresh_i64   := some (avalue.scalar ⊤),
+  fresh_i64_correct := by { intros i, apply abstr_top.top_correct } }
 
 end avalue
 end absint

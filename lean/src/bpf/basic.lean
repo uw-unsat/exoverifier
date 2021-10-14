@@ -20,6 +20,17 @@ namespace bpf
 abbreviation i64 : Type := fin 64 → bool
 abbreviation i32 : Type := fin 32 → bool
 
+/- An oracle makes the nondeterministic choices during execution of a BPF program. -/
+structure oracle : Type :=
+(rng          : ℕ → i64)
+
+namespace oracle
+
+instance : inhabited oracle :=
+⟨⟨ λ _, default _ ⟩⟩
+
+end oracle
+
 /-- Truncate a 64-bit value to the lower 32 bits. -/
 @[reducible]
 private def trunc32 (i : i64) : i32 :=
@@ -69,6 +80,14 @@ begin
   simp only [to_fin],
   intros h₂,
   apply equiv.injective (fin_enum.equiv reg) h₂
+end
+
+@[simp]
+theorem to_fin_eq_eq_eq {r₁ r₂ : reg} :
+  (to_fin r₁) = (to_fin r₂) ↔ r₁ = r₂ :=
+begin
+  split; intros; try{tauto},
+  apply to_fin_inj; assumption
 end
 
 theorem to_fin_ne_of_ne {r₁ r₂ : reg} :
@@ -379,18 +398,17 @@ private def repr : BPF_FUNC → string
 
 instance : has_repr BPF_FUNC := ⟨repr⟩
 
+def do_call_check : BPF_FUNC → (reg → value) → bool
+| BPF_FUNC.get_prandom_u32 _ := tt
+
+def do_call : BPF_FUNC → oracle → ℕ → (reg → value) → (reg → value)
+| BPF_FUNC.get_prandom_u32 o next_rng regs :=
+  let regs' : reg → value := λ r, if r ∈ reg.caller_saved then value.uninitialized else regs r,
+      return : i64 := o.rng next_rng,
+      regs'' : reg → value := function.update regs' reg.R0 (value.scalar return) in
+  regs''
+
 end BPF_FUNC
-
-/- An oracle makes the nondeterministic choices during execution of a BPF program. -/
-structure oracle : Type :=
-(rng          : ℕ → i64)
-
-namespace oracle
-
-instance : inhabited oracle :=
-⟨⟨ λ _, default _ ⟩⟩
-
-end oracle
 
 /--
 Low-level representation of BPF instructions. In this format, jump offsets are still encoded
