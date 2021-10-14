@@ -121,7 +121,7 @@ begin
       { exact pow_nonneg dec_trivial _ } },
     mono left, norm_num },
 
-  have h := floor_eq_iff.2 (and.intro hsub_lo hsub_hi),
+  have h := int.floor_eq_iff.2 (and.intro hsub_lo hsub_hi),
   rw [rat.floor_int_div_nat_eq_div] at h,
   simp only [q] at h,
   zify, rw [← h], simp
