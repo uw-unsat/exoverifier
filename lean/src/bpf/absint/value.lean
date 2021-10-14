@@ -66,7 +66,7 @@ meta instance : has_to_pexpr (avalue β) := ⟨to_pexpr'⟩
 
 end has_to_pexpr
 
-def γ : avalue β → bpf.value → Prop
+private def γ : avalue β → bpf.value → Prop
 | (avalue.scalar x) (bpf.value.scalar y) := y ∈ has_γ.γ x
 | (avalue.pointer m₁ x) (bpf.value.pointer m₂ y) :=
   m₁ = m₂ ∧ y ∈ has_γ.γ x
@@ -96,7 +96,7 @@ instance : has_decidable_γ bpf.value (avalue β) :=
       apply has_γ.abstract_correct },
     { triv } } }
 
-def le : avalue β → avalue β → Prop
+private def le : avalue β → avalue β → Prop
 | (avalue.scalar x) (avalue.scalar y) := x ≤ y
 | (avalue.pointer m₁ x) (avalue.pointer m₂ y) :=
   m₁ = m₂ ∧ x ≤ y
@@ -172,13 +172,13 @@ private def doALU (op : bpf.ALU) : abstr_binary_transfer bpf.value (avalue β) (
     case pointer {
       simp only [doALU._match_1],
       split_ifs; subst_vars,
-      simp only [bpf.ALU.doALU_MOV_def],
+      simp only with match_simp,
       exact h₂,
       apply abstr_top.top_correct },
     case uninitialized {
       simp only [doALU._match_1],
       split_ifs; subst_vars,
-      simp only [bpf.ALU.doALU_MOV_def],
+      simp only with match_simp,
       exact h₂,
       apply abstr_top.top_correct },
     cases x; try{cases h₁},
@@ -186,17 +186,17 @@ private def doALU (op : bpf.ALU) : abstr_binary_transfer bpf.value (avalue β) (
     case pointer {
       simp only [doALU._match_1],
       split_ifs; subst_vars,
-      simp only [bpf.ALU.doALU_MOV_def],
+      simp only with match_simp,
       exact h₂,
       apply abstr_top.top_correct },
     case uninitialized {
       simp only [doALU._match_1],
       split_ifs; subst_vars,
-      simp only [bpf.ALU.doALU_MOV_def],
+      simp only with match_simp,
       exact h₂,
       apply abstr_top.top_correct },
     cases y; try{cases h₂},
-    simp only [doALU._match_1, bpf.ALU.doALU_scalar_def],
+    simp only with match_simp,
     apply (doALU_scalar op).correct h₁ h₂ } }
 
 /--
@@ -214,16 +214,16 @@ private def doALU_with_top (op : bpf.ALU) : abstr_binary_transfer bpf.value (wit
     cases u; cases v,
     { simp only [doALU_with_top._match_1],
       split_ifs; subst_vars,
-      simp only [bpf.ALU.doALU_MOV_def],
+      simp only with match_simp,
       apply abstr_top.top_correct },
     { simp only [doALU_with_top._match_1],
       split_ifs; subst_vars,
-      simp only [bpf.ALU.doALU_MOV_def],
+      simp only with match_simp,
       exact h₂,
       apply abstr_top.top_correct },
     { simp only [doALU_with_top._match_1],
       split_ifs; subst_vars,
-      simp only [bpf.ALU.doALU_MOV_def],
+      simp only with match_simp,
       apply abstr_top.top_correct },
     apply (doALU op).correct h₁ h₂ } }
 
@@ -285,47 +285,63 @@ private def doALU_scalar_check : Π (op : bpf.ALU), abstr_binary_test bpf.i64 β
     subst h₁,
     assumption } }
 
+@[match_simp]
+private def doALU_check_with_top (op : bpf.ALU) : Π (x y : with_top (avalue β)), bool
+| (some (avalue.scalar x)) (some (avalue.scalar y)) := (doALU_scalar_check op).test x y
+| _ (some (avalue.pointer _ _)) := if op = bpf.ALU.MOV then tt else ff
+| _ (some (avalue.scalar _)) := if op = bpf.ALU.MOV then tt else ff
+| _ _ := ff
+
+@[match_simp]
+private theorem doALU_check_with_top_none {op : bpf.ALU} {x : with_top (avalue β)} :
+  doALU_check_with_top op x none = ff :=
+by cases x with x; try{cases x}; refl
+
+@[match_simp]
+private theorem doALU_check_with_top_uninitialized {op : bpf.ALU} {x : with_top (avalue β)} :
+  doALU_check_with_top op x (some uninitialized) = ff :=
+by cases x with x; try{cases x}; refl
+
+@[match_simp]
+private theorem doALU_check_with_top_pointer {op : bpf.ALU} {x : with_top (avalue β)} {m y} :
+  doALU_check_with_top op x (some (avalue.pointer m y)) = if op = bpf.ALU.MOV then tt else ff :=
+by cases x with x; try{cases x}; refl
+
 private def doALU_check (op : bpf.ALU) : abstr_binary_test bpf.value (with_top (avalue β)) op.doALU_check :=
-{ test := λ (x y : with_top (avalue β)),
-    match x, y with
-    | some (avalue.scalar x), some (avalue.scalar y) := (doALU_scalar_check op).test x y
-    | _, some (avalue.pointer _ _) := if op = bpf.ALU.MOV then tt else ff
-    | _, some (avalue.scalar _) := if op = bpf.ALU.MOV then tt else ff
-    | _, _ := ff
-    end,
+{ test := doALU_check_with_top op,
   test_sound := by {
     intros _ _ _ _ h₁ h₂ h₃,
     cases v with v',
-    { cases u with u'; try{cases u'}; cases h₁ },
+    simp only with match_simp at h₁,
+    { cases h₁ },
     { cases v',
       case pointer {
-        cases y; try{cases h₃}; subst_vars;
-        cases u with u'; try{cases u'};
-        simp [doALU_check._match_1] at h₁; subst h₁;
-        cases x; try{cases h₂}; subst_vars; refl },
+        simp only [and_true, eq_self_iff_true, if_false_right_eq_and, ite_eq_tt_distrib] with match_simp at h₁,
+        subst h₁,
+        cases y; try{cases h₃},
+        simp only [if_true, eq_self_iff_true] with match_simp },
       case uninitialized {
-        cases y; try{cases h₃}; subst_vars;
-        cases u with u'; try{cases u'}; simp [doALU_check._match_1] at h₁; cases h₁ },
+        simp only with match_simp at h₁,
+        cases h₁ },
       case scalar {
-        cases u,
-        { cases op; cases h₁,
+        cases u; try{cases h₁},
+        { simp only [and_true, eq_self_iff_true, if_false_right_eq_and, ite_eq_tt_distrib] with match_simp at h₁,
+          subst h₁,
           cases y; try{cases h₃},
-          cases x; refl },
+          simp only with match_simp },
         { cases u,
-          { simp only [doALU_check._match_1] at h₁,
+          { simp only with match_simp at h₁,
             cases y; try{cases h₃},
             cases x; try{cases h₂},
             apply (doALU_scalar_check op).test_sound h₁ h₂ h₃ },
-          { simp only [doALU_check._match_1] at h₁,
-            simp only [and_true, eq_self_iff_true, if_false_right_eq_and, ite_eq_tt_distrib] at h₁,
+          { simp only [and_true, eq_self_iff_true, if_false_right_eq_and, ite_eq_tt_distrib] with match_simp at h₁,
             subst h₁,
             cases y; try{cases h₃},
-            cases x; refl },
-          { simp only [doALU_check._match_1] at h₁,
-            simp only [and_true, eq_self_iff_true, if_false_right_eq_and, ite_eq_tt_distrib] at h₁,
+            simp only with match_simp },
+          { simp only [and_true, eq_self_iff_true, if_false_right_eq_and, ite_eq_tt_distrib] with match_simp at h₁,
             subst h₁,
             cases y; try{cases h₃},
-            cases x; refl } } } } } }
+            simp only with match_simp } } } } } }
 
 private def doJMP_check (op : bpf.JMP) : abstr_binary_test bpf.value (with_top (avalue β)) op.doJMP_check :=
 { test := λ (x y : with_top (avalue β)),

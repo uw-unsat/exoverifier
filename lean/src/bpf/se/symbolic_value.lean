@@ -192,6 +192,7 @@ def doALU : Π (op : ALU) (a b : symvalue β), state γ (symvalue β)
 | ALU.MOV _                   b                   := pure b
 | _       a                   _                   := pure a
 
+@[match_simp]
 private theorem doALU_scalar_def {op : ALU} {x y : β} :
   (doALU op (symvalue.scalar x) (symvalue.scalar y) : state γ _) = symvalue.scalar <$> doALU_scalar op x y :=
 by cases op; refl
@@ -246,9 +247,9 @@ begin
   case sat.sat_uninitialized {
     cases op; cases mk; exact sat₁ <|> exact sat₂ },
 
-  simp only [doALU_scalar_def, state_t.run_map] at mk,
+  simp only [state_t.run_map] with match_simp at mk,
   cases mk,
-  simp only [bpf.ALU.doALU_scalar_def],
+  simp only with match_simp,
   constructor,
   apply sat_doALU_scalar,
   { rw prod.mk.eta },
@@ -262,20 +263,24 @@ private def doALU_scalar_check : Π (op : ALU) (a b : β), state γ β
 | ALU.END _ _ := mk_false
 | _       _ _ := mk_true
 
+@[match_simp]
 def doALU_check : Π (op : ALU) (a b : symvalue β), state γ β
 | op (symvalue.scalar x) (symvalue.scalar y) := doALU_scalar_check op x y
 | op _ (symvalue.scalar _) := if op = ALU.MOV then mk_true else mk_false
 | op _ (symvalue.pointer _ _) := if op = ALU.MOV then mk_true else mk_false
 | _ _ _ := mk_false
 
+@[match_simp]
 private theorem doALU_check_scalar_scalar_def {op : ALU} {x y : β} :
   (doALU_check op (symvalue.scalar x) (symvalue.scalar y) : state γ _) = doALU_scalar_check op x y :=
 by cases op; refl
 
+@[match_simp]
 private theorem doALU_check_any_pointer_def {op : ALU} {a : symvalue β} {m} {y : β} :
   (doALU_check op a (symvalue.pointer m y) : state γ _) = if op = ALU.MOV then mk_true else mk_false :=
 by cases op; cases a; refl
 
+@[match_simp]
 private theorem doALU_check_any_uninitialized_def {op : ALU} {a : symvalue β} :
   (doALU_check op a (symvalue.uninitialized) : state γ _) = mk_false :=
 by cases op; cases a; refl
@@ -297,27 +302,21 @@ begin
   intros mk sat₁ sat₂,
   cases sat₂,
   case sat.sat_pointer {
-    simp only [doALU_check_any_pointer_def] at mk,
-    simp only [bpf.ALU.doALU_check_any_pointer_def],
+    simp only with match_simp at mk ⊢,
     split_ifs at ⊢ mk; apply sat_mk_const1 mk },
   case sat.sat_uninitialized {
-    simp only [doALU_check_any_uninitialized_def] at mk,
-    simp only [bpf.ALU.doALU_check_any_uninitialized_def],
+    simp only with match_simp at mk ⊢,
     apply sat_mk_const1 mk },
   case sat.sat_scalar : _ _ sat₂' {
     cases sat₁,
     case sat.sat_pointer {
-      simp only [doALU_check] at mk,
-      simp only [bpf.ALU.doALU_check],
+      simp only with match_simp at mk ⊢,
       split_ifs at ⊢ mk; apply sat_mk_const1 mk },
     case sat.sat_uninitialized {
-      simp only [doALU_check] at mk,
-      simp only [bpf.ALU.doALU_check],
+      simp only with match_simp at mk ⊢,
       split_ifs at ⊢ mk; apply sat_mk_const1 mk },
 
-    simp only [doALU_check_scalar_scalar_def] at mk,
-    simp only [ALU.doALU_check_scalar_scalar_def],
-
+    simp only with match_simp at mk ⊢,
     cases op;
     try {
       convert (sat_mk_const mk),

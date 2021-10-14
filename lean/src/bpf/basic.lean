@@ -197,6 +197,20 @@ def doALU_scalar_check {n : ℕ} : ALU → (fin n → bool) → (fin n → bool)
 | END x y  := ff -- Disallow endianness conversion for now TODO
 | _ x y    := tt
 
+/-
+Lean is not good at simplifying multi-way matches like `doALU_check` here.
+To make proofs easier to write without case explosion, we write simplification
+lemmas for each branch of the match. We make a custom simp attribute for
+these simplification lemmas to avoid polluting the global simp set or
+paying for the performance / fragility of bare `simp` in proofs.
+
+One can use a tactic like the following to use these match simplification lemmas
+(in addition to some other lemmas X, Y, and Z, for example).
+`simp only [X, Y, Z] with match_simp`
+-/
+mk_simp_attribute match_simp "Simplification lemmas for multi-way matches."
+
+@[match_simp]
 def doALU_check : ALU → value → value → bool
 | op (value.scalar x) (value.scalar y) := doALU_scalar_check op x y
 
@@ -206,6 +220,31 @@ def doALU_check : ALU → value → value → bool
 
 /- Remaining ops are illegal. -/
 | _ _ _       := ff
+
+@[match_simp]
+private theorem doALU_check_pointer_def (op : ALU) {x m y} :
+  op.doALU_check x (value.pointer m y) = if op = ALU.MOV then tt else ff :=
+by cases x; refl
+
+@[match_simp]
+private theorem doALU_check_scalar_def (op : ALU) (x y : i64) :
+  op.doALU_check (value.scalar x) (value.scalar y) = doALU_scalar_check op x y :=
+by refl
+
+@[match_simp]
+private theorem doALU_check_mov_scalar_def {x} (y : i64) :
+  MOV.doALU_check x (value.scalar y) = tt :=
+by cases x; refl
+
+@[match_simp]
+private theorem doALU_check_mov_pointer_def {x m} (y : i64) :
+  MOV.doALU_check x (value.pointer m y) = tt :=
+by cases x; refl
+
+@[match_simp]
+private theorem doALU_check_uninitialized_def (op : ALU) (a) :
+  op.doALU_check a value.uninitialized = ff:=
+by cases op; cases a; refl
 
 /-- The result of an ALU operation. -/
 def doALU_scalar {n : ℕ} : ALU → (fin n → bool) → (fin n → bool) → (fin n → bool)
@@ -224,6 +263,7 @@ def doALU_scalar {n : ℕ} : ALU → (fin n → bool) → (fin n → bool) → (
 | ARSH x y := bv.ashr x y
 | END x y  := x -- TODO
 
+@[match_simp]
 def doALU : ALU → value → value → value
 | op (value.scalar x) (value.scalar y) := value.scalar (doALU_scalar op x y)
 
@@ -233,43 +273,15 @@ def doALU : ALU → value → value → value
 /- Remaining illegal ops (for which ALU_check is ff) are nops here. -/
 | _ dst _ := dst
 
-/- A MOV is legal as long as source is not uninitalized. -/
-theorem doALU_check_MOV_def (x y : value) :
-  MOV.doALU_check x y = !y.is_uninitialized :=
-begin
-  cases x; cases y; refl
-end
-
-/- MOV always returns its second operand. -/
-theorem doALU_MOV_def (x y : value) :
+@[match_simp]
+private theorem doALU_MOV_def (x y : value) :
   MOV.doALU x y = y :=
-begin
-  cases x; cases y; refl
-end
+by cases x; cases y; refl
 
-theorem doALU_scalar_def (op : ALU) (x y : i64) :
+@[match_simp]
+private theorem doALU_scalar_def (op : ALU) (x y : i64) :
   doALU op (value.scalar x) (value.scalar y) = value.scalar (doALU_scalar op x y) :=
-begin
-  cases op; simp [doALU]
-end
-
-theorem doALU_check_scalar_scalar_def (op : ALU) (x y : i64) :
-  doALU_check op (value.scalar x) (value.scalar y) = doALU_scalar_check op x y :=
-begin
-  cases op; refl
-end
-
-theorem doALU_check_any_pointer_def (op : ALU) (m : bpf.memregion) (a) (y : i64) :
-  doALU_check op a (value.pointer m y) = if op = ALU.MOV then tt else ff :=
-begin
-  cases op; cases a; refl
-end
-
-theorem doALU_check_any_uninitialized_def (op : ALU) (a) :
-  doALU_check op a value.uninitialized = ff:=
-begin
-  cases op; cases a; refl
-end
+by cases op; simp [doALU]
 
 /--
 Perform a 32-bit ALU operation by truncating registers to 32 bits and zero-extending
