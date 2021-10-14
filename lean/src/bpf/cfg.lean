@@ -191,6 +191,16 @@ instance : inhabited (state α) := ⟨state.exited 0⟩
 open unordered_map
 variable [decidable_eq α]
 
+private def do_call_check (s : runstate α) : BPF_FUNC → bool
+| BPF_FUNC.get_prandom_u32 := tt
+
+private def do_call (o : oracle) (s : runstate α) : BPF_FUNC → α → runstate α
+| BPF_FUNC.get_prandom_u32 next :=
+  let regs' : reg → value := λ r, if r ∈ reg.caller_saved then value.uninitialized else s.regs r,
+      return : i64 := o.rng s.next_rng,
+      regs'' : reg → value := function.update regs' reg.R0 (value.scalar return) in
+    { regs := regs'', next_rng := s.next_rng + 1, ..s }
+
 @[mk_iff]
 inductive step (cfg : CFG χ α) (o : oracle) : state α → state α → Prop
 | ALU64_X :
@@ -217,6 +227,11 @@ inductive step (cfg : CFG χ α) (o : oracle) : state α → state α → Prop
     JMP.doJMP_check op (s.regs r₁) (value.scalar imm.nth) = tt →
     c = JMP.doJMP op (s.regs r₁) (value.scalar imm.nth) →
     step (state.running s) (state.running { pc := if c then if_true else if_false, ..s })
+| CALL :
+  ∀ (s : runstate α) {func : BPF_FUNC} {next : α},
+    lookup s.pc cfg.code = some (instr.CALL func next) →
+    do_call_check s func = tt →
+    step (state.running s) (state.running { pc := next, ..(do_call o s func next) })
 | Exit :
   ∀ (s : runstate α) {ret : i64},
     lookup s.pc cfg.code = some instr.Exit →
@@ -243,6 +258,9 @@ begin
     rw [fetch] at fetch',
     cases fetch' },
   case JMP_K : _ _ _ _ _ _ _ fetch' {
+    rw [fetch] at fetch',
+    cases fetch' },
+  case CALL : _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
   case Exit : _ _ fetch' {
@@ -281,6 +299,9 @@ begin
   case JMP_K : _ _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
+  case CALL : _ _ _ fetch' {
+    rw [fetch] at fetch',
+    cases fetch' },
   case Exit : _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
@@ -315,6 +336,9 @@ begin
     cases fetch',
     subst_vars },
   case JMP_K : _ _ _ _ _ _ _ fetch' {
+    rw [fetch] at fetch',
+    cases fetch' },
+  case CALL : _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
   case Exit : _ _ fetch' {
@@ -353,6 +377,9 @@ begin
     rw [fetch] at fetch',
     cases fetch',
     subst_vars },
+  case CALL : _ _ _ fetch' {
+    rw [fetch] at fetch',
+    cases fetch' },
   case Exit : _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
@@ -388,6 +415,9 @@ begin
     rw [fetch] at fetch',
     cases fetch' },
   case JMP_K : _ _ _ _ _ _ _ fetch' {
+    rw [fetch] at fetch',
+    cases fetch' },
+  case CALL : _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
   case Exit : _ step₁_ret fetch' {

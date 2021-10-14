@@ -67,6 +67,10 @@ def gen_one_constraint (current : CTRL) : bpf.cfg.instr CTRL → list constraint
    { target  := if_false,
      source  := current,
      compute := id }]
+| (bpf.cfg.instr.CALL func next) :=
+  [{ target  := next,
+     source  := current,
+     compute := λ mem, ⊤ }]
 | _ := []
 
 /-- Generate the constraints for an entire program. -/
@@ -258,7 +262,13 @@ begin
       { -- Jump taken
         specialize approx (gen_one_constraint_mem fetch 0),
         apply le_correct approx,
-        exact ih } } }
+        exact ih } },
+    case bpf.cfg.step.CALL : s₀ func next fetch {
+      specialize ih s₀ rfl,
+      rw [← option.mem_def, mem_lookup_iff] at fetch,
+      specialize approx (gen_one_constraint_mem fetch 0),
+      apply le_correct approx,
+      apply abstr_top.top_correct } }
 end
 
 /-- A state is safe in a program if it can either take another step or has already exited. -/
@@ -327,7 +337,14 @@ begin
       rcases secure with ⟨secure₁, secure₂, -⟩,
       cases head_c,
       { exact secure₂ },
-      { exact secure₁ } } }
+      { exact secure₁ } },
+    case bpf.cfg.step.CALL : _ _ next fetch' {
+      rw [fetch] at fetch',
+      cases fetch',
+      simp only [absint.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at secure,
+      rcases secure with ⟨secure₁, secure₂⟩,
+      simp only [to_bool_false_eq_ff] at secure₂,
+      cases secure₂ } }
 end
 
 /--
