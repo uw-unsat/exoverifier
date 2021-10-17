@@ -428,6 +428,45 @@ begin
   rw [h₁'', h₂'']
 end
 
+theorem do_step_call {cfg : CFG χ α} {o : oracle} :
+  ∀ (s : runstate α) {func next},
+    lookup s.pc cfg.code = some (instr.CALL func next) →
+    ∀ {s' : state α},
+      step cfg o (state.running s) s' →
+      s' = state.running { pc := next, next_rng := s.next_rng.succ, regs := func.do_call o s.next_rng s.regs, ..s } :=
+begin
+  intros _ _ _ fetch _ step₁,
+  cases step₁,
+  case ALU64_X : _ _ _ _ _ _ fetch' {
+    rw [fetch] at fetch',
+    cases fetch' },
+  case ALU64_K : _ _ _ _ _ _ fetch' {
+    rw [fetch] at fetch',
+    cases fetch' },
+  case JMP_X : _ _ _ _ _ _ _ fetch' {
+    rw [fetch] at fetch',
+    cases fetch' },
+  case JMP_K : _ _ _ _ _ _ _ fetch' {
+    rw [fetch] at fetch',
+    cases fetch' },
+  case CALL : _ _ _ fetch' {
+    rw [fetch] at fetch',
+    cases fetch',
+    refl },
+  case Exit : _ step₁_ret fetch' {
+    rw [fetch] at fetch',
+    cases fetch' },
+end
+
+theorem step_call_det {cfg : CFG χ α} {o : oracle} :
+  ∀ (s : runstate α) {func next},
+    lookup s.pc cfg.code = some (instr.CALL func next) →
+    set.subsingleton (step cfg o (state.running s)) :=
+begin
+  intros _ _ _ fetch s₁ step₁ s₂ step₂,
+  rw [do_step_call _ fetch step₁, do_step_call _ fetch step₂]
+end
+
 theorem running_backwards (cfg : CFG χ α) (s : state α) (o : oracle) :
   ∀ (s' : runstate α),
   step cfg o s (state.running s') →

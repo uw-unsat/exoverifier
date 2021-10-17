@@ -109,8 +109,21 @@ def step_exit (cfg : CFG χ η) (k : symstate β η → state γ β) (s : symsta
 s ← assert noleak s,
 pure s.assertions
 
+def do_call_check (cfg : CFG χ η) (s : symstate β η) : BPF_FUNC → state γ β
+| BPF_FUNC.get_prandom_u32 := mk_true
+
+def step_call (cfg : CFG χ η) (o : erased bpf.oracle) (k : symstate β η → state γ β) : BPF_FUNC → η → symstate β η → state γ β
+| func next s := do
+    check ← do_call_check cfg s func,
+    s' ← assert check s,
+    (return : β) ← mk_var ((λ (o : bpf.oracle), o.rng s'.next_rng) <$> o),
+    let newregs := list.foldl (λ (l : vector (symvalue β) bpf.nregs) (r : bpf.reg), l.update_nth r.to_fin symvalue.uninitialized)
+                              s'.regs bpf.reg.caller_saved in
+    let retregs := newregs.update_nth bpf.reg.R0.to_fin (symvalue.scalar return) in
+    k {regs := retregs, current := next, next_rng := s.next_rng + 1, ..s'}
+
 /-- Run symbolic evaluation for one step (instruction), passing control to continuation k. -/
-def step_symeval (cfg : CFG χ η) (k : symstate β η → state γ β) : symstate β η → state γ β :=
+def step_symeval (cfg : CFG χ η) (o : erased bpf.oracle) (k : symstate β η → state γ β) : symstate β η → state γ β :=
 λ (s : symstate β η),
   match lookup s.current cfg.code with
   | some (instr.ALU64_X op dst src next) :=
@@ -123,14 +136,14 @@ def step_symeval (cfg : CFG χ η) (k : symstate β η → state γ β) : symsta
     step_jmp64_k cfg k op r₁ imm if_true if_false s
   | some (instr.Exit) := step_exit cfg k s
   | some (instr.STX size dst src imm next) := die
-  | some (instr.CALL func next) := die
+  | some (instr.CALL func next) := step_call cfg o k func next s
   | none := die
   end
 
 /-- Step symbolic evaluation at most "fuel" times. -/
-def symeval (cfg : CFG χ η) : ∀ (fuel : ℕ), symstate β η → state γ β
+def symeval (cfg : CFG χ η) (o : erased bpf.oracle) : ∀ (fuel : ℕ), symstate β η → state γ β
 | 0       := infeasible
-| (n + 1) := step_symeval cfg (symeval n)
+| (n + 1) := step_symeval cfg o (symeval n)
 
 /-- Construct the initial symbolic state from cfg and registers. -/
 def initial_symstate (cfg : CFG χ η) (o : erased oracle) : state γ (symstate β η) := do
@@ -144,7 +157,7 @@ pure { assumptions := truthy,
 /-- Generate verification conditions for the safety of "cfg" given some fuel and initial registers. -/
 def vcgen (cfg : CFG χ η) (fuel : ℕ) (o : erased oracle) : state γ β := do
 init : symstate β η ← initial_symstate cfg o,
-symeval cfg fuel init
+symeval cfg o fuel init
 
 end impl
 end se

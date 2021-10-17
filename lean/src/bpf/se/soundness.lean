@@ -77,22 +77,22 @@ end
 
 end concretizes
 
-theorem die_increasing : increasing (die : state γ β) := by apply le_mk_const
+private theorem die_increasing : increasing (die : state γ β) := by apply le_mk_const
 
-theorem assume_increasing (c : β) (s : symstate β η) : increasing (assume_ c s : state γ (symstate β η)) :=
+private theorem assume_increasing (c : β) (s : symstate β η) : increasing (assume_ c s : state γ (symstate β η)) :=
 begin
   apply increasing_bind,
   apply le_mk_and,
   apply increasing_pure
 end
 
-theorem assume_assertions_eq {s : symstate β η} {g : γ} {c : β} :
+private theorem assume_assertions_eq {s : symstate β η} {g : γ} {c : β} :
   ((assume_ c s).run g).fst.assertions = s.assertions :=
 begin
   simp only [assume_, state_t.run_bind], refl,
 end
 
-theorem assert_increasing (c : β) (s : symstate β η) : increasing (assert c s : state γ (symstate β η)) :=
+private theorem assert_increasing (c : β) (s : symstate β η) : increasing (assert c s : state γ (symstate β η)) :=
 begin
   apply increasing_bind,
   apply le_mk_implies,
@@ -102,11 +102,11 @@ begin
   apply increasing_pure
 end
 
-theorem assert_assumptions_eq {s : symstate β η} {g : γ} {c : β} :
+private theorem assert_assumptions_eq {s : symstate β η} {g : γ} {c : β} :
   ((assert c s).run g).fst.assumptions = s.assumptions :=
 by simpa only [assert, state_t.run_bind]
 
-theorem assert_spec {s s' : symstate β η} {g g' : γ} {c : β} {as asserts assumes : bool} {concrete : runstate η} :
+private theorem assert_spec {s s' : symstate β η} {g g' : γ} {c : β} {as asserts assumes : bool} {concrete : runstate η} :
   concretizes g s asserts assumes concrete →
   sat g c (bv1 as) →
   (assert c s).run g = (s', g') →
@@ -127,7 +127,7 @@ begin
   { apply pre.next_rng_ok }
 end
 
-theorem assume_spec {s s' : symstate β η} {g g' : γ} {c : β} {as asserts assumes : bool} {concrete : runstate η} :
+private theorem assume_spec {s s' : symstate β η} {g g' : γ} {c : β} {as asserts assumes : bool} {concrete : runstate η} :
   concretizes g s asserts assumes concrete →
   sat g c (bv1 as) →
   (assume_ c s).run g = (s', g') →
@@ -178,7 +178,7 @@ theorem weaken {cfg : CFG χ η} {o : oracle} {p p' : set (symstate β η)} {k :
 
 end se_correct
 
-theorem step_jmp64_x_increasing {cfg : CFG χ η} {k : symstate β η → state γ β} (ih : ∀ s, increasing (k s)) :
+private theorem step_jmp64_x_increasing {cfg : CFG χ η} {k : symstate β η → state γ β} (ih : ∀ s, increasing (k s)) :
   ∀ op dst src if_true if_false s,
     increasing (step_jmp64_x cfg k op dst src if_true if_false s)
 | op dst src if_true if_false s := by {
@@ -200,7 +200,7 @@ theorem step_jmp64_x_increasing {cfg : CFG χ η} {k : symstate β η → state 
   apply ih,
   apply le_mk_and }
 
-theorem step_jmp64_k_increasing {cfg : CFG χ η} {k : symstate β η → state γ β} (ih : ∀ s, increasing (k s)) :
+private theorem step_jmp64_k_increasing {cfg : CFG χ η} {k : symstate β η → state γ β} (ih : ∀ s, increasing (k s)) :
   ∀ op dst imm if_true if_false s,
     increasing (step_jmp64_k cfg k op dst imm if_true if_false s)
 | op dst imm if_true if_false s := by {
@@ -224,7 +224,7 @@ theorem step_jmp64_k_increasing {cfg : CFG χ η} {k : symstate β η → state 
   apply ih,
   apply le_mk_and }
 
-theorem step_alu64_x_increasing {cfg : CFG χ η} {k : symstate β η → state γ β} (k_mon : ∀ s, increasing (k s)) :
+private theorem step_alu64_x_increasing {cfg : CFG χ η} {k : symstate β η → state γ β} (k_mon : ∀ s, increasing (k s)) :
   ∀ op dst src next s,
     increasing (step_alu64_x cfg k op dst src next s) :=
 begin
@@ -238,7 +238,7 @@ begin
   apply k_mon
 end
 
-theorem step_alu64_k_increasing {cfg : CFG χ η} {k : symstate β η → state γ β} (k_mon : ∀ s, increasing (k s)) :
+private theorem step_alu64_k_increasing {cfg : CFG χ η} {k : symstate β η → state γ β} (k_mon : ∀ s, increasing (k s)) :
   ∀ op dst imm next s,
     increasing (step_alu64_k cfg k op dst imm next s) :=
 begin
@@ -258,9 +258,9 @@ begin
   apply k_mon
 end
 
-theorem step_symeval_increasing
-  {cfg : CFG χ η} {k : symstate β η → state γ β} {ih : ∀ s, increasing (k s)} ⦃s : symstate β η⦄ :
-    increasing (step_symeval cfg k s) :=
+private theorem step_symeval_increasing
+  {cfg : CFG χ η} {o : erased bpf.oracle} {k : symstate β η → state γ β} {ih : ∀ s, increasing (k s)} ⦃s : symstate β η⦄ :
+    increasing (step_symeval cfg o k s) :=
 begin
   dsimp only [step_symeval],
   intros g,
@@ -280,7 +280,14 @@ begin
     case instr.STX : op dst src off next {
       apply die_increasing },
     case instr.CALL : func next {
-      apply die_increasing },
+      cases func,
+      apply increasing_bind; intros,
+      apply le_mk_const,
+      apply increasing_bind; intros,
+      apply assert_increasing,
+      apply increasing_bind; intros,
+      apply le_mk_var,
+      apply ih },
     case instr.Exit {
       apply increasing_bind; intros,
       apply le_mk_const,
@@ -289,8 +296,8 @@ begin
       apply increasing_pure } }
 end
 
-theorem symeval_increasing {cfg : CFG χ η} {fuel : ℕ} :
-  ∀ ⦃s : symstate β η⦄, increasing (symeval cfg fuel s : state γ β) :=
+private theorem symeval_increasing {cfg : CFG χ η} {o : erased bpf.oracle} {fuel : ℕ} :
+  ∀ ⦃s : symstate β η⦄, increasing (symeval cfg o fuel s : state γ β) :=
 begin
   induction fuel; intros s,
   { apply le_mk_not },
@@ -299,7 +306,7 @@ begin
     assumption }
 end
 
-theorem initial_state_increasing (cfg : CFG χ η) (o : erased oracle) :
+private theorem initial_state_increasing (cfg : CFG χ η) (o : erased oracle) :
   increasing (initial_symstate cfg o : state γ (symstate β η)) :=
 begin
   simp only [initial_symstate],
@@ -308,7 +315,7 @@ begin
   intro c, apply increasing_pure
 end
 
-theorem initial_symstate_spec
+private theorem initial_symstate_spec
   (g : γ) {g' : γ} {s : symstate β η} (cfg : CFG χ η) (o : erased oracle) :
     (initial_symstate cfg o).run g = (s, g') →
     concretizes g' s tt tt ⟨cfg.entry, (λ (_ : bpf.reg), value.uninitialized), 0⟩ :=
@@ -325,7 +332,7 @@ begin
   { refl }
 end
 
-theorem initial_symstate_current {g : γ} {cfg : CFG χ η} {o : erased oracle} :
+private theorem initial_symstate_current {g : γ} {cfg : CFG χ η} {o : erased oracle} :
   ((initial_symstate cfg o : state γ (symstate β η)).run g).1.current = (CFG.entry cfg) :=
 begin
   simp only [initial_symstate, state_t.run_bind],
@@ -333,7 +340,7 @@ begin
 end
 
 /-- "die" is a correct symbolic evaluator (that rejects everything). -/
-theorem die_correct {cfg : CFG χ η} {o : oracle} : se_correct cfg o ⊤ (λ (_ : symstate β η), (die : state γ β)) :=
+private theorem die_correct {cfg : CFG χ η} {o : oracle} : se_correct cfg o ⊤ (λ (_ : symstate β η), (die : state γ β)) :=
 begin
   rintros _ _ _ _ _ _ _ ⟨⟩ assumes_sat die_mk,
   existsi ff,
@@ -343,7 +350,7 @@ begin
   { tauto }
 end
 
-theorem infeasible_correct {cfg : CFG χ η} {o : oracle} : se_correct cfg o ⊤ (infeasible : symstate β η → state γ β) :=
+private theorem infeasible_correct {cfg : CFG χ η} {o : oracle} : se_correct cfg o ⊤ (infeasible : symstate β η → state γ β) :=
 begin
   rintros _ _ _ _ _ _ _ ⟨⟩ pre die_mk,
   existsi (!assumes),
@@ -362,7 +369,7 @@ open concretizes
   step_jmp64_x is a correct symbolic evaluator when the current instruction is JMP_X and
   the continuation is correct for any state.
 -/
-theorem step_jmp64_x_correct
+private theorem step_jmp64_x_correct
   {cfg : CFG χ η} {o : oracle} {k : symstate β η → state γ β}
   (k_inc : ∀ s, increasing (k s)) (ih : se_correct cfg o ⊤ k)
   {op : JMP} {dst src : reg} {if_true if_false : η} :
@@ -473,7 +480,7 @@ begin
       exact step } }
 end
 
-theorem step_jmp64_k_correct
+private theorem step_jmp64_k_correct
   {cfg : CFG χ η} {o : oracle} {k : symstate β η → state γ β}
   (k_inc : ∀ s, increasing (k s)) (ih : se_correct cfg o ⊤ k)
   {op : JMP} {dst : reg} {imm : lsbvector 64} {if_true if_false : η} :
@@ -594,7 +601,7 @@ end
   step_alu64_x is a correct symbolic evaluator when the current instruction is ALU64_X and
   the continuation is correct for any state.
 -/
-theorem step_alu64_x_correct
+private theorem step_alu64_x_correct
   {cfg : CFG χ η} {k : symstate β η → state γ β} {o : oracle}
   (k_inc : ∀ s, increasing (k s)) (ih : se_correct cfg o ⊤ k)
   {op : ALU} {dst src : reg} {next : η} :
@@ -662,7 +669,7 @@ begin
     exact this_assert_ok }
 end
 
-theorem step_alu64_k_correct
+private theorem step_alu64_k_correct
   {cfg : CFG χ η} {k : symstate β η → state γ β} {o : oracle}
   (k_inc : ∀ s, increasing (k s)) (ih : se_correct cfg o ⊤ k)
   {op : ALU} {dst : reg} {imm : lsbvector 64} {next : η} :
@@ -732,7 +739,7 @@ begin
     exact this_assert_ok }
 end
 
-theorem step_exit_correct
+private theorem step_exit_correct
   {cfg : CFG χ η} {k : symstate β η → state γ β} {o : oracle}
   (k_inc : ∀ s, increasing (k s)) (ih : se_correct cfg o ⊤ k) :
     se_correct cfg o (λ s, lookup s.current cfg.code = some instr.Exit)
@@ -770,11 +777,92 @@ begin
   exact bpf.cfg.safe_from_state_of_det_step bpf.cfg.safe_from_exited (bpf.cfg.step.Exit _ fetch_i hreg0) (bpf.cfg.step_exit_det _ fetch_i)
 end
 
+private theorem step_call_correct
+  {cfg : CFG χ η} {k : symstate β η → state γ β} {o : oracle} {func : BPF_FUNC} {next : η}
+  (k_inc : ∀ s, increasing (k s)) (ih : se_correct cfg o ⊤ k) :
+    se_correct cfg o (λ s, lookup s.current cfg.code = some (instr.CALL func next))
+               (step_call cfg (erased.mk o) k func next) :=
+begin
+  intros g g' c abs asserts assumes concrete fetch_i pre mk,
+  simp only [step_call, state_t.run_bind] at mk,
+  cases f₁ : (do_call_check cfg abs func : state γ β).run g with check g₁,
+  cases f₂ : (assert check abs).run g₁ with s' g₂,
+  cases f₃ : (mk_var (erased.map (λ (o : oracle), o.rng ↑(s'.next_rng)) (erased.mk o)) : state γ β).run g₂ with return g₃,
+  cases func,
+
+  rw [f₁] at mk,
+  simp only [state_t.run_map, erased.map_def, has_bind.bind, id_bind] at mk,
+  rw [f₂, f₃] at mk,
+
+  have l₁ : g ≤ g₁,
+  { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₁, simp only at r, rw [← r],
+    apply le_mk_const },
+  have l₂ : g₁ ≤ g₂,
+  { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₂, simp only at r, rw [← r],
+    apply assert_increasing },
+  have l₃ : g₂ ≤ g₃,
+  { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₃, simp only at r, rw [← r],
+    apply le_mk_var },
+
+  have h₁ := sat_mk_const1 f₁,
+  have h₂ := assert_spec (of_le l₁ pre) h₁ f₂,
+  have h₃ := sat_mk_var f₃,
+  simp only [bimplies_tt, band_tt] at h₂,
+
+  specialize @ih _ _ c _ (asserts && tt)
+                         assumes
+                         { regs := BPF_FUNC.do_call BPF_FUNC.get_prandom_u32 o concrete.next_rng concrete.regs,
+                           next_rng := concrete.next_rng.succ,
+                           pc := next,
+                           ..concrete }
+                         true.intro _ mk,
+  { clear mk,
+    constructor,
+    { simp only [band_tt],
+      apply sat_of_le _ h₂.asserts_ok,
+      apply l₃ },
+    { apply sat_of_le _ h₂.assumes_ok,
+      apply l₃ },
+    { intros r,
+      simp only [erased.out_mk, erased.map_out, h₂.next_rng_ok] at f₃ h₃,
+      push_cast at h₃,
+      simp only [reg.caller_saved, list.foldl, BPF_FUNC.do_call, list.mem_cons_iff, list.mem_singleton, list.foldl],
+      cases r; simp [vector.nth_update_nth_eq_if],
+      case bpf.reg.R0 {
+        constructor, exact h₃ },
+      case bpf.reg.R1 { constructor },
+      case bpf.reg.R2 { constructor },
+      case bpf.reg.R3 { constructor },
+      case bpf.reg.R4 { constructor },
+      case bpf.reg.R5 { constructor },
+      case bpf.reg.R6 { exact sat_of_le l₃ (h₂.regs_ok _) },
+      case bpf.reg.R7 { exact sat_of_le l₃ (h₂.regs_ok _) },
+      case bpf.reg.R8 { exact sat_of_le l₃ (h₂.regs_ok _) },
+      case bpf.reg.R9 { exact sat_of_le l₃ (h₂.regs_ok _) },
+      case bpf.reg.FP { exact sat_of_le l₃ (h₂.regs_ok _) },
+      case bpf.reg.AX { exact sat_of_le l₃ (h₂.regs_ok _) } },
+    { refl },
+    { simp only,
+      push_cast,
+      rw [pre.next_rng_ok] } },
+
+  rcases ih with ⟨vc, vc_sat, vc_sound⟩,
+  refine ⟨vc, ⟨vc_sat, _⟩⟩,
+  rintros ⟨⟩ ⟨⟩,
+  obtain ⟨as_ok, tail⟩ := vc_sound rfl rfl, clear vc_sound,
+  simp only [bool.to_bool_not, band_eq_true_eq_eq_tt_and_eq_tt] at as_ok,
+  rcases as_ok with ⟨⟨⟩, this_assert_ok⟩,
+  refine ⟨rfl, _⟩,
+  simp only [set.mem_def, pre.pc_ok] at fetch_i,
+  apply bpf.cfg.safe_from_state_of_det_step tail _ (bpf.cfg.step_call_det _ fetch_i),
+  refine bpf.cfg.step.CALL _ fetch_i rfl
+end
+
 /-- step_symeval is correct for any state when the continuation is correct for any state. -/
-theorem step_symeval_correct
+private theorem step_symeval_correct
   {cfg : CFG χ η} {k : symstate β η → state γ β} {o : oracle}
   (k_inc : ∀ s, increasing (k s)) (ih : se_correct cfg o ⊤ k) :
-    se_correct cfg o ⊤ (step_symeval cfg k) :=
+    se_correct cfg o ⊤ (step_symeval cfg (erased.mk o) k) :=
 begin
   simp only [step_symeval],
   rintros _ _ vc _ _ _ _ ⟨⟩ pre mk,
@@ -791,13 +879,13 @@ begin
     case STX {
       exact die_correct true.intro pre mk },
     case CALL {
-      exact die_correct true.intro pre mk },
+      exact step_call_correct k_inc ih fetch_i pre mk },
     case Exit {
       exact step_exit_correct k_inc ih fetch_i pre mk } }
 end
 
 theorem symeval_correct (cfg : CFG χ η) (o : oracle) (fuel : ℕ) :
-  se_correct cfg o ⊤ (symeval cfg fuel : symstate β η → state γ β) :=
+  se_correct cfg o ⊤ (symeval cfg (erased.mk o) fuel : symstate β η → state γ β) :=
 begin
   induction fuel,
   case zero { exact infeasible_correct },
@@ -816,6 +904,7 @@ begin
   let init := ((initial_symstate cfg o).run g).1,
   let g' := ((initial_symstate cfg o).run g).2,
   have correct := symeval_correct cfg o.out fuel,
+  simp only [erased.mk_out] at correct,
   obtain ⟨vc_b, sat₁, sound⟩ := @correct g' _ (_ : β) init tt tt _ true.intro _ _,
   { refine ⟨vc_b, ⟨sat₁, _⟩⟩,
     rintros ⟨⟩,

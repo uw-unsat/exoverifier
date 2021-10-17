@@ -81,6 +81,8 @@ test/aig/c32sat: \
 BPF_BINS := \
     $(patsubst %.S,%.bin,$(call rwildcard,test/bpf/examples/,*.S)) \
     $(patsubst %.c,%.bin,$(call rwildcard,test/bpf/examples/ebpf-samples/src/,*.c)) \
+    $(patsubst %.c,%.bin,$(call rwildcard,test/bpf/examples/absint/,*.c)) \
+    $(patsubst %.c,%.bin,$(call rwildcard,test/bpf/examples/symeval/,*.c)) \
     $(patsubst %.o,%.bin,$(call rwildcard,test/bpf/examples/,*.o)) \
     $(call rwildcard,test/bpf/examples/test_verifier/bin/,*.bin) \
 
@@ -103,7 +105,7 @@ bpf-examples: $(BPF_BINS) $(patsubst %.bin,%.asm,$(BPF_BINS)) $(patsubst %.o,%.l
 	$(QUIET_GEN)$(LLVM_MC) -triple bpf -filetype=obj -o "$@" "$<"
 
 %.o: %.c
-	$(QUIET_CC)$(LLVM_CC) -target bpf -Wall -O2 -c "$<" -o "$@"
+	$(QUIET_CC)$(LLVM_CC) -Itest/bpf/examples/common -target bpf -Wall -O2 -c "$<" -o "$@"
 
 %.bin: %.o
 	$(QUIET_GEN)$(LLVM_OBJCOPY) -I bpf -O binary "$<" "$@"

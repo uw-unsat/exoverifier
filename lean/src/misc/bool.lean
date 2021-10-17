@@ -14,6 +14,11 @@ by refl
 | ff _ := tt
 | tt b := b
 
+@[simp]
+lemma bimplies_tt {b : bool} :
+  bimplies b tt = tt :=
+by cases b; refl
+
 lemma bimplies_eq_bnot_bor (b₁ b₂ : bool) :
 bimplies b₁ b₂ = !b₁ || b₂ :=
 by cases b₁; cases b₂; refl
