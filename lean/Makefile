@@ -91,6 +91,8 @@ FILTER_OUT = $(foreach v,$(2),$(if $(findstring $(1),$(v)),,$(v)))
 BPF_PROOFS := $(call FILTER_OUT,fail, \
     $(patsubst %.S,%-absint.lef,$(call rwildcard,test/bpf/examples/absint/,*.S)) \
     $(patsubst %.S,%-symeval.lef,$(call rwildcard,test/bpf/examples/symeval/,*.S)) \
+    $(patsubst %.c,%-absint.lef,$(call rwildcard,test/bpf/examples/absint/,*.c)) \
+    $(patsubst %.c,%-symeval.lef,$(call rwildcard,test/bpf/examples/symeval/,*.c)) \
     )
 
 proofs: $(BPF_PROOFS)
