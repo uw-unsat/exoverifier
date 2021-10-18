@@ -18,43 +18,42 @@ open unordered_map has_γ abstr_le abstr_top
 
 abbreviation PGRM : Type := bpf.cfg.CFG (map (bpf.cfg.instr CTRL)) CTRL
 
-abbreviation MEM := with_bot REGS
+abbreviation STATE := with_bot REGS
 
-abbreviation STATE := map MEM
+/-- A SOLUTION maps each control point to a STATE or ⊥. -/
+abbreviation SOLUTION := map STATE
 
 /-- Interpret an abstract state. Use ⊥ for unmapped control points. -/
-abbreviation interpret (s : STATE) (i : CTRL) : MEM :=
+abbreviation interpret (s : SOLUTION) (i : CTRL) : STATE :=
 (lookup i s).get_or_else ⊥
 
+/-- A constraint computes a state for the "target" control point given a state for the "source" control point. -/
 structure constraint :=
 (target  : CTRL)
 (source  : CTRL)
-(compute : MEM → MEM)
+(compute : STATE → STATE)
 
 instance [has_repr CTRL] : has_repr constraint :=
 ⟨ λ c,
   "{ target := " ++ repr c.target ++ ", source := " ++ repr c.source ++ ", compute := XXX }" ⟩
 
 abbreviation safety_predicate : Type :=
-CTRL × (MEM → bool)
+CTRL × (STATE → bool)
 
 /-- Generate the constraints for a single BPF instruction. -/
 def gen_one_constraint (current : CTRL) : bpf.cfg.instr CTRL → list constraint
 | (bpf.cfg.instr.ALU64_X op dst src next) :=
   [{ target  := next,
      source  := current,
-     compute := λ mem,
-      (with_bot.lift_unary_transfer (regs_abstr.do_alu op dst src)).op mem }]
+     compute := (with_bot.lift_unary_transfer (regs_abstr.do_alu op dst src)).op }]
 | (bpf.cfg.instr.ALU64_K op dst imm next) :=
   [{ target  := next,
      source  := current,
-     compute := λ mem,
-      (with_bot.lift_unary_transfer (regs_abstr.do_alu_imm op dst imm)).op mem }]
+     compute := (with_bot.lift_unary_transfer (regs_abstr.do_alu_imm op dst imm)).op }]
 | (bpf.cfg.instr.JMP_X op dst src if_true if_false) :=
   [{ target  := if_true,
      source  := current,
-     compute := λ mem,
-       (with_bot.lift_arg_unary_inversion (regs_abstr.invert_jmp_tt op dst src)).inv mem },
+     compute := (with_bot.lift_arg_unary_inversion (regs_abstr.invert_jmp_tt op dst src)).inv },
    { target  := if_false,
      source  := current,
      compute := id }]
@@ -99,7 +98,7 @@ Generate the safety predicate for a single instruction.
 Asserts that the next instruction is legal and any specific predicates
 that must hold for the state to step (i.e., not error).
 -/
-def gen_one_safety (p : PGRM) (current : CTRL) : bpf.cfg.instr CTRL → MEM → bool
+def gen_one_safety (p : PGRM) (current : CTRL) : bpf.cfg.instr CTRL → STATE → bool
 | i@(bpf.cfg.instr.ALU64_X op dst src next) :=
   λ mem,
     (lookup next p.code).is_some ∧
@@ -136,8 +135,8 @@ def gen_safety (p : PGRM) : list safety_predicate :=
 (p.entry, λ _, (lookup p.entry p.code).is_some) ::
 (to_list p.code).map (λ (i : Σ (_ : CTRL), bpf.cfg.instr CTRL), (i.1, gen_one_safety p i.1 i.2))
 
-def secure (p : PGRM) (s : STATE) : Prop :=
-∀ (pc : CTRL) (check : MEM → bool),
+def secure (p : PGRM) (s : SOLUTION) : Prop :=
+∀ (pc : CTRL) (check : STATE → bool),
   (pc, check) ∈ (gen_safety p : list safety_predicate) →
   check (interpret s pc) = tt
 
@@ -145,9 +144,9 @@ def secure (p : PGRM) (s : STATE) : Prop :=
 This instance is written in a weird way to avoid having the `eq.mpr` term from `simp`
 take part in computation.
 -/
-instance (p : PGRM) (s : STATE) : decidable (secure p s) :=
+instance (p : PGRM) (s : SOLUTION) : decidable (secure p s) :=
 by {
-  cases @list.decidable_forall_mem (CTRL × (MEM → bool))
+  cases @list.decidable_forall_mem (CTRL × (STATE → bool))
         (λ x, x.snd (interpret s x.fst) = tt) _ (gen_safety p),
   { left,
     simp only [secure, ← prod.forall', prod.mk.eta],
@@ -156,10 +155,10 @@ by {
     simp only [secure, ← prod.forall', prod.mk.eta],
     exact h } }
 
-def constraint_holds (l : constraint) (s : STATE) : Prop :=
+def constraint_holds (l : constraint) (s : SOLUTION) : Prop :=
 l.compute (interpret s l.source) ≤ interpret s l.target
 
-instance (l : constraint) (s : STATE) : decidable (constraint_holds l s) :=
+instance (l : constraint) (s : SOLUTION) : decidable (constraint_holds l s) :=
 by { simp only [constraint_holds], apply_instance }
 
 /--
@@ -167,12 +166,12 @@ An abstract state `s` approximates the behavior of P exactly when
 F(s) ≤ s, where F is the transfer function on abstract states induced by the
 `MEM → MEM` functions in the constraints.
 -/
-def approximates (p : PGRM) (s : STATE) : Prop :=
+def approximates (p : PGRM) (s : SOLUTION) : Prop :=
 ∀ ⦃c : constraint⦄,
   c ∈ (gen_constraints p : list constraint) →
   constraint_holds c s
 
-instance (p : PGRM) (s : STATE) : decidable (approximates p s) :=
+instance (p : PGRM) (s : SOLUTION) : decidable (approximates p s) :=
 by apply list.decidable_forall_mem
 
 /- Collecting semantics for BPF. Computes the set of reachable states for a program `p`. -/
@@ -182,7 +181,7 @@ def collect (p : PGRM) (o : bpf.oracle) : set (bpf.cfg.state CTRL) :=
 /--
 Any initial BPF state is correctly approximated by the constraints.
 -/
-theorem init_approximation (p : PGRM) (s : STATE) :
+theorem init_approximation (p : PGRM) (s : SOLUTION) :
   approximates p s →
   (λ _, bpf.value.uninitialized : bpf.reg → bpf.value) ∈ γ (interpret s p.entry) :=
 begin
@@ -200,7 +199,7 @@ Any state which approximates p respects the concretization function γ for the a
 domain over states. In other words, `gen_constraints` is a sound transfer function
 for the BPF semantics.
 -/
-theorem correct_approximation (p : PGRM) (o : bpf.oracle) (s : STATE) :
+theorem correct_approximation (p : PGRM) (o : bpf.oracle) (s : SOLUTION) :
   approximates p s →
   ∀ (s' : bpf.cfg.runstate CTRL),
     bpf.cfg.state.running s' ∈ collect p o →
@@ -284,7 +283,7 @@ If the safety predicates hold then any reachable state always has an instruction
 mapped at the PC. This is proved separately since it must be proven using induction
 over the trace of states.
 -/
-theorem instruction_exists_of_secure (p : PGRM) (o : bpf.oracle) (s : STATE) :
+theorem instruction_exists_of_secure (p : PGRM) (o : bpf.oracle) (s : SOLUTION) :
   secure p s →
   ∀ (s' : bpf.cfg.runstate CTRL),
     bpf.cfg.state.running s' ∈ collect p o →
@@ -353,7 +352,7 @@ If a safety predicate holds for an instruction in the program and some abstract 
 and that abstract state models some concrete state, then the concrete state will be
 able to take at least one step.
 -/
-theorem can_step_of_safety {p : PGRM} {o : bpf.oracle} {s : STATE} {c : bpf.cfg.runstate CTRL} {i : bpf.cfg.instr CTRL} :
+theorem can_step_of_safety {p : PGRM} {o : bpf.oracle} {s : SOLUTION} {c : bpf.cfg.runstate CTRL} {i : bpf.cfg.instr CTRL} :
   gen_one_safety p c.pc i (interpret s c.pc) = tt →
   lookup c.pc p.code = some i →
   c.regs ∈ γ (interpret s c.pc) →
@@ -409,7 +408,7 @@ If an abstract state approximates the behavior of a program and the security che
 evaluate to `tt` for that state, then the set of reachable states of the program
 is a subset of the set of safe states.
 -/
-theorem correctness (p : PGRM) (o : bpf.oracle) (s : STATE) :
+theorem correctness (p : PGRM) (o : bpf.oracle) (s : SOLUTION) :
   approximates p s →
   secure p s →
   collect p o ⊆ safeset p o :=
@@ -443,7 +442,7 @@ end
 A rephrasing of `correctness` that demonstrates that it implies the definition
 of program safety in `bpf.cfg`.
 -/
-theorem safe_program_of_correct_approximation (p : PGRM) (s : STATE) :
+theorem safe_program_of_correct_approximation (p : PGRM) (s : SOLUTION) :
   approximates p s →
   secure p s →
   bpf.cfg.safe p :=
@@ -455,15 +454,15 @@ end
 namespace solver
 
 /-- The initial state is the empty map (i.e., maps everything to ⊥). -/
-private def initial_state : STATE :=
-@unordered_map.empty CTRL _ (map MEM) _
+private def initial_state : SOLUTION :=
+@unordered_map.empty CTRL _ SOLUTION _
 
 /-- Refine an abstract state using a constraint and ⊔. -/
-private def refine (s : STATE) (c : constraint) : STATE :=
+private def refine (s : SOLUTION) (c : constraint) : SOLUTION :=
 insert_with abstr_join.join c.target (c.compute (interpret s c.source)) s
 
 /-- Refine a state using all constraints in a list. -/
-private def refine_all : STATE → list constraint → STATE
+private def refine_all : SOLUTION → list constraint → SOLUTION
 | s []        := s
 | s (c :: cs) := refine_all (refine s c) cs
 
@@ -471,7 +470,7 @@ private def refine_all : STATE → list constraint → STATE
 Iterate refining a state with all contraints in the list `fuel` times.
 Stop early if a state is found which satisfies the constraints.
 -/
-private def iterate (l : list constraint) : STATE → ℕ → STATE
+private def iterate (l : list constraint) : SOLUTION → ℕ → SOLUTION
 | s 0       := s
 | s (n + 1) :=
   if ∀ c, c ∈ l → constraint_holds c s
@@ -479,7 +478,7 @@ private def iterate (l : list constraint) : STATE → ℕ → STATE
   else iterate (refine_all s l) n
 
 /-- Solve constraints by iterating `fuel` times on the initial state. -/
-def solve (l : list constraint) (fuel : ℕ) : STATE :=
+def solve (l : list constraint) (fuel : ℕ) : SOLUTION :=
 iterate l initial_state fuel
 
 end solver

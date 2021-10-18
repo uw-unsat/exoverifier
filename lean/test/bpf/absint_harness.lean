@@ -33,15 +33,15 @@ def program : bpf.cfg.trie_program :=
 
 def constraints := @gen_constraints pos_num (nonrelational.aregs (with_top (avalue (tnum 64)))) _ _ trie _ program
 
-meta def solution : STATE :=
+meta def solution : SOLUTION :=
  @solver.solve pos_num (nonrelational.aregs (with_top (avalue (tnum 64)))) _ _ trie _ constraints 5000
 
 meta def solexpr : pexpr :=
-``(%%solution : @STATE (nonrelational.aregs (with_top (avalue (tnum 64)))) _ trie)
+``(%%solution : @SOLUTION (nonrelational.aregs (with_top (avalue (tnum 64)))) _ trie)
 
 /-- The solution, but reified into a concrete trie (no computation),
     by doing computation in meta-lean and serializing. -/
-def solution' : @STATE (nonrelational.aregs (with_top (avalue (tnum 64)))) _ trie :=
+def solution' : @SOLUTION (nonrelational.aregs (with_top (avalue (tnum 64)))) _ trie :=
 (by tactic.to_expr solexpr >>= tactic.exact)
 
 def predicates := @gen_safety pos_num (nonrelational.aregs (with_top (avalue (tnum 64)))) _ _ trie _ program
