@@ -13,9 +13,9 @@ int main(void) {
     y = bpf_get_prandom_u32();
 
     if (x < y) {
-        asm volatile("" : "+r" (x));
+        OPT_BARRIER(x);
         if (x > y) {
-            asm volatile("r7 /= r7");
+            abort();
         }
     }
 
