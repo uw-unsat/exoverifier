@@ -66,13 +66,7 @@ def γ (p : range β) : set (bnum β) :=
 /-- znum.le is decidable, so γ is too. -/
 instance : has_decidable_γ (bnum β) (range β) :=
 { γ                := γ,
-  dec_γ            := by { dsimp only [decidable_pred, γ], apply_instance },
-  abstract         := λ x, ⟨ x.1, x.1, le_refl _, x.2.1, x.2.2 ⟩,
-  abstract_correct := by {
-    intros x,
-    split,
-    apply le_refl _,
-    apply le_refl _ } }
+  dec_γ            := by { dsimp only [decidable_pred, γ], apply_instance } }
 
 /-- The range which is as big as the maximum bounds. -/
 def top : range β :=

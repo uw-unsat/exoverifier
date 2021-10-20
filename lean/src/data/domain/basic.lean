@@ -30,8 +30,8 @@ Assume that α uniquely determines β.
 -/
 class has_γ (β : out_param Type*) (α : Type*) :=
 (γ                : α → set β)
-(abstract         : β → α)
-(abstract_correct : ∀ (x : β), x ∈ γ (abstract x))
+-- (abstract         : β → α)
+-- (abstract_correct : ∀ (x : β), x ∈ γ (abstract x))
 
 open has_γ
 
@@ -162,9 +162,7 @@ Lattice operations on id α defined using equality.
 -/
 
 instance : has_γ α (id α) :=
-{ γ                := eq,
-  abstract         := id,
-  abstract_correct := by tauto }
+{ γ                := eq }
 
 instance [decidable_eq α] : has_decidable_γ α (id α) :=
 { dec_γ := infer_instance }
@@ -194,11 +192,7 @@ variables {κ α' : Type*}
 open abstr_top abstr_join abstr_meet
 
 instance [has_γ β α] : has_γ (κ → β) (κ → α) :=
-{ γ                := λ g f, ∀ i, f i ∈ γ (g i),
-  abstract         := λ f, abstract ∘ f,
-  abstract_correct := by {
-    intros _ _,
-    apply abstract_correct } }
+{ γ                := λ g f, ∀ i, f i ∈ γ (g i) }
 
 instance [fintype κ] [has_γ β α] [abstr_le β α] : abstr_le (κ → β) (κ → α) :=
 { le         := λ a b, ∀ i, a i ≤ b i,
@@ -241,11 +235,7 @@ variables {δ₁ δ₂ : Type}
 open abstr_le abstr_join abstr_top
 
 instance [has_γ β α₁] [has_γ β α₂] : has_γ β (α₁ × α₂) :=
-{ γ                := λ (a : α₁ × α₂) (x : β), γ a.fst x ∧ γ a.snd x,
-  abstract         := λ x, (abstract x, abstract x),
-  abstract_correct := by {
-    intros _,
-    split; apply abstract_correct } }
+{ γ                := λ (a : α₁ × α₂) (x : β), γ a.fst x ∧ γ a.snd x }
 
 instance [has_decidable_γ β α₁] [has_decidable_γ β α₂] : has_decidable_γ β (α₁ × α₂) :=
 { dec_γ := infer_instance }
@@ -295,11 +285,7 @@ instance [has_γ β α] : has_γ β (with_bot α) :=
     match x with
     | some y := γ y
     | none   := ∅
-    end,
-  abstract         := λ x, some (abstract x),
-  abstract_correct := by {
-    intros _,
-    apply abstract_correct } }
+    end }
 
 instance [has_decidable_γ β α] : has_decidable_γ β (with_bot α) :=
 { dec_γ := λ (a : with_bot α) (x : β),
@@ -432,6 +418,13 @@ def lift_binary_relation {R : β₁ → β₁ → β₂ → Prop} [has_γ β₁ 
     { cases yv },
     { apply g.correct xu yv h } } }
 
+def lift_nullary_relation {R : β₂ → Prop} [has_γ β₂ α₂] (g : abstr_nullary_relation β₂ α₂ R) :
+  abstr_nullary_relation β₂ (with_bot α₂) R :=
+{ op := some g.op,
+  correct := by {
+    intros _ h,
+    apply g.correct h } }
+
 end with_bot
 
 namespace with_top
@@ -447,11 +440,7 @@ instance [has_γ β α] : has_γ β (with_top α) :=
     match x with
     | some y := γ y
     | none   := ⊤
-    end,
-  abstract         := λ x, some (abstract x),
-  abstract_correct := by {
-    intros _,
-    apply abstract_correct } }
+    end }
 
 instance [has_decidable_γ β α] : has_decidable_γ β (with_top α) :=
 { dec_γ := λ (a : with_top α) (x : β),
@@ -545,6 +534,13 @@ lift_binary_relation_arg {
   correct := by {
     intros _ _ _ _ _ _,
     apply g.correct; assumption } }
+
+def lift_nullary_relation {R : β₂ → Prop} [has_γ β₂ α₂] (g : abstr_nullary_relation β₂ α₂ R) :
+  abstr_nullary_relation β₂ (with_top α₂) R :=
+{ op := some g.op,
+  correct := by {
+    intros _ h,
+    apply g.correct h } }
 
 end with_top
 end

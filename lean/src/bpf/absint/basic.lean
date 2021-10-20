@@ -74,7 +74,9 @@ def gen_one_constraint (current : CTRL) : bpf.cfg.instr CTRL → list constraint
 def gen_constraints (p : PGRM) : list constraint :=
 { target  := p.entry,
   source  := p.entry,
-  compute := λ _, abstract (λ (_ : bpf.reg), bpf.value.uninitialized) } ::
+  compute := λ _,
+    (with_bot.lift_nullary_relation
+      (regs_abstr.const (λ (_ : bpf.reg), bpf.value.uninitialized))).op } ::
 (to_list p.code).bind (λ p, gen_one_constraint p.1 p.2)
 
 /--
@@ -191,7 +193,7 @@ begin
   { simp only [gen_constraints, list.mem_cons_iff],
     exact or.inl rfl },
   apply le_correct approx _,
-  apply abstract_correct
+  apply (with_bot.lift_nullary_relation _).correct rfl
 end
 
 /--

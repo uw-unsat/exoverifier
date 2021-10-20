@@ -33,6 +33,8 @@ class value_abstr (α : Type*) extends
 
 (is_scalar : abstr_unary_test bpf.value α (λ x, to_bool x.is_scalar))
 
+(const (v : bpf.value) : abstr_nullary_relation bpf.value α (eq v))
+
 (unknown_scalar :
   abstr_nullary_relation bpf.value α (λ (x : bpf.value), x.is_scalar))
 
@@ -82,21 +84,25 @@ begin
   cases a; cases b; simp only [γ]; apply_instance
 end
 
-private def abstract : bpf.value → avalue β
-| (bpf.value.scalar x)      := (avalue.scalar (has_γ.abstract x))
-| (bpf.value.pointer m x)   := (avalue.pointer m (has_γ.abstract x))
-| (bpf.value.uninitialized) := (avalue.uninitialized)
-
 instance : has_decidable_γ bpf.value (avalue β) :=
 { γ     := γ,
-  dec_γ := dec_γ,
-  abstract         := abstract,
-  abstract_correct := by {
-    intros x,
+  dec_γ := dec_γ }
+
+private def const (v : bpf.value) :
+  abstr_nullary_relation bpf.value (avalue β) (eq v) :=
+{ op :=
+    match v with
+    | (bpf.value.scalar x)      := (avalue.scalar (bv_abstr.const x).op)
+    | (bpf.value.pointer m x)   := (avalue.pointer m (bv_abstr.const x).op)
+    | (bpf.value.uninitialized) := (avalue.uninitialized)
+    end,
+  correct := by {
+    intros x _,
+    subst_vars,
     cases x,
-    { apply has_γ.abstract_correct },
+    { apply (bv_abstr.const x).correct rfl },
     { refine ⟨rfl, _⟩,
-      apply has_γ.abstract_correct },
+      apply (bv_abstr.const _).correct rfl },
     { triv } } }
 
 private def le : avalue β → avalue β → Prop
@@ -506,6 +512,7 @@ private def unknown_scalar : abstr_nullary_relation bpf.value (with_top (avalue 
 
 instance : value_abstr (with_top (avalue β)) :=
 { doALU          := doALU_with_top,
+  const          := λ v, with_top.lift_nullary_relation (const v),
   doALU_check    := doALU_check,
   doJMP_check    := doJMP_check,
   is_scalar      := is_scalar,

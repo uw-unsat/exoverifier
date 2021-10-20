@@ -53,9 +53,7 @@ instance : has_decidable_γ (fin n → bool) interval :=
     rintros ⟨⟩,
     simp only [γ],
     intros x,
-    sorry },
-  abstract         := const,
-  abstract_correct := by apply const_correct }
+    sorry } }
 
 def card : interval → ℕ
 | ⟨first, last, _⟩ := bv.to_nat (last.nth - first.nth + 1)
@@ -222,6 +220,7 @@ end
 
 instance : bv_abstr n (with_top interval) :=
 { neg := sorry,
+  const := sorry,
   add := with_top.lift_binary_relation
    { op := wrapped_interval.add, correct := by { intros, subst_vars, apply wrapped_interval.add_correct; assumption } },
   and := with_top.lift_binary_relation

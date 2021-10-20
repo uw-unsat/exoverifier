@@ -133,9 +133,7 @@ end
 
 instance : has_decidable_γ (fin n → bool) (tnum n) :=
 { γ                := γ,
-  dec_γ            := by { dsimp only [γ], apply_instance },
-  abstract         := tnum.const,
-  abstract_correct := by apply tnum.const_correct }
+  dec_γ            := by { dsimp only [γ], apply_instance } }
 
 instance : abstr_top (fin n → bool) (tnum n) :=
 { top         := ⟨vector.repeat ff _, vector.repeat tt _⟩,
@@ -424,7 +422,8 @@ begin
 end
 
 instance : bv_abstr n (tnum n) :=
-{ neg  := { op := tnum.neg, correct := by { intros, subst_vars, apply tnum.neg_correct; assumption } },
+{ const := λ c, { op := tnum.const c, correct := by { intros, subst_vars, apply tnum.const_correct } },
+  neg  := { op := tnum.neg, correct := by { intros, subst_vars, apply tnum.neg_correct; assumption } },
   add  := { op := tnum.add, correct := by { intros, subst_vars, apply tnum.add_correct; assumption } },
   and  := { op := tnum.and, correct := by { intros, subst_vars, apply tnum.and_correct; assumption } },
   or   := { op := tnum.or, correct := by { intros, subst_vars, apply tnum.or_correct; assumption } },

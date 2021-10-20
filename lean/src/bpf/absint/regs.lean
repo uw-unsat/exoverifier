@@ -70,6 +70,9 @@ class regs_abstr (α : Type*) extends
   abstr_unary_relation (bpf.reg → bpf.value) (bpf.reg → bpf.value) α α
     (λ pre post, ∃ (o : bpf.oracle) (next_rng : ℕ), post = func.do_call o next_rng pre))
 
+(const (rs : bpf.reg → bpf.value) :
+  abstr_nullary_relation (bpf.reg → bpf.value) α (eq rs))
+
 namespace nonrelational
 
 variables {β : Type} [value_abstr β]
@@ -82,13 +85,17 @@ private def interpret (abs : aregs β) : bpf.reg → β :=
 
 instance : has_γ (bpf.reg → bpf.value) (aregs β) :=
 { γ := λ (l : aregs β) (f : bpf.reg → bpf.value),
-    ∀ k, γ (interpret l k) (f k),
-  abstract := λ (f : bpf.reg → bpf.value),
-    (fin_enum.to_vector bpf.reg).map (abstract ∘ f),
-  abstract_correct := by {
-    intros f r,
-    simp only [interpret, vector.nth_map, bpf.reg.to_fin, fin_enum.nth_to_vector],
-    apply abstract_correct } }
+    ∀ k, γ (interpret l k) (f k) }
+
+private def const (rs : bpf.reg → bpf.value) :
+  abstr_nullary_relation (bpf.reg → bpf.value) (aregs β) (eq rs) :=
+{ op := (fin_enum.to_vector bpf.reg).map (λ r, (value_abstr.const (rs r)).op),
+  correct := by {
+    intros _ h r,
+    subst h,
+    simp only [interpret, vector.nth_map, bpf.reg.to_fin],
+    apply (value_abstr.const _).correct,
+    simp only [fin_enum.nth_to_vector] } }
 
 instance : has_le (aregs β) :=
 ⟨ λ a b, ∀ k, interpret a k ≤ interpret b k ⟩
@@ -129,11 +136,11 @@ private def do_alu_check (op : bpf.ALU) (dst src : bpf.reg) :
 private def do_alu_imm_check (op : bpf.ALU) (dst : bpf.reg) (imm : lsbvector 64) :
   abstr_unary_test (bpf.reg → bpf.value) (aregs β)
     (λ (cregs : bpf.reg → bpf.value), op.doALU_check (cregs dst) (bpf.value.scalar imm.nth)) :=
-{ test := λ (l : aregs β), (value_abstr.doALU_check op).test (interpret l dst) (abstract (bpf.value.scalar imm.nth)),
+{ test := λ (l : aregs β), (value_abstr.doALU_check op).test (interpret l dst) (value_abstr.const (bpf.value.scalar imm.nth)).op,
   test_sound := by {
     intros _ _ h₁ h₂,
     apply (value_abstr.doALU_check op).test_sound h₁ (h₂ _) _,
-    apply has_γ.abstract_correct } }
+    apply (value_abstr.const _).correct rfl } }
 
 private def do_alu (op : bpf.ALU) (dst src : bpf.reg) :
   abstr_unary_transfer (bpf.reg → bpf.value) (bpf.reg → bpf.value) (aregs β) (aregs β)
@@ -154,7 +161,7 @@ private def do_alu (op : bpf.ALU) (dst src : bpf.reg) :
 private def do_alu_imm (op : bpf.ALU) (dst : bpf.reg) (imm : lsbvector 64) :
   abstr_unary_transfer (bpf.reg → bpf.value) (bpf.reg → bpf.value) (aregs β) (aregs β)
     (λ cregs, function.update cregs dst (bpf.ALU.doALU op (cregs dst) (bpf.value.scalar imm.nth))) :=
-{ op      := λ (l : aregs β), l.update_nth dst.to_fin ((value_abstr.doALU op).op (interpret l dst) (abstract (bpf.value.scalar imm.nth))),
+{ op      := λ (l : aregs β), l.update_nth dst.to_fin ((value_abstr.doALU op).op (interpret l dst) (value_abstr.const (bpf.value.scalar imm.nth)).op),
   correct := by {
     intros _ _ _ h₁ h r,
     subst h,
@@ -162,7 +169,7 @@ private def do_alu_imm (op : bpf.ALU) (dst : bpf.reg) (imm : lsbvector 64) :
     split_ifs with h,
     { subst h,
       simp only [interpret, option.get_or_else_some, vector.nth_update_nth_same],
-      exact (value_abstr.doALU op).correct (h₁ r) (abstract_correct _) rfl },
+      exact (value_abstr.doALU op).correct (h₁ r) ((value_abstr.const _).correct rfl) rfl },
     { simp only [interpret],
       rw [vector.nth_update_nth_of_ne (bpf.reg.to_fin_ne_of_ne (ne.symm h))],
       exact h₁ r } } }
@@ -178,11 +185,11 @@ private def do_jmp_check (op : bpf.JMP) (dst src : bpf.reg) :
 private def do_jmp_imm_check (op : bpf.JMP) (dst : bpf.reg) (imm : lsbvector 64) :
   abstr_unary_test (bpf.reg → bpf.value) (aregs β)
     (λ (cregs : bpf.reg → bpf.value), op.doJMP_check (cregs dst) (bpf.value.scalar imm.nth)) :=
-{ test := λ (l : aregs β), (value_abstr.doJMP_check op).test (interpret l dst) (abstract (bpf.value.scalar imm.nth)),
+{ test := λ (l : aregs β), (value_abstr.doJMP_check op).test (interpret l dst) (value_abstr.const (bpf.value.scalar imm.nth)).op,
   test_sound := by {
     intros _ _ h₁ h₂,
     apply (value_abstr.doJMP_check op).test_sound h₁ (h₂ _) _,
-    apply has_γ.abstract_correct } }
+    apply (value_abstr.const _).correct rfl } }
 
 private def invert_jmp_tt (op : bpf.JMP) (dst src : bpf.reg) :
   abstr_unary_inversion (bpf.reg → bpf.value) (aregs β) (with_bot (aregs β))
@@ -231,7 +238,7 @@ private def do_call (func : bpf.BPF_FUNC) :
   abstr_unary_relation (bpf.reg → bpf.value) (bpf.reg → bpf.value) (aregs β) (aregs β)
     (λ (pre post : bpf.reg → bpf.value), ∃ (o : bpf.oracle) (next_rng : ℕ), post = func.do_call o next_rng pre) :=
 { op := λ (l : aregs β),
-    let l₁ := list.foldl (λ (l' : aregs β) (r : bpf.reg), l'.update_nth r.to_fin (abstract bpf.value.uninitialized)) l bpf.reg.caller_saved in
+    let l₁ := list.foldl (λ (l' : aregs β) (r : bpf.reg), l'.update_nth r.to_fin (value_abstr.const bpf.value.uninitialized).op) l bpf.reg.caller_saved in
     l₁.update_nth bpf.reg.R0.to_fin value_abstr.unknown_scalar.op,
   correct := by {
     intros _ _ _ h₁ h r,
@@ -244,15 +251,15 @@ private def do_call (func : bpf.BPF_FUNC) :
       apply value_abstr.unknown_scalar.correct,
       refine ⟨_, rfl⟩ },
     case R1 {
-      apply abstract_correct },
+      apply (value_abstr.const _).correct rfl },
     case R2 {
-      apply abstract_correct },
+      apply (value_abstr.const _).correct rfl },
     case R3 {
-      apply abstract_correct },
+      apply (value_abstr.const _).correct rfl },
     case R4 {
-      apply abstract_correct },
+      apply (value_abstr.const _).correct rfl },
     case R5 {
-      apply abstract_correct },
+      apply (value_abstr.const _).correct rfl },
     case R6 {
       exact h₁ _ },
     case R7 {
@@ -273,7 +280,8 @@ private def do_call_check (func : bpf.BPF_FUNC) :
     intros, cases func, refl } }
 
 instance : regs_abstr (aregs β) :=
-{ do_alu           := do_alu,
+{ const            := const,
+  do_alu           := do_alu,
   do_call          := do_call,
   do_call_check    := do_call_check,
   do_alu_check     := do_alu_check,

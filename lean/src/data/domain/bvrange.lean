@@ -45,17 +45,7 @@ instance : has_decidable_γ (fin n → bool) range :=
 { γ := λ r x, (le r.lower.nth x) ∧ (le x r.upper.nth),
   dec_γ := by {
     intros x y,
-    apply_instance },
-  abstract := λ x,
-    let b := vector.of_fn x in
-     ⟨b, b, @linear_order.le_refl _ lin _⟩,
-  abstract_correct := by {
-    intros x,
-    split,
-    { simp [vector.nth_of_fn_ext],
-      apply linear_order.le_refl _ },
-    { simp [vector.nth_of_fn_ext],
-      apply linear_order.le_refl _ } } }
+    apply_instance } }
 
 def subrange (a b : range) : Prop :=
 sorry
@@ -112,6 +102,7 @@ sorry
 
 instance : bv_abstr n range :=
 { add  := { op := add, correct := by { intros, subst_vars, apply add_correct; assumption } },
+  const := sorry,
   neg  := sorry,
   and  := sorry,
   or   := sorry,
