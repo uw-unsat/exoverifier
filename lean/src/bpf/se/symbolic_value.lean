@@ -187,12 +187,38 @@ begin
   case XOR { exact sat_mk_xor mk sat₁ sat₂ }
 end
 
+@[match_simp]
 private def doALU_pointer_scalar : Π (op : ALU) (m : bpf.memregion) (off val : β), state γ (symvalue β)
 | ALU.ADD  m off val := symvalue.pointer m <$> (mk_add off val)
 | ALU.SUB  m off val := symvalue.pointer m <$> (mk_sub off val)
 | ALU.MOV  m off val := pure $ symvalue.scalar val
 | _        m off _   := pure $ symvalue.pointer m off
 
+private theorem sat_doALU_pointer_scalar ⦃g g' : γ⦄ ⦃op : ALU⦄ ⦃m : bpf.memregion⦄ ⦃e₁ e₂ : β⦄ ⦃v₁ v₂ : bpf.i64⦄ ⦃e₃ : symvalue β⦄ :
+  (doALU_pointer_scalar op m e₁ e₂).run g = (e₃, g') →
+  factory.sat g e₁ (⟨64, v₁⟩ : Σ (n : ℕ), fin n → bool) →
+  factory.sat g e₂ (⟨64, v₂⟩ : Σ (n : ℕ), fin n → bool) →
+  sat g' e₃ (op.doALU_pointer_scalar m v₁ v₂) :=
+begin
+  intros mk sat₁ sat₂,
+  cases op; simp only [state_t.run_map] with match_simp at mk ⊢,
+  case ADD {
+    cases mk,
+    apply sat.sat_pointer,
+    apply sat_mk_add (by rw [prod.mk.eta]) sat₁ sat₂ },
+  case SUB {
+    cases mk,
+    apply sat.sat_pointer,
+    apply sat_mk_sub (by rw [prod.mk.eta]) sat₁ sat₂ },
+  case MOV {
+    cases mk,
+    apply sat.sat_scalar sat₂ },
+  all_goals {
+    cases mk,
+    apply sat.sat_pointer sat₁ }
+end
+
+@[match_simp]
 def doALU : Π (op : ALU) (a b : symvalue β), state γ (symvalue β)
 | op      (symvalue.scalar x)      (symvalue.scalar y)   := symvalue.scalar <$> doALU_scalar op x y
 | op      (symvalue.pointer m off) (symvalue.scalar val) := doALU_pointer_scalar op m off val
@@ -204,11 +230,22 @@ private theorem doALU_scalar_def {op : ALU} {x y : β} :
   (doALU op (symvalue.scalar x) (symvalue.scalar y) : state γ _) = symvalue.scalar <$> doALU_scalar op x y :=
 by cases op; refl
 
+@[match_simp]
+private theorem doALU_pointer_scalar_def {op : ALU} {m} {x y : β} :
+  (doALU op (symvalue.pointer m x) (symvalue.scalar y) : state γ _) = doALU_pointer_scalar op m x y :=
+by cases op; refl
+
 theorem doALU_increasing {op : ALU} {a b : symvalue β} : increasing (doALU op a b : state γ (symvalue β)) :=
 begin
   cases a,
   case pointer {
-    cases op; apply increasing_pure },
+    cases b,
+    case pointer { cases op; simp only with match_simp; apply increasing_pure },
+    case scalar {
+      cases op; simp only with match_simp; try{apply increasing_pure},
+      case ADD { apply increasing_map, apply le_mk_add },
+      case SUB { apply increasing_map, apply le_mk_sub } },
+    case uninitialized { cases op; apply increasing_pure } },
   case uninitialized {
     cases op; apply increasing_pure },
 
@@ -244,7 +281,16 @@ begin
   intros mk sat₁ sat₂,
   cases sat₁,
   case sat.sat_pointer {
-    cases op; cases mk; exact sat₁ <|> exact sat₂ },
+    cases sat₂,
+    case sat_pointer {
+      cases op; cases mk; exact sat₁ <|> exact sat₂ },
+    case sat_uninitialized {
+      cases op; cases mk; exact sat₁ <|> exact sat₂ },
+    case sat_scalar {
+      simp only with match_simp at mk ⊢,
+      apply sat_doALU_pointer_scalar mk,
+      assumption,
+      assumption } },
   case sat.sat_uninitialized {
     cases op; cases mk; exact sat₁ <|> exact sat₂ },
 

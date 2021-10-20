@@ -79,14 +79,14 @@ A test function for abstract values. Given some test `p` on concrete values,
 it determines whether that test is satisfied for all concrete values represented by the
 abstract value.
 -/
-structure abstr_unary_test (β : out_param Type*) (α : Type*) [has_γ β α] (p : β → bool) :=
+structure abstr_unary_test (β α : Type*) [has_γ β α] (p : β → bool) :=
 (test       : α → bool)
 (test_sound : ∀ ⦃x : β⦄ ⦃u : α⦄,
   test u = tt →
   x ∈ γ u →
   p x = tt)
 
-structure abstr_binary_test (β : out_param Type*) (α : Type*) [has_γ β α] (p : β → β → bool) :=
+structure abstr_binary_test (β α : Type*) [has_γ β α] (p : β → β → bool) :=
 (test       : α → α → bool)
 (test_sound : ∀ ⦃x y : β⦄ ⦃u v : α⦄,
   test u v = tt →
@@ -94,27 +94,27 @@ structure abstr_binary_test (β : out_param Type*) (α : Type*) [has_γ β α] (
   y ∈ γ v →
   p x y = tt)
 
-structure abstr_unary_transfer (β : out_param Type*) (α₁ α₂ : Type*) [has_γ β α₁] [has_γ β α₂] (f : β → β) :=
+structure abstr_unary_transfer (β α₁ α₂ : Type*) [has_γ β α₁] [has_γ β α₂] (f : β → β) :=
 (op      : α₁ → α₂)
 (correct : ∀ ⦃x : β⦄ ⦃u : α₁⦄,
   x ∈ γ u →
   (f x) ∈ γ (op u))
 
-structure abstr_binary_transfer (β : out_param Type*) (α₁ α₂ : Type*) [has_γ β α₁] [has_γ β α₂] (f : β → β → β) :=
+structure abstr_binary_transfer (β₁ β₂ α₁ α₂ : Type*) [has_γ β₁ α₁] [has_γ β₂ α₂] (f : β₁ → β₁ → β₂) :=
 (op      : α₁ → α₁ → α₂)
-(correct : ∀ ⦃x y : β⦄ ⦃u v : α₁⦄,
+(correct : ∀ ⦃x y : β₁⦄ ⦃u v : α₁⦄,
   x ∈ γ u →
   y ∈ γ v →
   (f x y) ∈ γ (op u v))
 
-structure abstr_unary_inversion (β : out_param Type*) (α₁ α₂ : Type*) [has_γ β α₁] [has_γ β α₂] (p : β → Prop) :=
+structure abstr_unary_inversion (β α₁ α₂ : Type*) [has_γ β α₁] [has_γ β α₂] (p : β → Prop) :=
 (inv     : α₁ → α₂)
 (correct : ∀ ⦃x : β⦄ ⦃u : α₁⦄,
   x ∈ γ u →
   p x →
   x ∈ γ (inv u))
 
-structure abstr_binary_inversion (β : out_param Type*) (α₁ α₂ : Type*) [has_γ β α₁] [has_γ β α₂] (p : β → β → Prop) :=
+structure abstr_binary_inversion (β α₁ α₂ : Type*) [has_γ β α₁] [has_γ β α₂] (p : β → β → Prop) :=
 (inv     : α₁ → α₁ → (α₂ × α₂))
 (correct : ∀ ⦃x y : β⦄ ⦃u v : α₁⦄,
   x ∈ γ u →
@@ -160,7 +160,7 @@ instance [decidable_eq α] : abstr_le α (id α) :=
   dec_le     := infer_instance,
   le_correct := by { rintros _ _ ⟨⟩, refl } }
 
-def transfer (f : α → α → α) : abstr_binary_transfer α (id α) (id α) f :=
+def transfer (f : α → α → α) : abstr_binary_transfer α α (id α) (id α) f :=
 { op      := f,
   correct := by { rintros _ _ _ _ ⟨⟩ ⟨⟩, constructor } }
 
@@ -400,8 +400,8 @@ def lift_unary_transfer {f : β → β} [has_γ β α] (g : abstr_unary_transfer
     { exact g.correct xu } } }
 
 /-- Lift a binary transfer function to work with ⊥. -/
-def lift_binary_transfer {f : β → β → β} [has_γ β α] (g : abstr_binary_transfer β α α f) :
-  abstr_binary_transfer β (with_bot α) (with_bot α) f :=
+def lift_binary_transfer {f : β → β → β} [has_γ β α] (g : abstr_binary_transfer β β α α f) :
+  abstr_binary_transfer β β (with_bot α) (with_bot α) f :=
 { op := λ (x y : with_bot α), g.op <$> x <*> y,
   correct := by {
     intros x y u v xu yv,
@@ -503,8 +503,8 @@ Note this is not always the most precise approximation for `f`, for example,
 if `f` is MOV (i.e., λ _ y, y), then this is less precise than simply returning the
 right operand.
 -/
-def lift_binary_transfer_arg {f : β → β → β} [has_γ β α] (g : abstr_binary_transfer β α (with_top α) f) :
-  abstr_binary_transfer β (with_top α) (with_top α) f :=
+def lift_binary_transfer_arg {f : β → β → β} [has_γ β α] (g : abstr_binary_transfer β β α (with_top α) f) :
+  abstr_binary_transfer β β (with_top α) (with_top α) f :=
 { op := (λ (x y : with_top α), do
     x' ← x,
     y' ← y,
@@ -518,8 +518,8 @@ def lift_binary_transfer_arg {f : β → β → β} [has_γ β α] (g : abstr_bi
 Lift a transfer function to `with_top`. Note that, like `lift_binary_transfer_arg`,
 this is not always maximally precise.
 -/
-def lift_binary_transfer {f : β → β → β} [has_γ β α] (g : abstr_binary_transfer β α α f) :
-  abstr_binary_transfer β (with_top α) (with_top α) f :=
+def lift_binary_transfer {f : β → β → β} [has_γ β α] (g : abstr_binary_transfer β β α α f) :
+  abstr_binary_transfer β β (with_top α) (with_top α) f :=
 lift_binary_transfer_arg {
   op := λ x y, some $ g.op x y,
   correct := by {
