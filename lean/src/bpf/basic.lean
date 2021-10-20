@@ -229,6 +229,12 @@ def doALU_scalar_check {n : ℕ} : ALU → (fin n → bool) → (fin n → bool)
 | END x y  := ff -- Disallow endianness conversion for now TODO
 | _ x y    := tt
 
+def doALU_pointer_scalar_check : ALU → bool
+| ADD := tt
+| SUB := tt
+| MOV := tt
+| _   := ff
+
 /-
 Lean is not good at simplifying multi-way matches like `doALU_check` here.
 To make proofs easier to write without case explosion, we write simplification
@@ -246,9 +252,11 @@ mk_simp_attribute match_simp "Simplification lemmas for multi-way matches."
 def doALU_check : ALU → value → value → bool
 | op (value.scalar x) (value.scalar y) := doALU_scalar_check op x y
 
+| op (value.pointer _ _) (value.scalar _) := doALU_pointer_scalar_check op
+
 /- It is legal to move pointers and scalars into uninitialized registers. -/
-| op _ (value.pointer _ _) := if op = ALU.MOV then tt else ff
 | op _ (value.scalar _)    := if op = ALU.MOV then tt else ff
+| op _ (value.pointer _ _) := if op = ALU.MOV then tt else ff
 
 /- Remaining ops are illegal. -/
 | _ _ _       := ff
@@ -257,6 +265,11 @@ def doALU_check : ALU → value → value → bool
 private theorem doALU_check_pointer_def (op : ALU) {x m y} :
   op.doALU_check x (value.pointer m y) = if op = ALU.MOV then tt else ff :=
 by cases x; refl
+
+@[match_simp]
+private theorem doALU_check_pointer_scalar (op : ALU) {x m y} :
+  op.doALU_check (value.pointer m x) (value.scalar y) = op.doALU_pointer_scalar_check :=
+by refl
 
 @[match_simp]
 private theorem doALU_check_scalar_def (op : ALU) (x y : i64) :
@@ -296,10 +309,18 @@ def doALU_scalar {n : ℕ} : ALU → (fin n → bool) → (fin n → bool) → (
 | END x y  := x -- TODO
 
 @[match_simp]
-def doALU : ALU → value → value → value
-| op (value.scalar x) (value.scalar y) := value.scalar (doALU_scalar op x y)
+def doALU_pointer_scalar : ALU → memregion → i64 → i64 → value
+| ADD m off val := value.pointer m (off + val)
+| SUB m off val := value.pointer m (off - val)
+| MOV _ _   val := value.scalar val
+| _   m off _   := value.pointer m off
 
-/- MOV always returns src. redundant with previous ops but simplifies proof. -/
+@[match_simp]
+def doALU : ALU → value → value → value
+| op (value.scalar x) (value.scalar y) := value.scalar (op.doALU_scalar x y)
+| op (value.pointer m off) (value.scalar val) := op.doALU_pointer_scalar m off val
+
+/- MOV always returns src. -/
 | ALU.MOV _ src := src
 
 /- Remaining illegal ops (for which ALU_check is ff) are nops here. -/
@@ -312,8 +333,13 @@ by cases x; cases y; refl
 
 @[match_simp]
 private theorem doALU_scalar_def (op : ALU) (x y : i64) :
-  doALU op (value.scalar x) (value.scalar y) = value.scalar (doALU_scalar op x y) :=
-by cases op; simp [doALU]
+  op.doALU (value.scalar x) (value.scalar y) = value.scalar (doALU_scalar op x y) :=
+by cases op; simp only [doALU]
+
+@[match_simp]
+private theorem doALU_pointer_scalar_def (op : ALU) {m} (x y : i64) :
+  op.doALU (value.pointer m x) (value.scalar y) = op.doALU_pointer_scalar m x y :=
+by cases op; simp only [doALU]
 
 /--
 Perform a 32-bit ALU operation by truncating registers to 32 bits and zero-extending

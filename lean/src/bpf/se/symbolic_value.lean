@@ -187,10 +187,17 @@ begin
   case XOR { exact sat_mk_xor mk sat₁ sat₂ }
 end
 
+private def doALU_pointer_scalar : Π (op : ALU) (m : bpf.memregion) (off val : β), state γ (symvalue β)
+| ALU.ADD  m off val := symvalue.pointer m <$> (mk_add off val)
+| ALU.SUB  m off val := symvalue.pointer m <$> (mk_sub off val)
+| ALU.MOV  m off val := pure $ symvalue.scalar val
+| _        m off _   := pure $ symvalue.pointer m off
+
 def doALU : Π (op : ALU) (a b : symvalue β), state γ (symvalue β)
-| op      (symvalue.scalar x) (symvalue.scalar y) := symvalue.scalar <$> doALU_scalar op x y
-| ALU.MOV _                   b                   := pure b
-| _       a                   _                   := pure a
+| op      (symvalue.scalar x)      (symvalue.scalar y)   := symvalue.scalar <$> doALU_scalar op x y
+| op      (symvalue.pointer m off) (symvalue.scalar val) := doALU_pointer_scalar op m off val
+| ALU.MOV _                        b                     := pure b
+| _       a                        _                     := pure a
 
 @[match_simp]
 private theorem doALU_scalar_def {op : ALU} {x y : β} :
@@ -263,9 +270,16 @@ private def doALU_scalar_check : Π (op : ALU) (a b : β), state γ β
 | ALU.END _ _ := mk_false
 | _       _ _ := mk_true
 
+private def doALU_pointer_scalar_check : Π (op : ALU), state γ β
+| ALU.ADD := mk_true
+| ALU.SUB := mk_true
+| ALU.MOV := mk_true
+| _       := mk_false
+
 @[match_simp]
 def doALU_check : Π (op : ALU) (a b : symvalue β), state γ β
 | op (symvalue.scalar x) (symvalue.scalar y) := doALU_scalar_check op x y
+| op (symvalue.pointer m x) (symvalue.scalar y) := doALU_pointer_scalar_check op
 | op _ (symvalue.scalar _) := if op = ALU.MOV then mk_true else mk_false
 | op _ (symvalue.pointer _ _) := if op = ALU.MOV then mk_true else mk_false
 | _ _ _ := mk_false
@@ -287,7 +301,7 @@ by cases op; cases a; refl
 
 theorem doALU_check_increasing {op : ALU} {a b : symvalue β} : increasing (doALU_check op a b : state γ β) :=
 begin
-  cases a; cases b; simp only [doALU_check]; try{split_ifs}; try{apply le_mk_const},
+  cases a; cases b; simp only [doALU_check]; try{split_ifs}; try{apply le_mk_const};
   cases op; try{apply le_mk_const},
   apply le_mk_redor,
   apply le_mk_redor,
@@ -311,7 +325,7 @@ begin
     cases sat₁,
     case sat.sat_pointer {
       simp only with match_simp at mk ⊢,
-      split_ifs at ⊢ mk; apply sat_mk_const1 mk },
+      cases op; apply sat_mk_const1 mk },
     case sat.sat_uninitialized {
       simp only with match_simp at mk ⊢,
       split_ifs at ⊢ mk; apply sat_mk_const1 mk },
