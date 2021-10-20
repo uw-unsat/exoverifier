@@ -424,17 +424,17 @@ begin
 end
 
 instance : bv_abstr n (tnum n) :=
-{ neg  := { op := tnum.neg, correct := tnum.neg_correct },
-  add  := { op := tnum.add, correct := tnum.add_correct },
-  and  := { op := tnum.and, correct := tnum.and_correct },
-  or   := { op := tnum.or, correct := tnum.or_correct },
-  xor  := { op := tnum.xor, correct := tnum.xor_correct },
-  udiv := { op := tnum.udiv, correct := tnum.udiv_correct },
-  urem := { op := tnum.urem, correct := tnum.urem_correct },
-  mul  := { op := tnum.mul, correct := tnum.mul_correct },
-  shl  := { op := λ _ _, ⊤, correct := by { intros, apply @abstr_top.top_correct _ _ _ _ (bv.shl x y) } },
-  lshr := { op := λ _ _, ⊤, correct := by { intros, apply @abstr_top.top_correct _ _ _ _ (bv.lshr x y) } },
-  ashr := { op := λ _ _, ⊤, correct := by { intros, apply @abstr_top.top_correct _ _ _ _ (bv.ashr x y) } },
+{ neg  := { op := tnum.neg, correct := by { intros, subst_vars, apply tnum.neg_correct; assumption } },
+  add  := { op := tnum.add, correct := by { intros, subst_vars, apply tnum.add_correct; assumption } },
+  and  := { op := tnum.and, correct := by { intros, subst_vars, apply tnum.and_correct; assumption } },
+  or   := { op := tnum.or, correct := by { intros, subst_vars, apply tnum.or_correct; assumption } },
+  xor  := { op := tnum.xor, correct := by { intros, subst_vars, apply tnum.xor_correct; assumption } },
+  udiv := { op := tnum.udiv, correct := by { intros, subst_vars, apply tnum.udiv_correct; assumption } },
+  urem := { op := tnum.urem, correct := by { intros, subst_vars, apply tnum.urem_correct; assumption } },
+  mul  := { op := tnum.mul, correct := by { intros, subst_vars, apply tnum.mul_correct; assumption } },
+  shl  := { op := λ _ _, ⊤, correct := by { intros, subst_vars, apply @abstr_top.top_correct _ _ _ _ (bv.shl x y) } },
+  lshr := { op := λ _ _, ⊤, correct := by { intros, subst_vars, apply @abstr_top.top_correct _ _ _ _ (bv.lshr x y) } },
+  ashr := { op := λ _ _, ⊤, correct := by { intros, subst_vars, apply @abstr_top.top_correct _ _ _ _ (bv.ashr x y) } },
   lt   := abstr_binary_inversion.trivial,
   eq   := abstr_meet.invert_equality }
 

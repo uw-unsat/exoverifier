@@ -45,11 +45,11 @@ def gen_one_constraint (current : CTRL) : bpf.cfg.instr CTRL → list constraint
 | (bpf.cfg.instr.ALU64_X op dst src next) :=
   [{ target  := next,
      source  := current,
-     compute := (with_bot.lift_unary_transfer (regs_abstr.do_alu op dst src)).op }]
+     compute := (with_bot.lift_unary_relation (regs_abstr.do_alu op dst src)).op }]
 | (bpf.cfg.instr.ALU64_K op dst imm next) :=
   [{ target  := next,
      source  := current,
-     compute := (with_bot.lift_unary_transfer (regs_abstr.do_alu_imm op dst imm)).op }]
+     compute := (with_bot.lift_unary_relation (regs_abstr.do_alu_imm op dst imm)).op }]
 | (bpf.cfg.instr.JMP_X op dst src if_true if_false) :=
   [{ target  := if_true,
      source  := current,
@@ -67,7 +67,7 @@ def gen_one_constraint (current : CTRL) : bpf.cfg.instr CTRL → list constraint
 | (bpf.cfg.instr.CALL func next) :=
   [{ target  := next,
      source  := current,
-     compute := λ mem, (regs_abstr.do_call func) <$> mem }]
+     compute := (with_bot.lift_unary_relation (regs_abstr.do_call func)).op }]
 | _ := []
 
 /-- Generate the constraints for an entire program. -/
@@ -224,7 +224,7 @@ begin
       specialize approx (gen_one_constraint_mem fetch 0),
       simp only [constraint_holds, gen_one_constraint, list.nth_le] at approx,
       apply le_correct approx,
-      apply (with_bot.lift_unary_transfer (regs_abstr.do_alu op dst src)).correct ih },
+      apply (with_bot.lift_unary_relation (regs_abstr.do_alu op dst src)).correct ih rfl },
     case bpf.cfg.step.ALU64_K : s₀ op dst imm v next fetch check doalu {
       specialize ih s₀ rfl,
       clear tail,
@@ -233,7 +233,7 @@ begin
       specialize approx (gen_one_constraint_mem fetch 0),
       simp only [constraint_holds, gen_one_constraint, list.nth_le] at approx,
       apply le_correct approx,
-      apply (with_bot.lift_unary_transfer (regs_abstr.do_alu_imm op dst imm)).correct ih },
+      apply (with_bot.lift_unary_relation (regs_abstr.do_alu_imm op dst imm)).correct ih rfl },
     case bpf.cfg.step.JMP_X : s₀ op dst src v if_true if_false fetch jmpcheck dojmp {
       specialize ih s₀ rfl,
       clear tail,
@@ -267,9 +267,7 @@ begin
       rw [← option.mem_def, mem_lookup_iff] at fetch,
       specialize approx (gen_one_constraint_mem fetch 0),
       apply le_correct approx,
-      cases interpret s s₀.pc,
-      { cases ih },
-      { apply regs_abstr.do_call_correct ih } } }
+      apply (with_bot.lift_unary_relation (regs_abstr.do_call func)).correct ih ⟨_, ⟨_, rfl⟩⟩ } }
 end
 
 /-- A state is safe in a program if it can either take another step or has already exited. -/

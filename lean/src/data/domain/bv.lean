@@ -17,7 +17,7 @@ class bv_abstr (n : out_param ℕ) (α : Type)
           abstr_top (fin n → bool) α,
           abstr_meet (fin n → bool) α (with_bot α),
           abstr_join (fin n → bool) α α : Type :=
-  (neg  : abstr_unary_transfer (fin n → bool) α α bv.neg)
+  (neg  : abstr_unary_transfer (fin n → bool) (fin n → bool) α α bv.neg)
   (add  : abstr_binary_transfer (fin n → bool) (fin n → bool) α α (+))
   (and  : abstr_binary_transfer (fin n → bool) (fin n → bool) α α bv.and)
   (ashr : abstr_binary_transfer (fin n → bool) (fin n → bool) α α bv.ashr)

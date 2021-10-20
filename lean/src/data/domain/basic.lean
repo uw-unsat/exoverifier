@@ -94,18 +94,32 @@ structure abstr_binary_test (β α : Type*) [has_γ β α] (p : β → β → bo
   y ∈ γ v →
   p x y = tt)
 
-structure abstr_unary_transfer (β α₁ α₂ : Type*) [has_γ β α₁] [has_γ β α₂] (f : β → β) :=
-(op      : α₁ → α₂)
-(correct : ∀ ⦃x : β⦄ ⦃u : α₁⦄,
-  x ∈ γ u →
-  (f x) ∈ γ (op u))
+structure abstr_nullary_relation (β₂ α₂ : Type*) [has_γ β₂ α₂] (R : β₂ → Prop) :=
+(op : α₂)
+(correct : ∀ ⦃x : β₂⦄,
+  R x →
+  x ∈ γ op)
 
-structure abstr_binary_transfer (β₁ β₂ α₁ α₂ : Type*) [has_γ β₁ α₁] [has_γ β₂ α₂] (f : β₁ → β₁ → β₂) :=
-(op      : α₁ → α₁ → α₂)
-(correct : ∀ ⦃x y : β₁⦄ ⦃u v : α₁⦄,
+structure abstr_unary_relation (β₁ β₂ α₁ α₂ : Type*) [has_γ β₁ α₁] [has_γ β₂ α₂] (R : β₁ → β₂ → Prop) :=
+(op : α₁ → α₂)
+(correct : ∀ ⦃x : β₁⦄ ⦃y : β₂⦄ ⦃u : α₁⦄,
+  x ∈ γ u →
+  R x y →
+  y ∈ γ (op u))
+
+def abstr_unary_transfer (β₁ β₂ α₁ α₂ : Type*) [has_γ β₁ α₁] [has_γ β₂ α₂] (f : β₁ → β₂) :=
+abstr_unary_relation β₁ β₂ α₁ α₂ (λ x y, y = f x)
+
+structure abstr_binary_relation (β₁ β₂ α₁ α₂ : Type*) [has_γ β₁ α₁] [has_γ β₂ α₂] (R : β₁ → β₁ → β₂ → Prop) :=
+(op : α₁ → α₁ → α₂)
+(correct : ∀ ⦃x y : β₁⦄ ⦃z : β₂⦄ ⦃u v : α₁⦄,
   x ∈ γ u →
   y ∈ γ v →
-  (f x y) ∈ γ (op u v))
+  R x y z →
+  z ∈ γ (op u v))
+
+def abstr_binary_transfer (β₁ β₂ α₁ α₂ : Type*) [has_γ β₁ α₁] [has_γ β₂ α₂] (f : β₁ → β₁ → β₂) :=
+abstr_binary_relation β₁ β₂ α₁ α₂ (λ x y z, z = f x y)
 
 structure abstr_unary_inversion (β α₁ α₂ : Type*) [has_γ β α₁] [has_γ β α₂] (p : β → Prop) :=
 (inv     : α₁ → α₂)
@@ -124,7 +138,7 @@ structure abstr_binary_inversion (β α₁ α₂ : Type*) [has_γ β α₁] [has
 
 section
 
-variables {β α : Type*}
+variables {β₁ β₂ α₁ α₂ β α : Type*}
 
 instance [has_decidable_γ β α] (x : α) : decidable_pred (γ x) := has_decidable_γ.dec_γ _
 
@@ -162,7 +176,10 @@ instance [decidable_eq α] : abstr_le α (id α) :=
 
 def transfer (f : α → α → α) : abstr_binary_transfer α α (id α) (id α) f :=
 { op      := f,
-  correct := by { rintros _ _ _ _ ⟨⟩ ⟨⟩, constructor } }
+  correct := by {
+    rintros _ _ _ _ _ ⟨⟩ ⟨⟩ _,
+    subst_vars,
+    constructor } }
 
 end id
 
@@ -220,7 +237,7 @@ namespace prod
 Lifting lattice operations on α₁ and α₂ to (α₁ × α₂).
 -/
 
-variables {α₁ α₂ δ₁ δ₂ : Type}
+variables {δ₁ δ₂ : Type}
 open abstr_le abstr_join abstr_top
 
 instance [has_γ β α₁] [has_γ β α₂] : has_γ β (α₁ × α₂) :=
@@ -389,29 +406,31 @@ def lift_arg_unary_inversion {p : β → Prop} [has_γ β α] (g : abstr_unary_i
     { simp only [option.some_bind],
       exact g.correct xu h } } }
 
-/-- Lift a unary transfer function to work with ⊥. -/
-def lift_unary_transfer {f : β → β} [has_γ β α] (g : abstr_unary_transfer β α α f) :
-  abstr_unary_transfer β (with_bot α) (with_bot α) f :=
-{ op := λ (x : with_bot α), g.op <$> x,
+/-- Lift a unary relation function to work with ⊥. -/
+def lift_unary_relation {R : β₁ → β₂ → Prop} [has_γ β₁ α₁] [has_γ β₂ α₂] (g : abstr_unary_relation β₁ β₂ α₁ α₂ R) :
+  abstr_unary_relation β₁ β₂ (with_bot α₁) (with_bot α₂) R :=
+{ op := λ (x : with_bot α₁), option.map g.op x,
   correct := by {
-    intros x u xu,
+    intros x x' u xu h,
     cases u,
     { cases xu },
-    { exact g.correct xu } } }
+    { apply g.correct xu h } } }
 
-/-- Lift a binary transfer function to work with ⊥. -/
-def lift_binary_transfer {f : β → β → β} [has_γ β α] (g : abstr_binary_transfer β β α α f) :
-  abstr_binary_transfer β β (with_bot α) (with_bot α) f :=
-{ op := λ (x y : with_bot α), g.op <$> x <*> y,
+/-- Lift a binary relation to work with ⊥. -/
+def lift_binary_relation {R : β₁ → β₁ → β₂ → Prop} [has_γ β₁ α₁] [has_γ β₂ α₂] (g : abstr_binary_relation β₁ β₂ α₁ α₂ R) :
+  abstr_binary_relation β₁ β₂ (with_bot α₁) (with_bot α₂) R :=
+{ op := λ (x y : with_bot α₁),
+    match x, y with
+    | some x', some y' := some (g.op x' y')
+    | _, _ := ⊥
+    end,
   correct := by {
-    intros x y u v xu yv,
-    cases u; cases v; simp [has_seq.seq],
+    intros x y z u v xu yv h,
+    cases u; cases v; simp only [lift_binary_relation._match_1],
     { cases xu },
     { cases xu },
     { cases yv },
-    { apply g.correct,
-      exact xu,
-      exact yv } } }
+    { apply g.correct xu yv h } } }
 
 end with_bot
 
@@ -503,24 +522,25 @@ Note this is not always the most precise approximation for `f`, for example,
 if `f` is MOV (i.e., λ _ y, y), then this is less precise than simply returning the
 right operand.
 -/
-def lift_binary_transfer_arg {f : β → β → β} [has_γ β α] (g : abstr_binary_transfer β β α (with_top α) f) :
-  abstr_binary_transfer β β (with_top α) (with_top α) f :=
-{ op := (λ (x y : with_top α), do
-    x' ← x,
-    y' ← y,
-    g.op x' y'),
+def lift_binary_relation_arg {R : β₁ → β₁ → β₂ → Prop} [has_γ β₁ α₁] [has_γ β₂ α₂] (g : abstr_binary_relation β₁ β₂ α₁ (with_top α₂) R) :
+  abstr_binary_relation β₁ β₂ (with_top α₁) (with_top α₂) R :=
+{ op := λ (x y : with_top α₁),
+    match x, y with
+    | some x', some y' := g.op x' y'
+    | _, _ := ⊤
+    end,
   correct := by {
-    intros x y u v xu yv,
-    cases u; cases v; simp only [option.some_bind],
-    apply g.correct xu yv } }
+    intros x y z u v xu yv h,
+    cases u; cases v; simp only [lift_binary_relation_arg._match_1],
+    apply g.correct xu yv h } }
 
 /--
-Lift a transfer function to `with_top`. Note that, like `lift_binary_transfer_arg`,
+Lift a relation to `with_top`. Note that, like `lift_binary_relation_arg`,
 this is not always maximally precise.
 -/
-def lift_binary_transfer {f : β → β → β} [has_γ β α] (g : abstr_binary_transfer β β α α f) :
-  abstr_binary_transfer β β (with_top α) (with_top α) f :=
-lift_binary_transfer_arg {
+def lift_binary_relation {R : β₁ → β₁ → β₂ → Prop} [has_γ β₁ α₁] [has_γ β₂ α₂] (g : abstr_binary_relation β₁ β₂ α₁ α₂ R) :
+  abstr_binary_relation β₁ β₂ (with_top α₁) (with_top α₂) R :=
+lift_binary_relation_arg {
   op := λ x y, some $ g.op x y,
   correct := by {
     intros _ _ _ _ _ _,

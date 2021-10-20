@@ -111,7 +111,7 @@ theorem add_correct (x y : fin n → bool) (a b : range) :
 sorry
 
 instance : bv_abstr n range :=
-{ add  := { op := add, correct := add_correct },
+{ add  := { op := add, correct := by { intros, subst_vars, apply add_correct; assumption } },
   neg  := sorry,
   and  := sorry,
   or   := sorry,

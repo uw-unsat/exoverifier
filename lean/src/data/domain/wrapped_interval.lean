@@ -222,26 +222,26 @@ end
 
 instance : bv_abstr n (with_top interval) :=
 { neg := sorry,
-  add := with_top.lift_binary_transfer
-   { op := wrapped_interval.add, correct := wrapped_interval.add_correct },
-  and := with_top.lift_binary_transfer
-   { op := wrapped_interval.and, correct := wrapped_interval.and_correct },
-  or := with_top.lift_binary_transfer
-   { op := wrapped_interval.or, correct := wrapped_interval.or_correct },
-  xor := with_top.lift_binary_transfer
-   { op := wrapped_interval.xor, correct := wrapped_interval.xor_correct },
-  udiv := with_top.lift_binary_transfer
-   { op := wrapped_interval.udiv, correct := wrapped_interval.udiv_correct },
-  urem := with_top.lift_binary_transfer
-   { op := wrapped_interval.urem, correct := wrapped_interval.urem_correct },
-  mul := with_top.lift_binary_transfer
-   { op := wrapped_interval.mul, correct := wrapped_interval.mul_correct },
-  shl := with_top.lift_binary_transfer
-   { op := wrapped_interval.shl, correct := wrapped_interval.shl_correct },
-  lshr := with_top.lift_binary_transfer
-   { op := wrapped_interval.lshr, correct := wrapped_interval.lshr_correct },
-  ashr := with_top.lift_binary_transfer
-   { op := wrapped_interval.ashr, correct := wrapped_interval.ashr_correct },
+  add := with_top.lift_binary_relation
+   { op := wrapped_interval.add, correct := by { intros, subst_vars, apply wrapped_interval.add_correct; assumption } },
+  and := with_top.lift_binary_relation
+   { op := wrapped_interval.and, correct := by { intros, subst_vars, apply wrapped_interval.and_correct; assumption } },
+  or := with_top.lift_binary_relation
+   { op := wrapped_interval.or, correct := by { intros, subst_vars, apply wrapped_interval.or_correct; assumption } },
+  xor := with_top.lift_binary_relation
+   { op := wrapped_interval.xor, correct := by { intros, subst_vars, apply wrapped_interval.xor_correct; assumption } },
+  udiv := with_top.lift_binary_relation
+   { op := wrapped_interval.udiv, correct := by { intros, subst_vars, apply wrapped_interval.udiv_correct; assumption } },
+  urem := with_top.lift_binary_relation
+   { op := wrapped_interval.urem, correct := by { intros, subst_vars, apply wrapped_interval.urem_correct; assumption } },
+  mul := with_top.lift_binary_relation
+   { op := wrapped_interval.mul, correct := by { intros, subst_vars, apply wrapped_interval.mul_correct; assumption } },
+  shl := with_top.lift_binary_relation
+   { op := wrapped_interval.shl, correct := by { intros, subst_vars, apply wrapped_interval.shl_correct; assumption } },
+  lshr := with_top.lift_binary_relation
+   { op := wrapped_interval.lshr, correct := by { intros, subst_vars, apply wrapped_interval.lshr_correct; assumption } },
+  ashr := with_top.lift_binary_relation
+   { op := wrapped_interval.ashr, correct := by { intros, subst_vars, apply wrapped_interval.ashr_correct; assumption } },
   eq  := abstr_meet.invert_equality,
   lt  := abstr_binary_inversion.trivial }
 
