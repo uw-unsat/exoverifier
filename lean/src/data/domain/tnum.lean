@@ -102,6 +102,32 @@ instance : abstr_top bool trit :=
 { top         := unknown,
   top_correct := by { intros, triv } }
 
+private def and' : trit → trit → trit
+| zero _    := zero
+| _    zero := zero
+| one  one  := one
+| _    _    := unknown
+
+protected def and : abstr_binary_transfer bool bool trit trit band :=
+{ op      := and',
+  correct := by {
+    intros x y z u v h₁ h₂ _,
+    subst_vars,
+    cases x; cases y; cases u; cases v; cases h₁; cases h₂; dec_trivial } }
+
+private def or' : trit → trit → trit
+| one  _    := one
+| _    one  := one
+| zero zero := zero
+| _    _    := unknown
+
+protected def or : abstr_binary_transfer bool bool trit trit bor :=
+{ op      := or',
+  correct := by {
+    intros x y z u v h₁ h₂ _,
+    subst_vars,
+    cases x; cases y; cases u; cases v; cases h₁; cases h₂; dec_trivial } }
+
 end trit
 
 /-- A tnum is a vector trits. -/
