@@ -84,6 +84,6 @@ by cases b₁; simp
 namespace bool
 
 def full_add (a b cin : bool) : (bool × bool) :=
-(bxor (bxor a b) cin, (a && b) || (cin && (a || b)))
+(bxor (bxor a b) cin, (a && b) || (cin && (bxor a b)))
 
 end bool

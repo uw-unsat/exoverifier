@@ -5,6 +5,7 @@ Authors: Luke Nelson, Xi Wang
 -/
 import .basic
 import .bv
+import data.bv.adc
 import data.bv.basic
 import misc.bool
 import misc.vector
@@ -97,7 +98,7 @@ begin
     cases h₂, cases h₃,
     simp only [bool.full_add, bxor_self, bool.bxor_ff_right, cond, bool.bxor_assoc],
     refine ⟨abstr_top.top_correct _, _⟩,
-    cases b_b; simpa },
+    cases a_b; cases b_b; dec_trivial },
   { cases h_biff : (biff a cin),
     case ff { apply abstr_top.top_correct },
     simp only [biff_eq_tt_iff_eq] at h_biff,
@@ -105,7 +106,7 @@ begin
     cases h₁, cases h₃,
     simp only [bool.full_add, cond, bool.bxor_assoc],
     refine ⟨abstr_top.top_correct _, _⟩,
-    cases a_b; simpa },
+    cases a_b; cases b_b; dec_trivial },
   { cases h_biff : (biff a b),
     case ff { apply abstr_top.top_correct },
     simp only [biff_eq_tt_iff_eq] at h_biff,
@@ -113,7 +114,7 @@ begin
     cases h₁, cases h₂,
     simp only [bool.full_add, cond, bool.bxor_assoc],
     refine ⟨abstr_top.top_correct _, _⟩,
-    cases a_b; simpa },
+    cases a_b; cases cin_b; dec_trivial },
   { cases h₁, cases h₂, cases h₃,
     split; refine rfl }
 end
@@ -248,22 +249,56 @@ end
 
 section add
 
-protected def adc : ∀ {n : ℕ}, tnum n → tnum n → trit → (tnum n × trit)
-| 0       _ _ carry := (vector.nil, carry)
+protected def adc : ∀ {n : ℕ}, tnum n → tnum n → trit → tnum n
+| 0       _ _ carry := vector.nil
 | (n + 1) a b carry :=
-  let c  : (trit × trit)   := trit.full_add a.head b.head carry,
-      cs : (tnum n × trit) := @adc n a.tail b.tail c.2 in
-    (c.1 ::ᵥ cs.1, cs.2)
+  let c  : (trit × trit) := trit.full_add a.head b.head carry,
+      cs : tnum n        := @adc n a.tail b.tail c.2 in
+    c.1 ::ᵥ cs
+
+private theorem adc_correct {n : ℕ} {a b : tnum n} {c : trit} {x y : fin n → bool} {z : bool} :
+  x ∈ γ a →
+  y ∈ γ b →
+  z ∈ γ c →
+  bv.adc x y z ∈ γ (tnum.adc a b c) :=
+begin
+  induction n with n ih generalizing a b c x y z,
+  case zero {
+    intros _ _ _,
+    refine fin.elim0 },
+  case succ {
+    intros h₁ h₂ h₃,
+    specialize @ih a.tail b.tail (trit.full_add a.head b.head c).2 (fin.tail x) (fin.tail y) (bool.full_add (x 0) (y 0) z).2 _ _ _,
+    { intros i,
+      simp only [vector.nth_tail_succ],
+      exact h₁ i.succ },
+    { intros i,
+      simp only [vector.nth_tail_succ],
+      exact h₂ i.succ },
+    { simp only [← vector.nth_zero],
+      exact (trit.full_add_correct (h₁ 0) (h₂ 0) h₃).2 },
+    simp only [tnum.adc],
+    intros i,
+    refine fin.cases _ _ i,
+    { simp only [bv.adc_zero, vector.nth_cons_zero, ← vector.nth_zero],
+      exact (trit.full_add_correct (h₁ 0) (h₂ 0) h₃).1 },
+    { intros j,
+      simp only [bv.adc_succ, vector.nth_cons_succ],
+      exact ih j } }
+end
 
 protected def add (a b : tnum n) : tnum n :=
-(tnum.adc a b (some ff)).1
+tnum.adc a b (some ff)
 
 protected theorem add_correct ⦃x y : fin n → bool⦄ ⦃a b : tnum n⦄ :
   x ∈ γ a →
   y ∈ γ b →
   x + y ∈ γ (tnum.add a b) :=
 begin
-  sorry
+  intros h₁ h₂,
+  simp only [bv.add_eq_adc],
+  apply adc_correct h₁ h₂,
+  dec_trivial
 end
 
 end add
