@@ -14,6 +14,7 @@ namespace absint
 Class for abstractions of values of BPF registers.
 -/
 class value_abstr (α : Type*) extends
+  has_γ bpf.value α,
   has_decidable_γ bpf.value α,
   abstr_le bpf.value α,
   abstr_top bpf.value α,
@@ -84,9 +85,11 @@ begin
   cases a; cases b; simp only [γ]; apply_instance
 end
 
+instance : has_γ bpf.value (avalue β) :=
+{ γ := γ }
+
 instance : has_decidable_γ bpf.value (avalue β) :=
-{ γ     := γ,
-  dec_γ := dec_γ }
+{ dec_γ := dec_γ }
 
 private def const (v : bpf.value) :
   abstr_nullary_relation bpf.value (avalue β) (eq v) :=

@@ -80,3 +80,10 @@ by cases b₁; simp
 theorem cond_eq_or_ands (b₁ b₂ b₃ : bool) :
   cond b₁ b₂ b₃ = (b₁ && b₂) || (!b₁ && b₃) :=
 by cases b₁; simp
+
+namespace bool
+
+def full_add (a b cin : bool) : (bool × bool) :=
+(bxor (bxor a b) cin, (a && b) || (cin && (a || b)))
+
+end bool

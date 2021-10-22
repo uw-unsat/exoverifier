@@ -34,9 +34,9 @@ class has_γ (β : out_param Type*) (α : Type*) :=
 open has_γ
 
 /--
-has_decidable_γ is has_γ when the γ relation is decidable.
+has_decidable_γ means the γ relation is decidable.
 -/
-class has_decidable_γ (β : out_param Type*) (α : Type*) extends has_γ β α :=
+class has_decidable_γ (β : out_param Type*) (α : Type*) [has_γ β α] :=
 (dec_γ : ∀ (x : α), decidable_pred (γ x))
 
 /--
@@ -119,6 +119,18 @@ structure abstr_binary_relation (β₁ β₂ α₁ α₂ : Type*) [has_γ β₁ 
 def abstr_binary_transfer (β₁ β₂ α₁ α₂ : Type*) [has_γ β₁ α₁] [has_γ β₂ α₂] (f : β₁ → β₁ → β₂) :=
 abstr_binary_relation β₁ β₂ α₁ α₂ (λ x y z, z = f x y)
 
+structure abstr_ternary_relation (β₁ β₂ α₁ α₂ : Type*) [has_γ β₁ α₁] [has_γ β₂ α₂] (R : β₁ → β₁ → β₁ → β₂ → Prop) :=
+(op : α₁ → α₁ → α₁ → α₂)
+(correct : ∀ ⦃x y z : β₁⦄ ⦃o : β₂⦄ ⦃u v w : α₁⦄,
+  x ∈ γ u →
+  y ∈ γ v →
+  z ∈ γ w →
+  R x y z o →
+  o ∈ γ (op u v w))
+
+def abstr_ternary_transfer (β₁ β₂ α₁ α₂ : Type*) [has_γ β₁ α₁] [has_γ β₂ α₂] (f : β₁ → β₁ → β₁ → β₂) :=
+abstr_ternary_relation β₁ β₂ α₁ α₂ (λ x y z w, w = f x y z)
+
 structure abstr_unary_inversion (β α₁ α₂ : Type*) [has_γ β α₁] [has_γ β α₂] (p : β → Prop) :=
 (inv     : α₁ → α₂)
 (correct : ∀ ⦃x : β⦄ ⦃u : α₁⦄,
@@ -138,9 +150,10 @@ section
 
 variables {β₁ β₂ α₁ α₂ β α : Type*}
 
-instance [has_decidable_γ β α] (x : α) : decidable_pred (γ x) := has_decidable_γ.dec_γ _
+instance [has_γ β α] [has_decidable_γ β α] (x : α) : decidable_pred (γ x) := has_decidable_γ.dec_γ _
 
-instance [has_decidable_γ β α] (x : α) (y : β) : decidable (y ∈ γ x) := has_decidable_γ.dec_γ _ _
+instance [has_γ β α] [has_decidable_γ β α] (x : α) (y : β) : decidable (y ∈ γ x) :=
+by { simp only [set.mem_def], apply_instance }
 
 namespace abstr_join
 instance to_has_sup [has_γ β α] [abstr_join β α α] : has_sup α := ⟨abstr_join.join⟩
@@ -171,7 +184,7 @@ instance [fintype κ] [has_γ β α] [abstr_le β α] : abstr_le (κ → β) (κ
   le_correct := λ _ _ h₁ _ h₂ _, abstr_le.le_correct (h₁ _) (h₂ _),
   dec_le     := λ _ _, fintype.decidable_forall_fintype }
 
-instance [fintype κ] [has_decidable_γ β α] : has_decidable_γ (κ → β) (κ → α) :=
+instance [fintype κ] [has_γ β α] [has_decidable_γ β α] : has_decidable_γ (κ → β) (κ → α) :=
 { dec_γ := λ _ _, by {
     apply' fintype.decidable_forall_fintype } }
 
@@ -203,31 +216,13 @@ namespace prod
 Lifting lattice operations on α₁ and α₂ to (α₁ × α₂).
 -/
 
-variables {δ₁ δ₂ : Type}
 open abstr_le abstr_join abstr_top
 
-instance [has_γ β α₁] [has_γ β α₂] : has_γ β (α₁ × α₂) :=
-{ γ                := λ (a : α₁ × α₂) (x : β), γ a.fst x ∧ γ a.snd x }
-
-instance [has_decidable_γ β α₁] [has_decidable_γ β α₂] : has_decidable_γ β (α₁ × α₂) :=
-{ dec_γ := infer_instance }
-
-instance [has_γ β δ₁] [has_γ β δ₂] [has_γ β α₁] [has_γ β α₂] [abstr_join β δ₁ α₁] [abstr_join β δ₂ α₂] :
-  abstr_join β (δ₁ × δ₂) (α₁ × α₂) :=
-{ join         := λ ⟨d₁, d₂⟩ ⟨d₃, d₄⟩, ⟨join d₁ d₃, join d₂ d₄⟩,
-  join_correct := by {
-    intros x y,
-    cases x, cases y,
-    simp only [γ, abstr_join._match_2, abstr_join._match_1],
-    rintros a h,
-    simp only [set.mem_union_eq] at h,
-    split; apply join_correct;
-      cases h; cases h with h1 h2;
-      try{ left; { exact h1 <|> exact h2 } };
-      try{ right; { exact h1 <|> exact h2 } } } }
+instance [has_γ β α₁] [has_γ β α₂] : has_γ (β × β) (α₁ × α₂) :=
+{ γ := λ (a : α₁ × α₂) (x : β × β), γ a.fst x.fst ∧ γ a.snd x.snd }
 
 instance [has_γ β α₁] [has_γ β α₂] [abstr_le β α₁] [abstr_le β α₂] :
-  abstr_le β (α₁ × α₂) :=
+  abstr_le (β × β) (α₁ × α₂) :=
 { dec_le     := infer_instance,
   le_correct := by {
     rintros _ _ ⟨h₁l, h₁r⟩ x ⟨h₂l, h₂r⟩,
@@ -236,7 +231,7 @@ instance [has_γ β α₁] [has_γ β α₂] [abstr_le β α₁] [abstr_le β α
     { exact le_correct h₁r h₂r } } }
 
 instance [has_γ β α₁] [has_γ β α₂] [abstr_top β α₁] [abstr_top β α₂] :
-  abstr_top β (α₁ × α₂) :=
+  abstr_top (β × β) (α₁ × α₂) :=
 { top_correct := by {
     intros _,
     split; apply top_correct } }
@@ -259,7 +254,7 @@ instance [has_γ β α] : has_γ β (with_bot α) :=
     | none   := ∅
     end }
 
-instance [has_decidable_γ β α] : has_decidable_γ β (with_bot α) :=
+instance [has_γ β α] [has_decidable_γ β α] : has_decidable_γ β (with_bot α) :=
 { dec_γ := λ (a : with_bot α) (x : β),
     match a with
     | none    := is_false false.elim
@@ -414,7 +409,7 @@ instance [has_γ β α] : has_γ β (with_top α) :=
     | none   := ⊤
     end }
 
-instance [has_decidable_γ β α] : has_decidable_γ β (with_top α) :=
+instance [has_γ β α] [has_decidable_γ β α] : has_decidable_γ β (with_top α) :=
 { dec_γ := λ (a : with_top α) (x : β),
     match a with
     | none    := is_true true.intro
@@ -466,6 +461,26 @@ instance join_args [has_γ β α] [abstr_join β α (with_top α)] :
     cases x; cases y; simp only [join_args._match_1],
     apply join_correct,
     exact h } }
+
+def lift_unary_relation_arg {R : β₁ → β₂ → Prop} [has_γ β₁ α₁] [has_γ β₂ α₂] (g : abstr_unary_relation β₁ β₂ α₁ (with_top α₂) R) :
+  abstr_unary_relation β₁ β₂ (with_top α₁) (with_top α₂) R :=
+{ op := λ (x : with_top α₁),
+    match x with
+    | some x' := g.op x'
+    | _       := ⊤
+    end,
+  correct := by {
+    intros x y u xu h,
+    cases u; simp only [lift_unary_relation_arg._match_1],
+    apply g.correct xu h } }
+
+def lift_unary_relation {R : β₁ → β₂ → Prop} [has_γ β₁ α₁] [has_γ β₂ α₂] (g : abstr_unary_relation β₁ β₂ α₁ α₂ R) :
+  abstr_unary_relation β₁ β₂ (with_top α₁) (with_top α₂) R :=
+lift_unary_relation_arg {
+  op := λ x, some $ g.op x,
+  correct := by {
+    intros _ _ _ _ _,
+    apply g.correct; assumption } }
 
 /--
 Lift a binary function that can return ⊤ to accept ⊤ as an argument.
@@ -528,9 +543,11 @@ variables {α : Type*}
 Lattice operations on id α defined using equality as γ.
 -/
 
+instance : has_γ α (id α) :=
+{ γ := eq }
+
 instance [decidable_eq α] : has_decidable_γ α (id α) :=
-{ γ     := eq,
-  dec_γ := infer_instance }
+{ dec_γ := infer_instance }
 
 instance [decidable_eq α] : abstr_le α (id α) :=
 { le         := eq,
@@ -557,11 +574,18 @@ instance id_meet [decidable_eq α] : abstr_meet α (with_top (id α)) (with_bot 
     { exact h₁ },
     { rw [if_pos rfl], exact h₁ } } }
 
-def const [decidable_eq α] (x : α) : abstr_nullary_relation α (id α) (eq x) :=
+def const (x : α) : abstr_nullary_relation α (id α) (eq x) :=
 { op      := x,
   correct := by { intros, tauto } }
 
-def transfer [decidable_eq α] (f : α → α → α) : abstr_binary_transfer α α (id α) (id α) f :=
+def unary_transfer (f : α → α) : abstr_unary_transfer α α (id α) (id α) f :=
+{ op      := f,
+  correct := by {
+    rintros _ _ _ ⟨⟩ _,
+    subst_vars,
+    constructor } }
+
+def binary_transfer (f : α → α → α) : abstr_binary_transfer α α (id α) (id α) f :=
 { op      := f,
   correct := by {
     rintros _ _ _ _ _ ⟨⟩ ⟨⟩ _,

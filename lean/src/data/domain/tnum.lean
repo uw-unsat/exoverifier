@@ -6,7 +6,6 @@ Authors: Luke Nelson, Xi Wang
 import .basic
 import .bv
 import data.bv.basic
-import data.bv.circuit
 import misc.bool
 import misc.vector
 
@@ -21,6 +20,7 @@ Each bit in a tnum can be either 0, 1, or "unknown".
 def trit := with_top (id bool)
 
 namespace trit
+open has_γ
 
 private def and' : trit → trit → trit
 | (some ff) _         := some ff
@@ -48,8 +48,75 @@ protected def or : abstr_binary_transfer bool bool trit trit bor :=
     subst_vars,
     cases x; cases y; cases u; cases v; cases h₁; cases h₂; dec_trivial } }
 
+private def bimplies' : trit → trit → trit
+| (some ff) _         := some tt
+| _         (some tt) := some tt
+| _         _         := none
+
+protected def bimplies : abstr_binary_transfer bool bool trit trit bimplies :=
+{ op      := bimplies',
+  correct := by {
+    intros x y z u v h₁ h₂ _,
+    subst_vars,
+    cases x; cases y; cases u; cases v; cases h₁; cases h₂; dec_trivial } }
+
 protected def xor : abstr_binary_transfer bool bool trit trit bxor :=
-with_top.lift_binary_relation $ id.transfer bxor
+with_top.lift_binary_relation $ id.binary_transfer bxor
+
+protected def not : abstr_unary_transfer bool bool trit trit bnot :=
+with_top.lift_unary_relation $ id.unary_transfer bnot
+
+protected def full_add : Π (a b cin : trit), (trit × trit)
+/- If all bits are known, result is known precisely. -/
+| (some a) (some b) (some cin) :=
+  let r := bool.full_add a b cin in (some r.1, some r.2)
+
+/- If exactly one bit is unknown, `cout` is unknown but carry can be known: if other inputs are both tt or ff. -/
+| (some a) (some b) unknown   := (⊤, cond (biff a b) a ⊤)
+| (some a) unknown (some cin) := (⊤, cond (biff a cin) a ⊤)
+| unknown (some b) (some cin) := (⊤, cond (biff b cin) b ⊤)
+
+/- If any two of the bits are unknown, the result is unknown. -/
+| _ none none := ⊤
+| none _ none := ⊤
+| none none _ := ⊤
+
+protected def full_add_correct {a b cin : trit} {a_b b_b cin_b : bool} :
+  a_b ∈ γ a →
+  b_b ∈ γ b →
+  cin_b ∈ γ cin →
+  bool.full_add a_b b_b cin_b ∈ γ (trit.full_add a b cin) :=
+begin
+  intros h₁ h₂ h₃,
+  cases a; cases b; cases cin; simp only [trit.full_add];
+    try{apply abstr_top.top_correct},
+  { cases h_biff : (biff b cin),
+    case ff { apply abstr_top.top_correct },
+    simp only [biff_eq_tt_iff_eq] at h_biff,
+    subst h_biff,
+    cases h₂, cases h₃,
+    simp only [bool.full_add, bxor_self, bool.bxor_ff_right, cond, bool.bxor_assoc],
+    refine ⟨abstr_top.top_correct _, _⟩,
+    cases b_b; simpa },
+  { cases h_biff : (biff a cin),
+    case ff { apply abstr_top.top_correct },
+    simp only [biff_eq_tt_iff_eq] at h_biff,
+    subst h_biff,
+    cases h₁, cases h₃,
+    simp only [bool.full_add, cond, bool.bxor_assoc],
+    refine ⟨abstr_top.top_correct _, _⟩,
+    cases a_b; simpa },
+  { cases h_biff : (biff a b),
+    case ff { apply abstr_top.top_correct },
+    simp only [biff_eq_tt_iff_eq] at h_biff,
+    subst h_biff,
+    cases h₁, cases h₂,
+    simp only [bool.full_add, cond, bool.bxor_assoc],
+    refine ⟨abstr_top.top_correct _, _⟩,
+    cases a_b; simpa },
+  { cases h₁, cases h₂, cases h₃,
+    split; refine rfl }
+end
 
 end trit
 
@@ -67,9 +134,11 @@ protected def γ (t : tnum n) : set (fin n → bool) :=
 
 local attribute [reducible] tnum.γ
 
+instance : has_γ (fin n → bool) (tnum n) :=
+{ γ     := tnum.γ }
+
 instance : has_decidable_γ (fin n → bool) (tnum n) :=
-{ γ     := tnum.γ,
-  dec_γ := by {
+{ dec_γ := by {
     intros x y,
     apply @fintype.decidable_forall_fintype _ _ _,
     intros i,
@@ -177,18 +246,27 @@ begin
   apply @abstr_top.top_correct _ (tnum n) _
 end
 
-protected def add : tnum n → tnum n → tnum n :=
-⊤
+section add
+
+protected def adc : ∀ {n : ℕ}, tnum n → tnum n → trit → (tnum n × trit)
+| 0       _ _ carry := (vector.nil, carry)
+| (n + 1) a b carry :=
+  let c  : (trit × trit)   := trit.full_add a.head b.head carry,
+      cs : (tnum n × trit) := @adc n a.tail b.tail c.2 in
+    (c.1 ::ᵥ cs.1, cs.2)
+
+protected def add (a b : tnum n) : tnum n :=
+(tnum.adc a b (some ff)).1
 
 protected theorem add_correct ⦃x y : fin n → bool⦄ ⦃a b : tnum n⦄ :
   x ∈ γ a →
   y ∈ γ b →
   x + y ∈ γ (tnum.add a b) :=
 begin
-  intros h₁ h₂,
-  simp only [tnum.add],
-  apply abstr_top.top_correct _
+  sorry
 end
+
+end add
 
 protected def udiv : tnum n → tnum n → tnum n :=
 ⊤

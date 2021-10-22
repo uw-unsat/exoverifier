@@ -12,7 +12,8 @@ Must have decidable γ, ≤, ⊔, and ⊤.
 Additionally must implement bitvector transfer functions and inverse analyses.
 -/
 class bv_abstr (n : out_param ℕ) (α : Type)
-  extends has_decidable_γ (fin n → bool) α,
+  extends has_γ (fin n → bool) α,
+          has_decidable_γ (fin n → bool) α,
           abstr_le (fin n → bool) α,
           abstr_top (fin n → bool) α,
           abstr_meet (fin n → bool) α (with_bot α),
