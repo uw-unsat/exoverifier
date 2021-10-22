@@ -7,6 +7,7 @@ import .basic
 import .bv
 import data.bv.adc
 import data.bv.basic
+import data.bv.mul
 import misc.bool
 import misc.vector
 
@@ -315,6 +316,72 @@ end
 
 end add
 
+section and
+
+/-- Create the bitwise AND of two tnums. -/
+protected def and : tnum n → tnum n → tnum n :=
+vector.map₂ trit.and.op
+
+protected theorem and_correct ⦃x y : fin n → bool⦄ ⦃a b : tnum n⦄ :
+  x ∈ γ a →
+  y ∈ γ b →
+  bv.and x y ∈ γ (tnum.and a b) :=
+begin
+  intros h₁ h₂ i,
+  simp only [tnum.and, vector.nth_map₂],
+  apply trit.and.correct (h₁ i) (h₂ i) rfl
+end
+
+end and
+
+section mul
+
+protected def mul : ∀ {n : ℕ}, tnum n → tnum n → tnum n
+| 0       _ _ := vector.nil
+| (n + 1) a b :=
+  let p := tnum.and a (vector.repeat b.head _),
+      r := @mul n a.init b.tail,
+      s := tnum.add p.tail r in
+  p.head ::ᵥ s
+
+protected theorem mul_correct ⦃x y : fin n → bool⦄ ⦃a b : tnum n⦄ :
+  x ∈ γ a →
+  y ∈ γ b →
+  x * y ∈ γ (tnum.mul a b) :=
+begin
+  induction n with n ih generalizing a b x y,
+  case zero {
+    intros _ _,
+    refine fin.elim0 },
+  case succ {
+    intros h₁ h₂,
+    specialize @ih a.init b.tail (fin.init x) (fin.tail y) _ _,
+    { intros i,
+      simp only [vector.nth_init, fin.coe_eq_cast_succ],
+      exact h₁ _, },
+    { intros i,
+      simp only [vector.nth_tail_succ],
+      exact h₂ i.succ },
+    simp only [tnum.mul],
+    intros i,
+    refine fin.cases _ _ i,
+    { simp only [bv.mul_head, vector.nth_cons_zero, ← vector.nth_zero, tnum.and, vector.nth_map₂],
+      refine trit.and.correct (h₁ 0) _ rfl,
+      simp only [vector.nth_repeat],
+      exact h₂ 0 },
+    { intros j,
+      change (x * y) j.succ with fin.tail (x * y) j,
+      simp only [bv.mul_tail, vector.nth_cons_succ],
+      apply tnum.add_correct _ ih j,
+      intros j,
+      simp only [fin.tail, vector.nth_tail_succ, tnum.and, vector.nth_map₂],
+      refine trit.and.correct (h₁ j.succ) _ rfl,
+      simp only [vector.nth_repeat, ← vector.nth_zero],
+      exact h₂ 0 } }
+end
+
+end mul
+
 protected def neg (a : tnum n) : tnum n :=
 tnum.add (tnum.not a) (tnum.const 1).op
 
@@ -353,33 +420,6 @@ begin
   intros h₁ h₂,
   simp only [tnum.urem],
   apply abstr_top.top_correct _
-end
-
-protected def mul : tnum n → tnum n → tnum n :=
-⊤
-
-protected theorem mul_correct ⦃x y : fin n → bool⦄ ⦃a b : tnum n⦄ :
-  x ∈ γ a →
-  y ∈ γ b →
-  x * y ∈ γ (tnum.mul a b) :=
-begin
-  intros h₁ h₂,
-  simp only [tnum.mul],
-  apply abstr_top.top_correct _
-end
-
-/-- Create the bitwise AND of two tnums. -/
-protected def and : tnum n → tnum n → tnum n :=
-vector.map₂ trit.and.op
-
-protected theorem and_correct ⦃x y : fin n → bool⦄ ⦃a b : tnum n⦄ :
-  x ∈ γ a →
-  y ∈ γ b →
-  bv.and x y ∈ γ (tnum.and a b) :=
-begin
-  intros h₁ h₂ i,
-  simp only [tnum.and, vector.nth_map₂],
-  apply trit.and.correct (h₁ i) (h₂ i) rfl
 end
 
 /-- Create the bitwise OR of two tnums. -/
