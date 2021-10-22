@@ -22,7 +22,7 @@ for any purpose.**
 - `lean/test` : Lean test files and python scripts to run tests.
 - `lean/pkgs` : External dependencies, e.g., SAT solvers.
 
-## Examples
+## Running Exoverifier
 
 ### Building and testing
 
@@ -33,17 +33,23 @@ $ ./build-deps.sh # Build SAT solver dependencies under `pkgs`.
 $ make bpf-examples # Use LLVM to build the BPF test programs.
 $ leanpkg configure # Downloads and configures correct version of mathlib.
 $ leanpkg build # Builds and checks proofs for mathlib and Exoverifier.
-$ leanpkg test # Runs Lean test files under `lean/test`.
+$ leanpkg test # Sanity test that checks the Lean files under `lean/test`.
 ```
 
-### Generating and checking proofs
+### Generating and checking a safety proof for a simple BPF program
 
-Export a proof of safety for the BPF program `test/bpf/examples/absint/simple1.S` to `simple1.lef`, generating the proof using abstract interpretation. Use "se+sat" instead of "absint" to use the symbolic execution / SAT solver-based proof generator.
+The following command uses the abstract interpretation library verifier to produce a proof
+of safety for the BPF program `test/bpf/examples/absint/simple1.S`, writing the proof to `simple1.lef`.
+(You can use "se+sat" instead of "absint" to generate the proof using the symbolic execution
+library verifier instead.)
 ```sh
 $ ./scripts/make_proof.py --verifier absint test/bpf/examples/absint/simple1.bin simple1.lef
+
+# Expected output:
+#  Generated proof at simple1.lef in 11.1s.
 ```
 
-Check the proof using the built-in checker from Lean:
+You can use Lean's builtin proof checker to validate the proof:
 ```sh
 $ leanchecker simple1.lef test_bpf.program_safety
 
@@ -52,35 +58,71 @@ $ leanchecker simple1.lef test_bpf.program_safety
 #  axiom quot.sound : Π {α : Sort u}, Π {r : α -> α -> Prop}, Π {a b : α}, r a b -> quot.mk r a = quot.mk r b
 #  axiom classical.choice : Π {α : Sort u}, nonempty α -> α
 #  theorem test_bpf.program_safety : bpf.cfg.safe test_bpf.program
-#  checked 5887 declarations
+#  checked 6710 declarations
 ```
 
-Check the proof using [Trepplein] (requires it to be installed):
+The axioms `leanchecker` reports are those introduced by Lean's standard library and by mathlib.
+You can also check the validity of the proof using [Trepplein] or [Nanoda] (assuming they
+are installed):
+
 ```sh
 $ trepplein -p test_bpf.program_safety simple1.lef
-
-# Expected output:
-#  axiom propext {a b : Prop} (ᾰ : a ↔ b) : a = b
-#
-#  axiom {u} classical.choice {α : Sort u} (ᾰ : nonempty α) : α
-#
-#  axiom {u} quot.sound {α : Sort u} {r : (∀ (ᾰ_0 ᾰ_1 : α), Prop)} {a b : α}
-#      (ᾰ : r a b) :
-#    quot.mk r a = quot.mk r b
-#
-#  lemma test_bpf.program_safety : bpf.cfg.safe test_bpf.program :=
-#  _
-#
-#  -- successfully checked 5887 declarations
+$ nanoda 8 simple1.lef
 ```
 
-Checking the proof using [Nanoda] (requires it to be installed):
+### Generating a proof for a more complicated BPF program using symbolic execution
+
+The symbolic execution library verifier is more general than the
+abstract interpreter one, but produces larger and slower-to-check proofs.
+As an example of a program that requires using the symbolic
+execution library verifier, consider the following BPF program
+(found in `test/bpf/examples/symeval/unreachable-division.S`):
+
+```
+    /* Innitialize r0 to a non-predictable value. */
+    call BPF_GET_RANDOM_U32
+
+    /* Set r1 = r0. */
+    r1 = r0
+
+    /* Check for r1 == 0. */
+    if r1 == 0 goto out
+
+    /* Perform a division using r0. */
+    r0 /= r0
+    out: exit
+```
+
+The abstract interpreter (and earlier versions of the Linux kernel verifier) fail to recognize this program as safe, as they do not track equality among registers.
+Therefore, when the verifier learns that r1 cannot be 0 after the jump, it does not learn that r0 cannot be 0 either. Therefore, the program is rejected due the possibility of
+an unsafe division by zero.
+(In abstract interpretation terminology, this happens because they do not use a relational
+domain for BPF registers.)
+
+The symbolic execution library verifier, on the other hand, is able to produce a proof for this program because r0 and r1 will be backed by the same SMT variables
+after `r1 = r0`. When the solver searches for an assignment to this variable
+that triggers a division by zero, it returns UNSAT which implies the program is safe.
+
+You can generate a proof for this program using the symbolic execution library verifier
+with the following:
+
 ```sh
-$ nanoda 8 simple1.lef
+$ ./scripts/make_proof.py --verifier se+sat test/bpf/examples/symeval/relational-check.bin relational-check.lef
 
 # Expected output:
-#  Successfully checked 5887 declarations!
-#  Checked 5887 declarations in 7.633744416s
+#  Generated proof at relational-check.lef in 12.8s.
+```
+You can use `leanchecker` or another proof checker to validate the resulting proof:
+
+```sh
+$ leanchecker relational-check.lef test_bpf.program_safety
+
+# Expected output:
+#  axiom propext : Π {a b : Prop}, (a <-> b) -> a = b
+#  axiom quot.sound : Π {α : Sort u}, Π {r : α -> α -> Prop}, Π {a b : α}, r a b -> #  quot.mk r a = quot.mk r b
+#  axiom classical.choice : Π {α : Sort u}, nonempty α -> α
+#  theorem test_bpf.program_safety : bpf.cfg.safe test_bpf.program
+#  checked 8045 declarations
 ```
 
 ## Running Python tests

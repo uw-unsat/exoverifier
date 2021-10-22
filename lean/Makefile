@@ -104,7 +104,7 @@ check-proofs: \
 bpf-examples: $(BPF_BINS) $(patsubst %.bin,%.asm,$(BPF_BINS)) $(patsubst %.o,%.llvmasm,$(call rwildcard,test/bpf/examples/,*.o))
 
 %.o: %.S
-	$(QUIET_GEN)$(LLVM_MC) -triple bpf -filetype=obj -o "$@" "$<"
+	$(QUIET_GEN)$(LLVM_CC) -Itest/bpf/examples/common -c -target bpf -o "$@" "$<"
 
 %.o: %.c
 	$(QUIET_CC)$(LLVM_CC) -Itest/bpf/examples/common -target bpf -Wall -O2 -c "$<" -o "$@"
