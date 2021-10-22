@@ -161,6 +161,10 @@ instance avalue_join : abstr_join bpf.value (avalue β) (with_top (avalue β)) :
 
 private def doALU_scalar : Π (op : bpf.ALU), abstr_binary_transfer bpf.i64 bpf.i64 β β op.doALU_scalar
 | bpf.ALU.ADD  := bv_abstr.add
+| bpf.ALU.SUB  := bv_abstr.sub
+| bpf.ALU.NEG  :=
+  { op      := λ x _, bv_abstr.neg.op x,
+    correct := by { intros, apply bv_abstr.neg.correct; assumption } }
 | bpf.ALU.MUL  := bv_abstr.mul
 | bpf.ALU.LSH  := bv_abstr.shl
 | bpf.ALU.XOR  := bv_abstr.xor
@@ -182,13 +186,13 @@ private def doALU_scalar_pointer : Π (op : bpf.ALU) (m : bpf.memregion), abstr_
     refl,
     apply bv_abstr.add.correct h₁ h₂ rfl } }
 | bpf.ALU.SUB m := {
-  op := λ x y, avalue.pointer m ⊤,
+  op := λ x y, avalue.pointer m (bv_abstr.sub.op x y),
   correct := by {
     intros _ _ _ _ _ h₁ h₂ h,
     subst h,
     constructor,
     refl,
-    apply abstr_top.top_correct } }
+    apply bv_abstr.sub.correct h₁ h₂ rfl } }
 | bpf.ALU.MUL m := {
   op := λ x y, avalue.pointer m x,
   correct := by {

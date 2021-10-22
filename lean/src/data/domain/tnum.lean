@@ -382,6 +382,8 @@ end
 
 end mul
 
+section neg
+
 protected def neg (a : tnum n) : tnum n :=
 tnum.add (tnum.not a) (tnum.const 1).op
 
@@ -395,6 +397,27 @@ begin
   { apply tnum.not_correct h₁ },
   { apply (tnum.const _).correct rfl }
 end
+
+end neg
+
+section sub
+
+protected def sub (a b : tnum n) : tnum n :=
+tnum.add a (tnum.neg b)
+
+protected theorem sub_correct ⦃x y : fin n → bool⦄ ⦃a b : tnum n⦄ :
+  x ∈ γ a →
+  y ∈ γ b →
+  x - y ∈ γ (tnum.sub a b) :=
+begin
+  intros h₁ h₂,
+  have this : x - y = x + (-y), by ring,
+  rw [this],
+  refine tnum.add_correct h₁ _,
+  apply tnum.neg_correct h₂
+end
+
+end sub
 
 protected def udiv : tnum n → tnum n → tnum n :=
 ⊤
@@ -453,7 +476,9 @@ end
 instance : bv_abstr n (tnum n) :=
 { const := tnum.const,
   neg  := { op := tnum.neg, correct := by { intros, subst_vars, apply tnum.neg_correct; assumption } },
+  not  := { op := tnum.not, correct := by { intros, subst_vars, apply tnum.not_correct; assumption } },
   add  := { op := tnum.add, correct := by { intros, subst_vars, apply tnum.add_correct; assumption } },
+  sub  := { op := tnum.sub, correct := by { intros, subst_vars, apply tnum.sub_correct; assumption } },
   and  := { op := tnum.and, correct := by { intros, subst_vars, apply tnum.and_correct; assumption } },
   or   := { op := tnum.or, correct := by { intros, subst_vars, apply tnum.or_correct; assumption } },
   xor  := { op := tnum.xor, correct := by { intros, subst_vars, apply tnum.xor_correct; assumption } },
