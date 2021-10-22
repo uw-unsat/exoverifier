@@ -230,45 +230,45 @@ begin
 end
 
 /-- Create the bitwise AND of two tnums. -/
-protected def and (a b : tnum n) : tnum n :=
-⊤
+protected def and : tnum n → tnum n → tnum n :=
+vector.map₂ trit.and.op
 
 protected theorem and_correct ⦃x y : fin n → bool⦄ ⦃a b : tnum n⦄ :
   x ∈ γ a →
   y ∈ γ b →
   bv.and x y ∈ γ (tnum.and a b) :=
 begin
-  intros h₁ h₂,
-  simp only [tnum.and],
-  apply abstr_top.top_correct _
+  intros h₁ h₂ i,
+  simp only [tnum.and, vector.nth_map₂],
+  apply trit.and.correct (h₁ i) (h₂ i) rfl
 end
 
 /-- Create the bitwise OR of two tnums. -/
-protected def or (a b : tnum n) : tnum n :=
-⊤
+protected def or : tnum n → tnum n → tnum n :=
+vector.map₂ trit.or.op
 
 protected theorem or_correct ⦃x y : fin n → bool⦄ ⦃a b : tnum n⦄ :
   x ∈ γ a →
   y ∈ γ b →
   bv.or x y ∈ γ (tnum.or a b) :=
 begin
-  intros h₁ h₂,
-  simp only [tnum.or],
-  apply abstr_top.top_correct _
+  intros h₁ h₂ i,
+  simp only [tnum.or, vector.nth_map₂],
+  apply trit.or.correct (h₁ i) (h₂ i) rfl
 end
 
 /-- Create the bitwise XOR of two tnums. -/
-protected def xor (a b : tnum n) : tnum n :=
-⊤
+protected def xor : tnum n → tnum n → tnum n :=
+vector.map₂ trit.xor.op
 
 theorem xor_correct ⦃x y : fin n → bool⦄ ⦃a b : tnum n⦄ :
   x ∈ γ a →
   y ∈ γ b →
   bv.xor x y ∈ γ (tnum.xor a b) :=
 begin
-  intros h₁ h₂,
-  simp only [tnum.xor],
-  apply abstr_top.top_correct _
+  intros h₁ h₂ i,
+  simp only [tnum.xor, vector.nth_map₂],
+  apply trit.xor.correct (h₁ i) (h₂ i) rfl
 end
 
 instance : bv_abstr n (tnum n) :=
