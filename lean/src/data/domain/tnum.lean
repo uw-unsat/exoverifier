@@ -14,7 +14,21 @@ import misc.vector
 /-!
 # Tristate numbers (tnum)
 
-Each bit in a tnum can be either 0, 1, or "unknown".
+A tristate number (tnum) overapproximates the set of values that a variable may take at the bit
+level. Each bit of a variable may be either 0, 1, or unknown.
+
+## Implementation notes
+
+An earlier implementation represents each tnum as a pair of (value, mask), where the i-th bit of
+the mask indicates whether the corresponding bit is known (0/1, as the i-th bit of the value) or
+unknown. This is similar to the representation used by the Linux kernel. This complicates both
+implementation and proof in Lean. We therefore switch to the current implementation.
+
+## References
+
+* Harishankar Vishwanathan, Matan Shachnai, Srinivas Narayana, and Santosh Nagarakatte.
+  *Semantics, Verification, and Efficient Implementations for Tristate Numbers*.
+  <https://arxiv.org/abs/2105.05398>
 -/
 
 /-- Ternary digits. -/
@@ -30,6 +44,7 @@ private def and' : trit → trit → trit
 | (some tt) (some tt) := some tt
 | _          _        := none
 
+/-- Create the AND of two trits. -/
 protected def and : abstr_binary_transfer bool bool trit trit band :=
 { op      := and',
   correct := by {
@@ -43,6 +58,7 @@ private def or' : trit → trit → trit
 | (some ff) (some ff) := some ff
 | _         _         := none
 
+/-- Create the OR of two trits. -/
 protected def or : abstr_binary_transfer bool bool trit trit bor :=
 { op      := or',
   correct := by {
@@ -55,6 +71,7 @@ private def bimplies' : trit → trit → trit
 | _         (some tt) := some tt
 | _         _         := none
 
+/-- Create the implication of two trits. -/
 protected def bimplies : abstr_binary_transfer bool bool trit trit bimplies :=
 { op      := bimplies',
   correct := by {
@@ -62,12 +79,15 @@ protected def bimplies : abstr_binary_transfer bool bool trit trit bimplies :=
     subst_vars,
     cases x; cases y; cases u; cases v; cases h₁; cases h₂; dec_trivial } }
 
+/-- Create the XOR of two trits. -/
 protected def xor : abstr_binary_transfer bool bool trit trit bxor :=
 with_top.lift_binary_relation $ id.binary_transfer bxor
 
+/-- Create the NOT of two trits. -/
 protected def not : abstr_unary_transfer bool bool trit trit bnot :=
 with_top.lift_unary_relation $ id.unary_transfer bnot
 
+/-- Create a full adder of two trits. -/
 protected def full_add : Π (a b cin : trit), (trit × trit)
 /- If all bits are known, result is known precisely. -/
 | (some a) (some b) (some cin) :=
@@ -81,7 +101,7 @@ protected def full_add : Π (a b cin : trit), (trit × trit)
 /- If two or more inputs are unknown, all outputs are unknown. -/
 | _ _ _ := ⊤
 
-protected def full_add_correct {a b cin : trit} {a_b b_b cin_b : bool} :
+protected theorem full_add_correct {a b cin : trit} {a_b b_b cin_b : bool} :
   a_b ∈ γ a →
   b_b ∈ γ b →
   cin_b ∈ γ cin →
@@ -156,6 +176,7 @@ instance : has_decidable_γ (fin n → bool) (tnum n) :=
     intros i,
     apply_instance } }
 
+/-- Cast a constant to a tnum. -/
 protected def const (v : fin n → bool) : abstr_nullary_relation (fin n → bool) (tnum n) (eq v) :=
 { op      := vector.of_fn $ λ i, (with_top.lift_nullary_relation (id.const (v i))).op,
   correct := by {
@@ -170,6 +191,7 @@ instance : abstr_top (fin n → bool) (tnum n) :=
     intros _ i,
     simp only [vector.nth_repeat] } }
 
+/-- Create the join of two tnums. -/
 protected def join : tnum n → tnum n → tnum n :=
 vector.map₂ (⊔)
 
@@ -183,6 +205,7 @@ instance : abstr_join (fin n → bool) (tnum n) (tnum n) :=
     { left, exact h i },
     { right, exact h i } } }
 
+/-- Create the meet of two tnums. -/
 protected def meet (x y : tnum n) : with_bot (tnum n) :=
 let x : with_bot (flip vector n trit) := sequence (vector.map₂ abstr_meet.meet x y : flip vector n (with_bot trit)) in x
 
@@ -234,6 +257,7 @@ instance : abstr_meet (fin n → bool) (tnum n) (with_bot (tnum n)) :=
             simp only [vector.nth_cons_succ],
             exact ih j } } } } } }
 
+/-- Less-equal of two tnums is defined over each trit. -/
 protected def le (a b : tnum n) : Prop :=
 ∀ (i : fin n), a.nth i ≤ b.nth i
 
@@ -262,6 +286,7 @@ end
 
 section add
 
+/-- Create the addition-with-carry of two tnums. -/
 protected def adc : ∀ {n : ℕ}, tnum n → tnum n → trit → tnum n
 | 0       _ _ carry := vector.nil
 | (n + 1) a b carry :=
@@ -300,6 +325,7 @@ begin
       exact ih j } }
 end
 
+/-- Create the addition of two tnums. -/
 protected def add (a b : tnum n) : tnum n :=
 tnum.adc a b (some ff)
 
@@ -336,6 +362,7 @@ end and
 
 section mul
 
+/-- Create the multiplication of two tnums. -/
 protected def mul : ∀ {n : ℕ}, tnum n → tnum n → tnum n
 | 0       _ _ := vector.nil
 | (n + 1) a b :=
@@ -384,6 +411,7 @@ end mul
 
 section neg
 
+/-- Create the negation of two tnums. -/
 protected def neg (a : tnum n) : tnum n :=
 tnum.add (tnum.not a) (tnum.const 1).op
 
@@ -402,6 +430,7 @@ end neg
 
 section sub
 
+/-- Create the subtraction of two tnums. -/
 protected def sub (a b : tnum n) : tnum n :=
 tnum.add a (tnum.neg b)
 
@@ -419,31 +448,21 @@ end
 
 end sub
 
+/-- Return "unknown" for the unsigned division of two tnums. -/
 protected def udiv : tnum n → tnum n → tnum n :=
 ⊤
 
 protected theorem udiv_correct ⦃x y : fin n → bool⦄ ⦃a b : tnum n⦄ :
-  x ∈ γ a →
-  y ∈ γ b →
   x / y ∈ γ (tnum.udiv a b) :=
-begin
-  intros h₁ h₂,
-  simp only [tnum.udiv],
-  apply abstr_top.top_correct _
-end
+abstr_top.top_correct _
 
+/-- Return "unknown" for the unsigned remainder of two tnums. -/
 protected def urem : tnum n → tnum n → tnum n :=
 ⊤
 
 protected theorem urem_correct ⦃x y : fin n → bool⦄ ⦃a b : tnum n⦄ :
-  x ∈ γ a →
-  y ∈ γ b →
   x % y ∈ γ (tnum.urem a b) :=
-begin
-  intros h₁ h₂,
-  simp only [tnum.urem],
-  apply abstr_top.top_correct _
-end
+abstr_top.top_correct _
 
 /-- Create the bitwise OR of two tnums. -/
 protected def or : tnum n → tnum n → tnum n :=
