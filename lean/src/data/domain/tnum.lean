@@ -72,7 +72,7 @@ protected def full_add : Π (a b cin : trit), (trit × trit)
 | (some a) (some b) (some cin) :=
   let r := bool.full_add a b cin in (some r.1, some r.2)
 
-/- If exactly one bit is unknown, `cout` is unknown but carry can be known: if other inputs are both tt or ff. -/
+/- If exactly one bit is unknown, `out` is unknown but carry can be known: if other inputs are both tt or ff. -/
 | (some a) (some b) unknown   := (⊤, cond (biff a b) a ⊤)
 | (some a) unknown (some cin) := (⊤, cond (biff a cin) a ⊤)
 | unknown (some b) (some cin) := (⊤, cond (biff b cin) b ⊤)
