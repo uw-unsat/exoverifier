@@ -29,9 +29,7 @@ a function `abstract` which maps a single concrete value into an abstract value.
 Assume that α uniquely determines β.
 -/
 class has_γ (β : out_param Type*) (α : Type*) :=
-(γ                : α → set β)
--- (abstract         : β → α)
--- (abstract_correct : ∀ (x : β), x ∈ γ (abstract x))
+(γ : α → set β)
 
 open has_γ
 
@@ -154,32 +152,6 @@ end abstr_meet
 
 instance [has_γ β α] [abstr_le β α] : decidable_rel (@has_le.le α _) :=
   abstr_le.dec_le
-
-namespace id
-
-/-
-Lattice operations on id α defined using equality.
--/
-
-instance : has_γ α (id α) :=
-{ γ                := eq }
-
-instance [decidable_eq α] : has_decidable_γ α (id α) :=
-{ dec_γ := infer_instance }
-
-instance [decidable_eq α] : abstr_le α (id α) :=
-{ le         := eq,
-  dec_le     := infer_instance,
-  le_correct := by { rintros _ _ ⟨⟩, refl } }
-
-def transfer (f : α → α → α) : abstr_binary_transfer α α (id α) (id α) f :=
-{ op      := f,
-  correct := by {
-    rintros _ _ _ _ _ ⟨⟩ ⟨⟩ _,
-    subst_vars,
-    constructor } }
-
-end id
 
 namespace fn
 
@@ -482,16 +454,6 @@ instance [has_γ β α] [abstr_le β α] : abstr_le β (with_top α) :=
       intros _ _, exact true.intro },
     { apply abstr_le.le_correct h } } }
 
--- A default instance of join.
-instance [decidable_eq α] : abstr_join α (id α) (with_top (id α)) :=
-{ join := λ x y, if x = y then some x else ⊤,
-  join_correct := by {
-    intros x y z h,
-    split_ifs with h',
-    { subst_vars,
-      cases h; exact h },
-    { apply abstr_top.top_correct } } }
-
 instance join_args [has_γ β α] [abstr_join β α (with_top α)] :
   abstr_join β (with_top α) (with_top α) :=
 { join := λ (x y : with_top α),
@@ -558,6 +520,55 @@ def invert_equality : abstr_binary_inversion β α (with_bot α) eq :=
     apply meet_correct ⟨xu, yv⟩ } }
 
 end abstr_meet
+
+namespace id
+variables {α : Type*}
+
+/-
+Lattice operations on id α defined using equality as γ.
+-/
+
+instance [decidable_eq α] : has_decidable_γ α (id α) :=
+{ γ     := eq,
+  dec_γ := infer_instance }
+
+instance [decidable_eq α] : abstr_le α (id α) :=
+{ le         := eq,
+  dec_le     := infer_instance,
+  le_correct := by { rintros _ _ ⟨⟩, refl } }
+
+instance [decidable_eq α] : abstr_join α (id α) (with_top (id α)) :=
+{ join := λ x y, if x = y then some x else ⊤,
+  join_correct := by {
+    intros _ _ _ h,
+    cases h; cases h; split_ifs; tauto } }
+
+instance id_meet [decidable_eq α] : abstr_meet α (with_top (id α)) (with_bot (with_top (id α))) :=
+{ meet := λ x y,
+    match x, y with
+    | some x', some y' := if x' = y' then some (some x') else ⊥
+    | none, a := some a
+    | a, none := some a
+    end,
+  meet_correct := by {
+    rintros _ _ _ ⟨h₁, h₂⟩,
+    cases x; cases y; cases h₁; cases h₂; simp only [id_meet._match_1],
+    { exact h₂ },
+    { exact h₁ },
+    { rw [if_pos rfl], exact h₁ } } }
+
+def const [decidable_eq α] (x : α) : abstr_nullary_relation α (id α) (eq x) :=
+{ op      := x,
+  correct := by { intros, tauto } }
+
+def transfer [decidable_eq α] (f : α → α → α) : abstr_binary_transfer α α (id α) (id α) f :=
+{ op      := f,
+  correct := by {
+    rintros _ _ _ _ _ ⟨⟩ ⟨⟩ _,
+    subst_vars,
+    constructor } }
+
+end id
 
 namespace abstr_binary_inversion
 open abstr_join abstr_meet

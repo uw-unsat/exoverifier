@@ -17,96 +17,16 @@ Each bit in a tnum can be either 0, 1, or "unknown".
 -/
 
 /-- Ternary digits. -/
-@[derive [decidable_eq, inhabited, has_reflect]]
-inductive trit : Type
-| one
-| zero
-| unknown
+@[reducible]
+def trit := with_top (id bool)
 
 namespace trit
 
-protected def γ : trit → set bool
-| one     := eq tt
-| zero    := eq ff
-| unknown := λ _, true
-
-local attribute [reducible] trit.γ
-
-instance : has_decidable_γ bool trit :=
-{ γ     := trit.γ,
-  dec_γ := λ x y,
-    match x with
-    | one     := infer_instance
-    | zero    := infer_instance
-    | unknown := infer_instance
-    end }
-
-def const (x : bool) : abstr_nullary_relation bool trit (eq x) :=
-{ op      := cond x one zero,
-  correct := by {
-    intros _ h,
-    subst h,
-    cases x; dec_trivial } }
-
-protected def join : trit → trit → trit
-| one  one  := one
-| zero zero := zero
-| _    _    := unknown
-
-instance : abstr_join bool trit trit :=
-{ join         := trit.join,
-  join_correct := by {
-    intros x y a h,
-    cases x; cases y; cases h; cases h; dec_trivial } }
-
-protected def meet : trit → trit → with_bot trit
-| one     one     := some one
-| zero    zero    := some zero
-| a       unknown := some a
-| unknown b       := some b
-| _       _       := ⊥
-
-instance : abstr_meet bool trit (with_bot trit) :=
-{ meet         := trit.meet,
-  meet_correct := by {
-    intros x y a h,
-    cases x; cases y; cases h with h₁ h₂; cases h₁; cases h₂; dec_trivial } }
-
-protected def le : trit → trit → Prop
-| one  one     := true
-| zero zero    := true
-| _    unknown := true
-| _    _       := false
-
-local attribute [reducible] trit.le
-
-instance : abstr_le bool trit :=
-{ le         := trit.le,
-  dec_le := λ x y,
-    match x, y with
-    | zero,    zero    := infer_instance
-    | zero,    one     := infer_instance
-    | zero,    unknown := infer_instance
-    | one,     zero    := infer_instance
-    | one,     one     := infer_instance
-    | one,     unknown := infer_instance
-    | unknown, zero    := infer_instance
-    | unknown, one     := infer_instance
-    | unknown, unknown := infer_instance
-    end,
-  le_correct := by {
-    intros x y h₁ _ h₂,
-    cases x; cases y; cases h₁; cases h₂; dec_trivial } }
-
-instance : abstr_top bool trit :=
-{ top         := unknown,
-  top_correct := by { intros, triv } }
-
 private def and' : trit → trit → trit
-| zero _    := zero
-| _    zero := zero
-| one  one  := one
-| _    _    := unknown
+| (some ff) _         := some ff
+| _         (some ff) := some ff
+| (some tt) (some tt) := some tt
+| _          _        := none
 
 protected def and : abstr_binary_transfer bool bool trit trit band :=
 { op      := and',
@@ -116,10 +36,10 @@ protected def and : abstr_binary_transfer bool bool trit trit band :=
     cases x; cases y; cases u; cases v; cases h₁; cases h₂; dec_trivial } }
 
 private def or' : trit → trit → trit
-| one  _    := one
-| _    one  := one
-| zero zero := zero
-| _    _    := unknown
+| (some tt) _         := some tt
+| _         (some tt) := some tt
+| (some ff) (some ff) := some ff
+| _         _         := none
 
 protected def or : abstr_binary_transfer bool bool trit trit bor :=
 { op      := or',
@@ -127,6 +47,9 @@ protected def or : abstr_binary_transfer bool bool trit trit bor :=
     intros x y z u v h₁ h₂ _,
     subst_vars,
     cases x; cases y; cases u; cases v; cases h₁; cases h₂; dec_trivial } }
+
+protected def xor : abstr_binary_transfer bool bool trit trit bxor :=
+with_top.lift_binary_relation $ id.transfer bxor
 
 end trit
 
@@ -146,15 +69,19 @@ local attribute [reducible] tnum.γ
 
 instance : has_decidable_γ (fin n → bool) (tnum n) :=
 { γ     := tnum.γ,
-  dec_γ := infer_instance }
+  dec_γ := by {
+    intros x y,
+    apply @fintype.decidable_forall_fintype _ _ _,
+    intros i,
+    apply_instance } }
 
 protected def const (v : fin n → bool) : abstr_nullary_relation (fin n → bool) (tnum n) (eq v) :=
-{ op      := vector.of_fn $ λ i, (trit.const (v i)).op,
+{ op      := vector.of_fn $ λ i, (with_top.lift_nullary_relation (id.const (v i))).op,
   correct := by {
     intros _ h i,
     subst h,
     simp only [vector.nth_of_fn],
-    apply (trit.const _).correct rfl } }
+    apply (with_top.lift_nullary_relation _).correct rfl } }
 
 instance : abstr_top (fin n → bool) (tnum n) :=
 { top         := vector.repeat ⊤ n,
@@ -193,8 +120,7 @@ instance : abstr_meet (fin n → bool) (tnum n) (with_bot (tnum n)) :=
         have h₄ := abstr_meet.meet_correct ⟨h₁ 0, h₂ 0⟩,
         simp only [vector.nth_zero] at h₄,
         rw [h₃] at h₄,
-        cases h₄,
-        apply_instance },
+        cases h₄ },
       case some : tr {
         specialize @ih x.tail y.tail (fin.tail u) _,
         { split,
