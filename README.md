@@ -94,10 +94,9 @@ execution library verifier, consider the following BPF program
 ```
 
 The abstract interpreter (and earlier versions of the Linux kernel verifier) fail to recognize this program as safe, as they do not track equality among registers.
-Therefore, when the verifier learns that r1 cannot be 0 after the jump, it does not learn that r0 cannot be 0 either. Therefore, the program is rejected due the possibility of
-an unsafe division by zero.
-(In abstract interpretation terminology, this happens because they do not use a relational
-domain for BPF registers.)
+While the verifier learns that r1 cannot be 0 after the jump, it fails
+to learn that r0 cannot be 0 either, even though these registers must hold the same value. Therefore, the program is rejected due the possibility of an unsafe division by zero. This happens because these verifiers do not use relational domains for tracking
+BPF register values.
 
 The symbolic execution library verifier, on the other hand, is able to produce a proof for this program because r0 and r1 will be backed by the same SMT variables
 after `r1 = r0`. When the solver searches for an assignment to this variable
