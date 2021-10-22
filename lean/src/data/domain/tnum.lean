@@ -236,15 +236,17 @@ instance : abstr_le (fin n → bool) (tnum n) :=
     intros x y l u h i,
     apply abstr_le.le_correct (l i) (h i) } }
 
-protected def neg : tnum n → tnum n :=
-⊤
+/-- Create the bitwise NOT of a tnums. -/
+protected def not : tnum n → tnum n :=
+vector.map trit.not.op
 
-protected theorem neg_correct ⦃x : fin n → bool⦄ ⦃a : tnum n⦄ :
+theorem not_correct ⦃x : fin n → bool⦄ ⦃a : tnum n⦄ :
   x ∈ γ a →
-  -x ∈ γ (tnum.neg a) :=
+  bv.not x ∈ γ (tnum.not a) :=
 begin
-  intros _,
-  apply @abstr_top.top_correct _ (tnum n) _
+  intros h₁ i,
+  simp only [tnum.not, vector.nth_map],
+  apply trit.not.correct (h₁ i) rfl
 end
 
 section add
@@ -302,6 +304,20 @@ begin
 end
 
 end add
+
+protected def neg (a : tnum n) : tnum n :=
+tnum.add (tnum.not a) (tnum.const 1).op
+
+protected theorem neg_correct ⦃x : fin n → bool⦄ ⦃a : tnum n⦄ :
+  x ∈ γ a →
+  -x ∈ γ (tnum.neg a) :=
+begin
+  intros h₁,
+  simp only [bv.neg_eq_not_add_one, tnum.neg],
+  apply tnum.add_correct,
+  { apply tnum.not_correct h₁ },
+  { apply (tnum.const _).correct rfl }
+end
 
 protected def udiv : tnum n → tnum n → tnum n :=
 ⊤
