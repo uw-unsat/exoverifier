@@ -129,6 +129,18 @@ namespace tnum
 variable {n : ℕ}
 open has_γ
 
+private def repr' : Π {n : ℕ}, tnum n → string
+| 0       _ := ""
+| (n + 1) v :=
+  let x := match v.head with
+           | some ff := "0"
+           | some tt := "1"
+           | unknown := "x"
+           end in
+    x ++ @repr' n v.tail
+
+instance : has_repr (tnum n) := ⟨λ v, "0b" ++ repr' v.reverse⟩
+
 /-- Concretization function. Relates tnums to sets of bitvectors. -/
 protected def γ (t : tnum n) : set (fin n → bool) :=
 λ (v : fin n → bool), ∀ (i : fin n), v i ∈ γ (t.nth i)
@@ -136,7 +148,7 @@ protected def γ (t : tnum n) : set (fin n → bool) :=
 local attribute [reducible] tnum.γ
 
 instance : has_γ (fin n → bool) (tnum n) :=
-{ γ     := tnum.γ }
+{ γ := tnum.γ }
 
 instance : has_decidable_γ (fin n → bool) (tnum n) :=
 { dec_γ := by {
