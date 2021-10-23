@@ -69,6 +69,7 @@ protected def or : abstr_binary_transfer bool bool trit trit bor :=
 private def bimplies' : trit → trit → trit
 | (some ff) _         := some tt
 | _         (some tt) := some tt
+| (some tt) (some ff) := some ff
 | _         _         := none
 
 /-- Create the implication of two trits. -/
