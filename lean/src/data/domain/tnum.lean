@@ -6,8 +6,8 @@ Authors: Luke Nelson, Xi Wang
 import .basic
 import .bv
 import data.bv.adc
-import data.bv.basic
 import data.bv.mul
+import data.bv.sbc
 import misc.bool
 import misc.vector
 
@@ -295,7 +295,7 @@ protected def adc : ∀ {n : ℕ}, tnum n → tnum n → trit → tnum n
       cs : tnum n        := @adc n a.tail b.tail c.2 in
     c.1 ::ᵥ cs
 
-private theorem adc_correct {n : ℕ} {a b : tnum n} {c : trit} {x y : fin n → bool} {z : bool} :
+protected theorem adc_correct {n : ℕ} {a b : tnum n} {c : trit} {x y : fin n → bool} {z : bool} :
   x ∈ γ a →
   y ∈ γ b →
   z ∈ γ c →
@@ -337,7 +337,7 @@ protected theorem add_correct ⦃x y : fin n → bool⦄ ⦃a b : tnum n⦄ :
 begin
   intros h₁ h₂,
   simp only [bv.add_eq_adc],
-  apply adc_correct h₁ h₂,
+  apply tnum.adc_correct h₁ h₂,
   dec_trivial
 end
 
@@ -433,7 +433,7 @@ section sub
 
 /-- Create the subtraction of two tnums. -/
 protected def sub (a b : tnum n) : tnum n :=
-tnum.add a (tnum.neg b)
+tnum.adc a (tnum.not b) (some tt)
 
 protected theorem sub_correct ⦃x y : fin n → bool⦄ ⦃a b : tnum n⦄ :
   x ∈ γ a →
@@ -441,10 +441,9 @@ protected theorem sub_correct ⦃x y : fin n → bool⦄ ⦃a b : tnum n⦄ :
   x - y ∈ γ (tnum.sub a b) :=
 begin
   intros h₁ h₂,
-  have this : x - y = x + (-y), by ring,
-  rw [this],
-  refine tnum.add_correct h₁ _,
-  apply tnum.neg_correct h₂
+  rw [bv.sub_eq_sbc, bv.sbc_eq_adc],
+  apply tnum.adc_correct h₁ (tnum.not_correct h₂),
+  dec_trivial
 end
 
 end sub
