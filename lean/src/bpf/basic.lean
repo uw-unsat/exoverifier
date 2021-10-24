@@ -223,9 +223,12 @@ private def repr : ALU → string
 instance : has_repr ALU := ⟨repr⟩
 
 /-- Whether a particular ALU operation is allowed. -/
-def doALU_scalar_check {n : ℕ} : ALU → (fin n → bool) → (fin n → bool) → bool
+def doALU_scalar_check : ALU → i64 → i64 → bool
 | DIV x y  := y ≠ 0 -- Disallow division by zero.
 | MOD x y  := y ≠ 0 -- Disallow mod by zero.
+| LSH x y  := y < 64 -- Prohibit oversized shift.
+| RSH x y  := y < 64 -- Prohibit oversized shift.
+| ARSH x y := y < 64 -- Prohibit oversized shift.
 | END x y  := ff -- Disallow endianness conversion for now TODO
 | _ x y    := tt
 

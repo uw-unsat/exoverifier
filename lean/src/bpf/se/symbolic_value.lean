@@ -311,10 +311,13 @@ begin
 end
 
 private def doALU_scalar_check : Π (op : ALU) (a b : β), state γ β
-| ALU.DIV _ y := mk_redor y
-| ALU.MOD _ y := mk_redor y
-| ALU.END _ _ := mk_false
-| _       _ _ := mk_true
+| ALU.DIV _ y  := mk_redor y
+| ALU.MOD _ y  := mk_redor y
+| ALU.LSH _ y  := mk_const (vector.of_fn 64 : lsbvector 64) >>= mk_ult y
+| ALU.RSH _ y  := mk_const (vector.of_fn 64 : lsbvector 64) >>= mk_ult y
+| ALU.ARSH _ y := mk_const (vector.of_fn 64 : lsbvector 64) >>= mk_ult y
+| ALU.END _ _  := mk_false
+| _       _ _  := mk_true
 
 private def doALU_pointer_scalar_check : Π (op : ALU), state γ β
 | ALU.ADD := mk_true
@@ -349,8 +352,23 @@ theorem doALU_check_increasing {op : ALU} {a b : symvalue β} : increasing (doAL
 begin
   cases a; cases b; simp only [doALU_check]; try{split_ifs}; try{apply le_mk_const};
   cases op; try{apply le_mk_const},
-  apply le_mk_redor,
-  apply le_mk_redor,
+  case DIV { apply le_mk_redor },
+  case MOD { apply le_mk_redor },
+  case LSH {
+    simp only [doALU_scalar_check],
+    apply increasing_bind; intros,
+    apply le_mk_const,
+    apply le_mk_ult },
+  case RSH {
+    simp only [doALU_scalar_check],
+    apply increasing_bind; intros,
+    apply le_mk_const,
+    apply le_mk_ult },
+  case ARSH {
+    simp only [doALU_scalar_check],
+    apply increasing_bind; intros,
+    apply le_mk_const,
+    apply le_mk_ult }
 end
 
 theorem sat_doALU_check ⦃g g' : γ⦄ ⦃op : bpf.ALU⦄ ⦃e₁ e₂ : symvalue β⦄ ⦃e₃ : β⦄ ⦃v₁ v₂ : bpf.value⦄ :
@@ -377,15 +395,36 @@ begin
       split_ifs at ⊢ mk; apply sat_mk_const1 mk },
 
     simp only with match_simp at mk ⊢,
-    cases op;
-    try {
+    cases op,
+    case LSH {
+      simp only [ALU.doALU_scalar_check, doALU_scalar_check, state_t.run_bind] at mk ⊢,
+      have h := sat_mk_ult mk (factory.sat_of_le le_mk_const sat₂') (sat_mk_const (by rw [prod.mk.eta])),
+      simp only [vector.nth_of_fn_ext] at h,
+      exact h },
+    case RSH {
+      simp only [ALU.doALU_scalar_check, doALU_scalar_check, state_t.run_bind] at mk ⊢,
+      have h := sat_mk_ult mk (factory.sat_of_le le_mk_const sat₂') (sat_mk_const (by rw [prod.mk.eta])),
+      simp only [vector.nth_of_fn_ext] at h,
+      exact h },
+    case ARSH {
+      simp only [ALU.doALU_scalar_check, doALU_scalar_check, state_t.run_bind] at mk ⊢,
+      have h := sat_mk_ult mk (factory.sat_of_le le_mk_const sat₂') (sat_mk_const (by rw [prod.mk.eta])),
+      simp only [vector.nth_of_fn_ext] at h,
+      exact h },
+    case DIV {
+      convert (sat_mk_redor mk sat₂'),
+      ext i,
+      rw [bv.any_eq_to_bool_nonzero],
+      refl },
+    case MOD {
+      convert (sat_mk_redor mk sat₂'),
+      ext i,
+      rw [bv.any_eq_to_bool_nonzero],
+      refl },
+    all_goals {
       convert (sat_mk_const mk),
       ext i,
       simp only [fin.eq_zero i],
-      refl };
-    { convert (sat_mk_redor mk sat₂'),
-      ext i,
-      rw [bv.any_eq_to_bool_nonzero],
       refl } }
 end
 

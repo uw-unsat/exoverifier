@@ -371,11 +371,11 @@ private def doALU_scalar_check : Π (op : bpf.ALU), abstr_binary_test bpf.i64 β
   test := λ _ _, tt,
   test_sound := by { intros, refl } }
 | bpf.ALU.LSH := {
-  test := λ _ _, tt,
-  test_sound := by { intros, refl } }
+  test := λ _ _, ff,
+  test_sound := by { intros, contradiction } }
 | bpf.ALU.RSH := {
-  test := λ _ _, tt,
-  test_sound := by { intros, refl } }
+  test := λ _ _, ff,
+  test_sound := by { intros, contradiction } }
 | bpf.ALU.NEG := {
   test := λ _ _, tt,
   test_sound := by { intros, refl } }
@@ -383,8 +383,8 @@ private def doALU_scalar_check : Π (op : bpf.ALU), abstr_binary_test bpf.i64 β
   test := λ _ _, tt,
   test_sound := by { intros, refl } }
 | bpf.ALU.ARSH := {
-  test := λ _ _, tt,
-  test_sound := by { intros, refl } }
+  test := λ _ _, ff,
+  test_sound := by { intros, contradiction } }
 | bpf.ALU.END := {
   test := λ _ _, ff,
   test_sound := by { intros _ _ _ _ h, cases h } }
