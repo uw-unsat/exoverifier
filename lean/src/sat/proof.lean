@@ -317,7 +317,7 @@ begin
     rwa [hsingleton, list.mem_singleton] }
 end
 
-/-- A RUP checker. RUP  -/
+/-- A RUP checker. -/
 def rup_check : γ → proof α β κ γ → result κ :=
 refute rup (λ _ _ _ _ _, result.no_rat_support) (λ f _, f)
 
