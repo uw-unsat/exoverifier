@@ -422,7 +422,7 @@ open factory and_factory or_factory xor_factory
 /--
 Construct a full adder as the following:
 * sum  = (x ⊕ y) ⊕ c
-* cout = (x || y) && (c || (x ⊕ y))
+* cout = (x && y) || (c && (x ⊕ y))
 -/
 def mk_full_add (x y c : β) : state γ (β × β) := do
 xy ← mk_xor x y,
