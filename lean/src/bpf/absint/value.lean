@@ -21,7 +21,7 @@ class value_abstr (α : Type*) extends
   abstr_join bpf.value α α :=
 
 (doALU (op : bpf.ALU) :
-  abstr_binary_transfer bpf.value bpf.value α α op.doALU)
+  abstr_binary_transfer bpf.value bpf.value bpf.value α α α op.doALU)
 
 (doALU_check (op : bpf.ALU) :
   abstr_binary_test bpf.value α op.doALU_check)
@@ -46,53 +46,53 @@ inductive avalue (β : Type) : Type
 
 namespace avalue
 
-variables {β : Type} [bv_abstr 64 β]
+variables {β : ℕ → Type} [bv_abstr β]
 
 section has_repr
-variable [has_repr β]
+variables [has_repr (β 64)]
 
-private def repr' : avalue β → string
+private def repr' : avalue (β 64) → string
 | (scalar x) := "(scalar " ++ repr x ++ ")"
 | (pointer _ o) := "(pointer X " ++ repr o ++ ")"
 | uninitialized := "(uninitialized)"
 
-instance : has_repr (avalue β) := ⟨repr'⟩
+instance : has_repr (avalue (β 64)) := ⟨repr'⟩
 
 end has_repr
 
 section has_to_pexpr
-variable [has_to_pexpr β]
+variable [has_to_pexpr (β 64)]
 
-private meta def to_pexpr' : avalue β → pexpr
+private meta def to_pexpr' : avalue (β 64) → pexpr
 | (scalar x)      := ``(scalar %%x)
 | (pointer m x)   := ``(pointer %%m %%x)
 | (uninitialized) := ``(uninitialized)
 
-meta instance : has_to_pexpr (avalue β) := ⟨to_pexpr'⟩
+meta instance : has_to_pexpr (avalue (β 64)) := ⟨to_pexpr'⟩
 
 end has_to_pexpr
 
-private def γ : avalue β → bpf.value → Prop
+private def γ : avalue (β 64) → bpf.value → Prop
 | (avalue.scalar x) (bpf.value.scalar y) := y ∈ has_γ.γ x
 | (avalue.pointer m₁ x) (bpf.value.pointer m₂ y) :=
   m₁ = m₂ ∧ y ∈ has_γ.γ x
 | (avalue.uninitialized) (bpf.value.uninitialized) := true
 | _ _ := false
 
-private def dec_γ : Π (a : avalue β) (b : bpf.value), decidable (γ a b) :=
+private def dec_γ : Π (a : avalue (β 64)) (b : bpf.value), decidable (γ a b) :=
 begin
   intros a b,
   cases a; cases b; simp only [γ]; apply_instance
 end
 
-instance : has_γ bpf.value (avalue β) :=
+instance : has_γ bpf.value (avalue (β 64)) :=
 { γ := γ }
 
-instance : has_decidable_γ bpf.value (avalue β) :=
+instance : has_decidable_γ bpf.value (avalue (β 64)) :=
 { dec_γ := dec_γ }
 
 private def const (v : bpf.value) :
-  abstr_nullary_relation bpf.value (avalue β) (eq v) :=
+  abstr_nullary_relation bpf.value (avalue (β 64)) (eq v) :=
 { op :=
     match v with
     | (bpf.value.scalar x)      := (avalue.scalar (bv_abstr.const x).op)
@@ -108,20 +108,20 @@ private def const (v : bpf.value) :
       apply (bv_abstr.const _).correct rfl },
     { triv } } }
 
-private def le : avalue β → avalue β → Prop
+private def le : avalue (β 64) → avalue (β 64) → Prop
 | (avalue.scalar x) (avalue.scalar y) := x ≤ y
 | (avalue.pointer m₁ x) (avalue.pointer m₂ y) :=
   m₁ = m₂ ∧ x ≤ y
 | (avalue.uninitialized) (avalue.uninitialized) := true
 | _ _ := false
 
-private def dec_le : Π (a b : avalue β), decidable (le a b) :=
+private def dec_le : Π (a b : avalue (β 64)), decidable (le a b) :=
 begin
   intros a b,
   cases a; cases b; simp only [le]; apply_instance
 end
 
-instance : abstr_le bpf.value (avalue β) :=
+instance : abstr_le bpf.value (avalue (β 64)) :=
 { le         := le,
   dec_le     := dec_le,
   le_correct := by {
@@ -134,8 +134,8 @@ instance : abstr_le bpf.value (avalue β) :=
       apply abstr_le.le_correct; assumption },
     { triv } } }
 
-instance avalue_join : abstr_join bpf.value (avalue β) (with_top (avalue β)) :=
-{ join := λ (x y : avalue β),
+instance avalue_join : abstr_join bpf.value (avalue (β 64)) (with_top (avalue (β 64))) :=
+{ join := λ (x y : avalue (β 64)),
     match x, y with
     | avalue.scalar x', avalue.scalar y' := some $ avalue.scalar (x' ⊔ y')
     | avalue.pointer m₁ x', avalue.pointer m₂ y' :=
@@ -159,7 +159,7 @@ instance avalue_join : abstr_join bpf.value (avalue β) (with_top (avalue β)) :
       apply abstr_join.join_correct, right, assumption,
       apply abstr_top.top_correct } } }
 
-private def doALU_scalar : Π (op : bpf.ALU), abstr_binary_transfer bpf.i64 bpf.i64 β β op.doALU_scalar
+private def doALU_scalar : Π (op : bpf.ALU), abstr_binary_transfer bpf.i64 bpf.i64 bpf.i64 (β 64) (β 64) (β 64) op.doALU_scalar
 | bpf.ALU.ADD  := bv_abstr.add
 | bpf.ALU.SUB  := bv_abstr.sub
 | bpf.ALU.NEG  :=
@@ -176,7 +176,7 @@ private def doALU_scalar : Π (op : bpf.ALU), abstr_binary_transfer bpf.i64 bpf.
 | bpf.ALU.ARSH := bv_abstr.ashr
 | _            := { op := λ _ _, ⊤, correct := by { intros, apply abstr_top.top_correct } }
 
-private def doALU_scalar_pointer : Π (op : bpf.ALU) (m : bpf.memregion), abstr_binary_transfer bpf.i64 bpf.value β (avalue β) (op.doALU_pointer_scalar m)
+private def doALU_scalar_pointer : Π (op : bpf.ALU) (m : bpf.memregion), abstr_binary_transfer bpf.i64 bpf.i64 bpf.value (β 64) (β 64) (avalue (β 64)) (op.doALU_pointer_scalar m)
 | bpf.ALU.ADD m := {
   op := λ x y, avalue.pointer m (bv_abstr.add.op x y),
   correct := by {
@@ -266,8 +266,8 @@ private def doALU_scalar_pointer : Π (op : bpf.ALU) (m : bpf.memregion), abstr_
     subst h,
     refine ⟨rfl, h₁⟩ } }
 
-private def doALU (op : bpf.ALU) : abstr_binary_transfer bpf.value bpf.value (avalue β) (with_top (avalue β)) op.doALU :=
-{ op := λ (x y : avalue β),
+private def doALU (op : bpf.ALU) : abstr_binary_transfer bpf.value bpf.value bpf.value (avalue (β 64)) (avalue (β 64)) (with_top (avalue (β 64))) op.doALU :=
+{ op := λ (x y : avalue (β 64)),
     match x, y with
     | avalue.scalar x', avalue.scalar y' := some $ avalue.scalar $ (doALU_scalar op).op x' y'
     | avalue.pointer m x', avalue.scalar y' := some $ (doALU_scalar_pointer op m).op x' y'
@@ -326,8 +326,8 @@ private def doALU (op : bpf.ALU) : abstr_binary_transfer bpf.value bpf.value (av
 Lift doALU to work on `with_top`. Specialize this because ALU.MOV can be made precise even when
 one (or both) arguments are already ⊤, since MOV ⊤ src = src.
 -/
-private def doALU_with_top (op : bpf.ALU) : abstr_binary_transfer bpf.value bpf.value (with_top (avalue β)) (with_top (avalue β)) op.doALU :=
-{ op := λ (x y : with_top (avalue β)),
+private def doALU_with_top (op : bpf.ALU) : abstr_binary_transfer bpf.value bpf.value bpf.value (with_top (avalue (β 64))) (with_top (avalue (β 64))) (with_top (avalue (β 64))) op.doALU :=
+{ op := λ (x y : with_top (avalue (β 64))),
     match x, y with
     | some x, some y := (doALU op).op x y
     | _, src := if op = bpf.ALU.MOV then src else ⊤
@@ -351,7 +351,7 @@ private def doALU_with_top (op : bpf.ALU) : abstr_binary_transfer bpf.value bpf.
       apply abstr_top.top_correct },
     apply (doALU op).correct h₁ h₂ rfl } }
 
-private def doALU_scalar_check : Π (op : bpf.ALU), abstr_binary_test bpf.i64 β op.doALU_scalar_check
+private def doALU_scalar_check : Π (op : bpf.ALU), abstr_binary_test bpf.i64 (β 64) op.doALU_scalar_check
 | bpf.ALU.ADD := {
   test := λ _ _, tt,
   test_sound := by { intros, refl } }
@@ -410,7 +410,7 @@ private def doALU_scalar_check : Π (op : bpf.ALU), abstr_binary_test bpf.i64 β
     assumption } }
 
 @[match_simp]
-private def doALU_check_with_top (op : bpf.ALU) : Π (x y : with_top (avalue β)), bool
+private def doALU_check_with_top (op : bpf.ALU) : Π (x y : with_top (avalue (β 64))), bool
 | (some (avalue.scalar x)) (some (avalue.scalar y)) := (doALU_scalar_check op).test x y
 | (some (avalue.pointer m x)) (some (avalue.scalar y)) := op.doALU_pointer_scalar_check
 | _ (some (avalue.pointer _ _)) := if op = bpf.ALU.MOV then tt else ff
@@ -418,21 +418,21 @@ private def doALU_check_with_top (op : bpf.ALU) : Π (x y : with_top (avalue β)
 | _ _ := ff
 
 @[match_simp]
-private theorem doALU_check_with_top_none {op : bpf.ALU} {x : with_top (avalue β)} :
+private theorem doALU_check_with_top_none {op : bpf.ALU} {x : with_top (avalue (β 64))} :
   doALU_check_with_top op x none = ff :=
 by cases x with x; try{cases x}; refl
 
 @[match_simp]
-private theorem doALU_check_with_top_uninitialized {op : bpf.ALU} {x : with_top (avalue β)} :
+private theorem doALU_check_with_top_uninitialized {op : bpf.ALU} {x : with_top (avalue (β 64))} :
   doALU_check_with_top op x (some uninitialized) = ff :=
 by cases x with x; try{cases x}; refl
 
 @[match_simp]
-private theorem doALU_check_with_top_pointer {op : bpf.ALU} {x : with_top (avalue β)} {m y} :
+private theorem doALU_check_with_top_pointer {op : bpf.ALU} {x : with_top (avalue (β 64))} {m y} :
   doALU_check_with_top op x (some (avalue.pointer m y)) = if op = bpf.ALU.MOV then tt else ff :=
 by cases x with x; try{cases x}; refl
 
-private def doALU_check (op : bpf.ALU) : abstr_binary_test bpf.value (with_top (avalue β)) op.doALU_check :=
+private def doALU_check (op : bpf.ALU) : abstr_binary_test bpf.value (with_top (avalue (β 64))) op.doALU_check :=
 { test := doALU_check_with_top op,
   test_sound := by {
     intros _ _ _ _ h₁ h₂ h₃,
@@ -474,8 +474,8 @@ private def doALU_check (op : bpf.ALU) : abstr_binary_test bpf.value (with_top (
             cases y; try{cases h₃},
             simp only with match_simp } } } } } }
 
-private def doJMP_check (op : bpf.JMP) : abstr_binary_test bpf.value (with_top (avalue β)) op.doJMP_check :=
-{ test := λ (x y : with_top (avalue β)),
+private def doJMP_check (op : bpf.JMP) : abstr_binary_test bpf.value (with_top (avalue (β 64))) op.doJMP_check :=
+{ test := λ (x y : with_top (avalue (β 64))),
     match x, y with
     | some (avalue.scalar x), some (avalue.scalar y) := tt
     | _, _ := ff
@@ -489,8 +489,8 @@ private def doJMP_check (op : bpf.JMP) : abstr_binary_test bpf.value (with_top (
     cases y; try{cases h₃},
     refl } }
 
-private def is_scalar : abstr_unary_test bpf.value (with_top (avalue β)) (λ (x : bpf.value), to_bool x.is_scalar) :=
-{ test := λ (x : with_top (avalue β)),
+private def is_scalar : abstr_unary_test bpf.value (with_top (avalue (β 64))) (λ (x : bpf.value), to_bool x.is_scalar) :=
+{ test := λ (x : with_top (avalue (β 64))),
     match x with
     | some (avalue.scalar x) := tt
     | _ := ff
@@ -505,11 +505,11 @@ private def is_scalar : abstr_unary_test bpf.value (with_top (avalue β)) (λ (x
     simp only [to_bool_true_eq_tt, exists_eq'] } }
 
 private def doJMP_tt (op : bpf.JMP) :
-  abstr_binary_inversion bpf.value (with_top (avalue β)) (with_bot (with_top (avalue β)))
+  abstr_binary_inversion bpf.value (with_top (avalue (β 64))) (with_bot (with_top (avalue (β 64))))
     (λ (x y : bpf.value), op.doJMP x y = tt) :=
 abstr_binary_inversion.trivial
 
-private def unknown_scalar : abstr_nullary_relation bpf.value (with_top (avalue β)) (λ (x : bpf.value), x.is_scalar) :=
+private def unknown_scalar : abstr_nullary_relation bpf.value (with_top (avalue (β 64))) (λ (x : bpf.value), x.is_scalar) :=
 { op := some (avalue.scalar ⊤),
   correct := by {
     intros _ h,
@@ -517,7 +517,7 @@ private def unknown_scalar : abstr_nullary_relation bpf.value (with_top (avalue 
     subst_vars,
     apply abstr_top.top_correct } }
 
-instance : value_abstr (with_top (avalue β)) :=
+instance : value_abstr (with_top (avalue (β 64))) :=
 { doALU          := doALU_with_top,
   const          := λ v, with_top.lift_nullary_relation (const v),
   doALU_check    := doALU_check,

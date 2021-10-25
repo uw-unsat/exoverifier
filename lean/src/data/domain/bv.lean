@@ -11,48 +11,59 @@ An abstract domain for bitvector operations, for a fixed width.
 Must have decidable γ, ≤, ⊔, and ⊤.
 Additionally must implement bitvector transfer functions and inverse analyses.
 -/
-class bv_abstr (n : out_param ℕ) (α : Type)
-  extends has_γ (fin n → bool) α,
-          has_decidable_γ (fin n → bool) α,
-          abstr_le (fin n → bool) α,
-          abstr_top (fin n → bool) α,
-          abstr_meet (fin n → bool) α (with_bot α),
-          abstr_join (fin n → bool) α α : Type :=
-  (const (c : fin n → bool) : abstr_nullary_relation (fin n → bool) α (eq c))
-  (neg  : abstr_unary_transfer (fin n → bool) (fin n → bool) α α bv.neg)
-  (not  : abstr_unary_transfer (fin n → bool) (fin n → bool) α α bv.not)
-  (add  : abstr_binary_transfer (fin n → bool) (fin n → bool) α α (+))
-  (sub  : abstr_binary_transfer (fin n → bool) (fin n → bool) α α (λ x y, x - y))
-  (and  : abstr_binary_transfer (fin n → bool) (fin n → bool) α α bv.and)
-  (ashr : abstr_binary_transfer (fin n → bool) (fin n → bool) α α bv.ashr)
-  (lshr : abstr_binary_transfer (fin n → bool) (fin n → bool) α α bv.lshr)
-  (mul  : abstr_binary_transfer (fin n → bool) (fin n → bool) α α (*))
-  (or   : abstr_binary_transfer (fin n → bool) (fin n → bool) α α bv.or)
-  (shl  : abstr_binary_transfer (fin n → bool) (fin n → bool) α α bv.shl)
-  (udiv : abstr_binary_transfer (fin n → bool) (fin n → bool) α α (/))
-  (urem : abstr_binary_transfer (fin n → bool) (fin n → bool) α α (%))
-  (xor  : abstr_binary_transfer (fin n → bool) (fin n → bool) α α bv.xor)
-  (eq   : abstr_binary_inversion (fin n → bool) α (with_bot α) (=))
-  (lt   : abstr_binary_inversion (fin n → bool) α (with_bot α) (<))
+class bv_abstr (α : ℕ → Type) :=
+  (to_has_γ {n : ℕ} : has_γ (fin n → bool) (α n))
+  (to_has_decidable_γ {n : ℕ} : has_decidable_γ (fin n → bool) (α n))
+  (to_abstr_le {n : ℕ} : abstr_le (fin n → bool) (α n))
+  (to_abstr_top {n : ℕ} : abstr_top (fin n → bool) (α n))
+  (to_abstr_meet {n : ℕ} : abstr_meet (fin n → bool) (α n) (with_bot (α n)))
+  (to_abstr_join {n : ℕ} : abstr_join (fin n → bool) (α n) (α n))
+
+  (const {n : ℕ} (c : fin n → bool) :
+    abstr_nullary_relation (fin n → bool) (α n) (eq c))
+
+  (not {n : ℕ} : abstr_unary_transfer (fin n → bool) (fin n → bool) (α n) (α n) bv.not)
+  (neg {n : ℕ} : abstr_unary_transfer (fin n → bool) (fin n → bool) (α n) (α n) bv.neg)
+
+  (add {n : ℕ} : abstr_binary_transfer (fin n → bool) (fin n → bool) (fin n → bool) (α n) (α n) (α n) (+))
+  (sub {n : ℕ} : abstr_binary_transfer (fin n → bool) (fin n → bool) (fin n → bool) (α n) (α n) (α n) (λ x y, x - y))
+  (and {n : ℕ} : abstr_binary_transfer (fin n → bool) (fin n → bool) (fin n → bool) (α n) (α n) (α n) bv.and)
+  (or {n : ℕ} : abstr_binary_transfer (fin n → bool) (fin n → bool) (fin n → bool) (α n) (α n) (α n) bv.or)
+  (xor {n : ℕ} : abstr_binary_transfer (fin n → bool) (fin n → bool) (fin n → bool) (α n) (α n) (α n) bv.xor)
+  (mul {n : ℕ} : abstr_binary_transfer (fin n → bool) (fin n → bool) (fin n → bool) (α n) (α n) (α n) bv.mul)
+
+  (udiv {n : ℕ} : abstr_binary_transfer (fin n → bool) (fin n → bool) (fin n → bool) (α n) (α n) (α n) bv.udiv)
+  (urem {n : ℕ} : abstr_binary_transfer (fin n → bool) (fin n → bool) (fin n → bool) (α n) (α n) (α n) bv.urem)
+
+  (shl {n m : ℕ} : abstr_binary_transfer (fin n → bool) (fin m → bool) (fin n → bool) (α n) (α m) (α n) bv.shl)
+  (lshr {n m : ℕ} : abstr_binary_transfer (fin n → bool) (fin m → bool) (fin n → bool) (α n) (α m) (α n) bv.lshr)
+  (ashr {n m : ℕ} : abstr_binary_transfer (fin n → bool) (fin m → bool) (fin n → bool) (α n) (α m) (α n) bv.ashr)
 
 namespace bv_abstr
-variables {n : ℕ} {α : Type} [self : bv_abstr n α]
+variables {α : ℕ → Type} [self : bv_abstr α] {n : ℕ}
 include self
 
-instance : has_add α := ⟨bv_abstr.add.op⟩
+instance : has_γ (fin n → bool) (α n) := bv_abstr.to_has_γ
+instance : has_decidable_γ (fin n → bool) (α n) := bv_abstr.to_has_decidable_γ
+instance : abstr_le (fin n → bool) (α n) := bv_abstr.to_abstr_le
+instance : abstr_join (fin n → bool) (α n) (α n) := bv_abstr.to_abstr_join
+instance : abstr_meet (fin n → bool) (α n) (with_bot (α n)) := bv_abstr.to_abstr_meet
+instance : abstr_top (fin n → bool) (α n) := bv_abstr.to_abstr_top
 
-def gt : abstr_binary_inversion (fin n → bool) α (with_bot α) (>) :=
-abstr_binary_inversion.invert_swap lt
+instance : has_add (α n) := ⟨bv_abstr.add.op⟩
 
-def le : abstr_binary_inversion (fin n → bool) α (with_bot α) (≤) :=
-begin
-  convert abstr_binary_inversion.invert_disjunction bv_abstr.eq bv_abstr.lt,
-  { ext x y,
-    rw [le_iff_eq_or_lt] },
-  apply_instance
-end
+-- def gt : abstr_binary_inversion (fin n → bool) α (with_bot α) (>) :=
+-- abstr_binary_inversion.invert_swap lt
 
-def ge : abstr_binary_inversion (fin n → bool) α (with_bot α) (≥) :=
-abstr_binary_inversion.invert_swap le
+-- def le : abstr_binary_inversion (fin n → bool) α (with_bot α) (≤) :=
+-- begin
+--   convert abstr_binary_inversion.invert_disjunction bv_abstr.eq bv_abstr.lt,
+--   { ext x y,
+--     rw [le_iff_eq_or_lt] },
+--   apply_instance
+-- end
+
+-- def ge : abstr_binary_inversion (fin n → bool) α (with_bot α) (≥) :=
+-- abstr_binary_inversion.invert_swap le
 
 end bv_abstr
