@@ -32,10 +32,9 @@ pure $ digits.foldl
 end parser
 
 namespace sat
-
 namespace parser
 
-open parser
+open _root_.parser
 
 /-- Match a CNF literal. -/
 def literal : parser (cnf.literal pos_num) :=

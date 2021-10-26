@@ -91,7 +91,7 @@ end parser
 
 namespace aig
 namespace parser
-open parser
+open _root_.parser
 
 namespace aiger
 
