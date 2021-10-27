@@ -202,32 +202,32 @@ begin
   sorry
 end
 
-instance : bv_abstr n (with_top (interval n)) :=
-{ neg := sorry,
-  const := λ x, with_top.lift_nullary_relation $ interval.const x,
-  not := sorry,
-  sub := sorry,
-  add := with_top.lift_binary_relation
-   { op := interval.add, correct := by { intros, subst_vars, apply interval.add_correct; assumption } },
-  and := with_top.lift_binary_relation
-   { op := interval.and, correct := by { intros, subst_vars, apply interval.and_correct; assumption } },
-  or := with_top.lift_binary_relation
-   { op := interval.or, correct := by { intros, subst_vars, apply interval.or_correct; assumption } },
-  xor := with_top.lift_binary_relation
-   { op := interval.xor, correct := by { intros, subst_vars, apply interval.xor_correct; assumption } },
-  udiv := with_top.lift_binary_relation
-   { op := interval.udiv, correct := by { intros, subst_vars, apply interval.udiv_correct; assumption } },
-  urem := with_top.lift_binary_relation
-   { op := interval.urem, correct := by { intros, subst_vars, apply interval.urem_correct; assumption } },
-  mul := with_top.lift_binary_relation
-   { op := interval.mul, correct := by { intros, subst_vars, apply interval.mul_correct; assumption } },
-  shl := with_top.lift_binary_relation
-   { op := interval.shl, correct := by { intros, subst_vars, apply interval.shl_correct; assumption } },
-  lshr := with_top.lift_binary_relation
-   { op := interval.lshr, correct := by { intros, subst_vars, apply interval.lshr_correct; assumption } },
-  ashr := with_top.lift_binary_relation
-   { op := interval.ashr, correct := by { intros, subst_vars, apply interval.ashr_correct; assumption } },
-  eq  := abstr_meet.invert_equality,
-  lt  := abstr_binary_inversion.trivial }
+-- instance : bv_abstr (λ n, with_top (interval n)) :=
+-- { neg := sorry,
+--   const := λ x, with_top.lift_nullary_relation $ interval.const x,
+--   not := sorry,
+--   sub := sorry,
+--   add := λ _, with_top.lift_binary_relation
+--    { op := interval.add, correct := by { intros, subst_vars, apply interval.add_correct; assumption } },
+--   and := with_top.lift_binary_relation
+--    { op := interval.and, correct := by { intros, subst_vars, apply interval.and_correct; assumption } },
+--   or := with_top.lift_binary_relation
+--    { op := interval.or, correct := by { intros, subst_vars, apply interval.or_correct; assumption } },
+--   xor := with_top.lift_binary_relation
+--    { op := interval.xor, correct := by { intros, subst_vars, apply interval.xor_correct; assumption } },
+--   udiv := with_top.lift_binary_relation
+--    { op := interval.udiv, correct := by { intros, subst_vars, apply interval.udiv_correct; assumption } },
+--   urem := with_top.lift_binary_relation
+--    { op := interval.urem, correct := by { intros, subst_vars, apply interval.urem_correct; assumption } },
+--   mul := with_top.lift_binary_relation
+--    { op := interval.mul, correct := by { intros, subst_vars, apply interval.mul_correct; assumption } },
+--   shl := with_top.lift_binary_relation
+--    { op := interval.shl, correct := by { intros, subst_vars, apply interval.shl_correct; assumption } },
+--   lshr := with_top.lift_binary_relation
+--    { op := interval.lshr, correct := by { intros, subst_vars, apply interval.lshr_correct; assumption } },
+--   ashr := with_top.lift_binary_relation
+--    { op := interval.ashr, correct := by { intros, subst_vars, apply interval.ashr_correct; assumption } },
+--   eq  := abstr_meet.invert_equality,
+--   lt  := abstr_binary_inversion.trivial }
 
 end interval

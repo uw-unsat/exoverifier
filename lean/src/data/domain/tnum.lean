@@ -45,7 +45,7 @@ private def and' : trit → trit → trit
 | _          _        := none
 
 /-- Create the AND of two trits. -/
-protected def and : abstr_binary_transfer bool bool trit trit band :=
+protected def and : abstr_binary_transfer bool bool bool trit trit trit band :=
 { op      := and',
   correct := by {
     intros x y z u v h₁ h₂ _,
@@ -59,7 +59,7 @@ private def or' : trit → trit → trit
 | _         _         := none
 
 /-- Create the OR of two trits. -/
-protected def or : abstr_binary_transfer bool bool trit trit bor :=
+protected def or : abstr_binary_transfer bool bool bool trit trit trit bor :=
 { op      := or',
   correct := by {
     intros x y z u v h₁ h₂ _,
@@ -73,7 +73,7 @@ private def bimplies' : trit → trit → trit
 | _         _         := none
 
 /-- Create the implication of two trits. -/
-protected def bimplies : abstr_binary_transfer bool bool trit trit bimplies :=
+protected def bimplies : abstr_binary_transfer bool bool bool trit trit trit bimplies :=
 { op      := bimplies',
   correct := by {
     intros x y z u v h₁ h₂ _,
@@ -81,7 +81,7 @@ protected def bimplies : abstr_binary_transfer bool bool trit trit bimplies :=
     cases x; cases y; cases u; cases v; cases h₁; cases h₂; dec_trivial } }
 
 /-- Create the XOR of two trits. -/
-protected def xor : abstr_binary_transfer bool bool trit trit bxor :=
+protected def xor : abstr_binary_transfer bool bool bool trit trit trit bxor :=
 with_top.lift_binary_relation $ id.binary_transfer bxor
 
 /-- Create the NOT of two trits. -/
@@ -492,22 +492,26 @@ begin
   apply trit.xor.correct (h₁ i) (h₂ i) rfl
 end
 
-instance : bv_abstr n (tnum n) :=
-{ const := tnum.const,
-  neg  := { op := tnum.neg, correct := by { intros, subst_vars, apply tnum.neg_correct; assumption } },
-  not  := { op := tnum.not, correct := by { intros, subst_vars, apply tnum.not_correct; assumption } },
-  add  := { op := tnum.add, correct := by { intros, subst_vars, apply tnum.add_correct; assumption } },
-  sub  := { op := tnum.sub, correct := by { intros, subst_vars, apply tnum.sub_correct; assumption } },
-  and  := { op := tnum.and, correct := by { intros, subst_vars, apply tnum.and_correct; assumption } },
-  or   := { op := tnum.or, correct := by { intros, subst_vars, apply tnum.or_correct; assumption } },
-  xor  := { op := tnum.xor, correct := by { intros, subst_vars, apply tnum.xor_correct; assumption } },
-  udiv := { op := tnum.udiv, correct := by { intros, subst_vars, apply tnum.udiv_correct; assumption } },
-  urem := { op := tnum.urem, correct := by { intros, subst_vars, apply tnum.urem_correct; assumption } },
-  mul  := { op := tnum.mul, correct := by { intros, subst_vars, apply tnum.mul_correct; assumption } },
-  shl  := { op := λ _ _, ⊤, correct := by { intros, subst_vars, apply @abstr_top.top_correct _ _ _ _ (bv.shl x y) } },
-  lshr := { op := λ _ _, ⊤, correct := by { intros, subst_vars, apply @abstr_top.top_correct _ _ _ _ (bv.lshr x y) } },
-  ashr := { op := λ _ _, ⊤, correct := by { intros, subst_vars, apply @abstr_top.top_correct _ _ _ _ (bv.ashr x y) } },
-  lt   := abstr_binary_inversion.trivial,
-  eq   := abstr_meet.invert_equality }
+instance : bv_abstr tnum :=
+{ to_has_γ := λ _, infer_instance,
+  to_has_decidable_γ := λ _, infer_instance,
+  to_abstr_le := λ _, infer_instance,
+  to_abstr_top := λ _, infer_instance,
+  to_abstr_meet := λ _, infer_instance,
+  to_abstr_join := λ _, infer_instance,
+  const := λ _, tnum.const,
+  neg  := λ _, { op := tnum.neg, correct := by { intros, subst_vars, apply tnum.neg_correct; assumption } },
+  not  := λ _, { op := tnum.not, correct := by { intros, subst_vars, apply tnum.not_correct; assumption } },
+  add  := λ _, { op := tnum.add, correct := by { intros, subst_vars, apply tnum.add_correct; assumption } },
+  sub  := λ _, { op := tnum.sub, correct := by { intros, subst_vars, apply tnum.sub_correct; assumption } },
+  and  := λ _, { op := tnum.and, correct := by { intros, subst_vars, apply tnum.and_correct; assumption } },
+  or   := λ _, { op := tnum.or, correct := by { intros, subst_vars, apply tnum.or_correct; assumption } },
+  xor  := λ _, { op := tnum.xor, correct := by { intros, subst_vars, apply tnum.xor_correct; assumption } },
+  udiv := λ _, { op := tnum.udiv, correct := by { intros, subst_vars, apply tnum.udiv_correct; assumption } },
+  urem := λ _, { op := tnum.urem, correct := by { intros, subst_vars, apply tnum.urem_correct; assumption } },
+  mul  := λ _, { op := tnum.mul, correct := by { intros, subst_vars, apply tnum.mul_correct; assumption } },
+  shl  := λ _ _, { op := λ _ _, ⊤, correct := by { intros, subst_vars, apply @abstr_top.top_correct _ _ _ _ (bv.shl x y) } },
+  lshr := λ _ _, { op := λ _ _, ⊤, correct := by { intros, subst_vars, apply @abstr_top.top_correct _ _ _ _ (bv.lshr x y) } },
+  ashr := λ _ _, { op := λ _ _, ⊤, correct := by { intros, subst_vars, apply @abstr_top.top_correct _ _ _ _ (bv.ashr x y) } } }
 
 end tnum
