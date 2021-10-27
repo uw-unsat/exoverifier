@@ -37,7 +37,7 @@ implementation and proof in Lean. We therefore switch to the current implementat
 def tnum (n : ℕ) := vector trit n
 
 namespace tnum
-variable {n : ℕ}
+variables {n m : ℕ}
 open has_γ
 
 private def repr' : Π {n : ℕ}, tnum n → string
@@ -437,6 +437,62 @@ begin
   apply trit.xor.correct (h₁ i) (h₂ i) rfl
 end
 
+section shl
+
+/-- Shift left by a constant. -/
+private def shiftl (a : tnum n) (amt : ℕ) : tnum n :=
+by {
+  convert (vector.repeat (some ff) (min n amt)).append (a.take (n - amt)),
+  simp only [add_comm, min_eq_left (nat.sub_le _ _), nat.sub_add_min_cancel] }
+
+private def shl_aux : ℕ → tnum n → Π {m : ℕ}, tnum m → tnum n
+| amt a 0       _ := a
+| amt a (m + 1) b :=
+  match b.head with
+  | some x := @shl_aux (nat.shiftl amt 1) (cond x (shiftl a amt) a) m b.tail
+  | none :=
+    (@shl_aux (nat.shiftl amt 1) (shiftl a amt) m b.tail) ⊔
+    (@shl_aux (nat.shiftl amt 1) a              m b.tail)
+  end
+
+protected def shl (a : tnum n) (b : tnum m) : tnum n :=
+shl_aux 1 a b
+
+theorem shl_correct ⦃x : fin n → bool⦄ ⦃y : fin m → bool⦄ ⦃a : tnum n⦄ ⦃b : tnum m⦄ :
+  x ∈ γ a →
+  y ∈ γ b →
+  bv.shl x y ∈ γ (tnum.shl a b) :=
+begin
+  intros h₁ h₂,
+  sorry
+end
+
+end shl
+
+protected def lshr (a : tnum n) (b : tnum m) : tnum n :=
+⊤
+
+theorem lshr_correct ⦃x : fin n → bool⦄ ⦃y : fin m → bool⦄ ⦃a : tnum n⦄ ⦃b : tnum m⦄ :
+  x ∈ γ a →
+  y ∈ γ b →
+  bv.lshr x y ∈ γ (tnum.lshr a b) :=
+begin
+  intros h₁ h₂,
+  apply abstr_top.top_correct _
+end
+
+protected def ashr (a : tnum n) (b : tnum m) : tnum n :=
+⊤
+
+theorem ashr_correct ⦃x : fin n → bool⦄ ⦃y : fin m → bool⦄ ⦃a : tnum n⦄ ⦃b : tnum m⦄ :
+  x ∈ γ a →
+  y ∈ γ b →
+  bv.ashr x y ∈ γ (tnum.ashr a b) :=
+begin
+  intros h₁ h₂,
+  apply abstr_top.top_correct _
+end
+
 instance : bv_abstr tnum :=
 { to_has_γ := λ _, infer_instance,
   to_has_decidable_γ := λ _, infer_instance,
@@ -455,8 +511,8 @@ instance : bv_abstr tnum :=
   udiv := λ _, { op := tnum.udiv, correct := by { intros, subst_vars, apply tnum.udiv_correct; assumption } },
   urem := λ _, { op := tnum.urem, correct := by { intros, subst_vars, apply tnum.urem_correct; assumption } },
   mul  := λ _, { op := tnum.mul, correct := by { intros, subst_vars, apply tnum.mul_correct; assumption } },
-  shl  := λ _ _, { op := λ _ _, ⊤, correct := by { intros, subst_vars, apply @abstr_top.top_correct _ _ _ _ (bv.shl x y) } },
-  lshr := λ _ _, { op := λ _ _, ⊤, correct := by { intros, subst_vars, apply @abstr_top.top_correct _ _ _ _ (bv.lshr x y) } },
-  ashr := λ _ _, { op := λ _ _, ⊤, correct := by { intros, subst_vars, apply @abstr_top.top_correct _ _ _ _ (bv.ashr x y) } } }
+  shl  := λ _ _, { op := tnum.shl, correct := by { intros, subst_vars, apply tnum.shl_correct; assumption } },
+  lshr := λ _ _, { op := tnum.lshr, correct := by { intros, subst_vars, apply tnum.lshr_correct; assumption } },
+  ashr := λ _ _, { op := tnum.ashr, correct := by { intros, subst_vars, apply tnum.ashr_correct; assumption } } }
 
 end tnum

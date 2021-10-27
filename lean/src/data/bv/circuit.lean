@@ -103,6 +103,32 @@ begin
   refl
 end
 
+def shl {n m : ℕ} (x : lsbvector n) (y : lsbvector m) : lsbvector n :=
+((mk_shl x y).run punit.star).1
+
+theorem nth_shl {n m : ℕ} {x : lsbvector n} {y : lsbvector m} :
+  (shl x y).nth = bv.shl x.nth y.nth :=
+begin
+  simp only [shl],
+  rcases mk : (mk_shl x y).run punit.star with ⟨⟨_, _⟩, ⟨⟩⟩,
+  obtain h := eval_mk_shl mk (by rw [eval.iff_trivial]) (by rw [eval.iff_trivial]),
+  rw [eval.iff_trivial] at h,
+  rw [h]
+end
+
+def lshr {n m : ℕ} (x : lsbvector n) (y : lsbvector m) : lsbvector n :=
+((mk_lshr x y).run punit.star).1
+
+theorem nth_lshr {n m : ℕ} {x : lsbvector n} {y : lsbvector m} :
+  (lshr x y).nth = bv.lshr x.nth y.nth :=
+begin
+  simp only [lshr],
+  rcases mk : (mk_lshr x y).run punit.star with ⟨⟨_, _⟩, ⟨⟩⟩,
+  obtain h := eval_mk_lshr mk (by rw [eval.iff_trivial]) (by rw [eval.iff_trivial]),
+  rw [eval.iff_trivial] at h,
+  rw [h]
+end
+
 def not {n : ℕ} (x : lsbvector n) : lsbvector n :=
 vector.map bnot x
 
