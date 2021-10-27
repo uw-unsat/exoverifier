@@ -25,53 +25,49 @@ class regs_abstr (α : Type*) extends
 
 -- Do a reg-reg ALU op.
 (do_alu (op : bpf.ALU) (dst src : bpf.reg) :
-  abstr_unary_transfer (bpf.reg → bpf.value) (bpf.reg → bpf.value) α α
-    (λ cregs, function.update cregs dst (bpf.ALU.doALU op (cregs dst) (cregs src))))
+  abstr_unary_transfer
+    (λ (cregs : bpf.reg → bpf.value), function.update cregs dst (bpf.ALU.doALU op (cregs dst) (cregs src)))
+    α α)
 
 -- Check if an ALU op is legal.
 (do_alu_check (op : bpf.ALU) (dst src : bpf.reg) :
-  abstr_unary_test (bpf.reg → bpf.value) α
-    (λ cregs, bpf.ALU.doALU_check op (cregs dst) (cregs src)))
+  abstr_unary_test (λ (cregs : bpf.reg → bpf.value), bpf.ALU.doALU_check op (cregs dst) (cregs src)) α)
 
 -- Do an ALU op with an immediate.
 (do_alu_imm (op : bpf.ALU) (dst : bpf.reg) (imm : lsbvector 64) :
-  abstr_unary_transfer (bpf.reg → bpf.value) (bpf.reg → bpf.value) α α
-    (λ cregs, function.update cregs dst (bpf.ALU.doALU op (cregs dst) (bpf.value.scalar imm.nth))))
+  abstr_unary_transfer
+    (λ (cregs : bpf.reg → bpf.value), function.update cregs dst (bpf.ALU.doALU op (cregs dst) (bpf.value.scalar imm.nth)))
+    α α)
 
 -- Check if an ALU op is legal.
 (do_alu_imm_check (op : bpf.ALU) (dst : bpf.reg) (imm : lsbvector 64) :
-  abstr_unary_test (bpf.reg → bpf.value) α
-    (λ cregs, bpf.ALU.doALU_check op (cregs dst) (bpf.value.scalar imm.nth)))
+  abstr_unary_test (λ (cregs : bpf.reg → bpf.value), bpf.ALU.doALU_check op (cregs dst) (bpf.value.scalar imm.nth)) α)
 
 -- Check if a JMP is legal on some operands.
 (do_jmp_check (op : bpf.JMP) (dst src : bpf.reg) :
-  abstr_unary_test (bpf.reg → bpf.value) α
-    (λ cregs, bpf.JMP.doJMP_check op (cregs dst) (cregs src)))
+  abstr_unary_test (λ (cregs : bpf.reg → bpf.value), bpf.JMP.doJMP_check op (cregs dst) (cregs src)) α)
 
 -- Check if a JMP is legal on some operands.
 (do_jmp_imm_check (op : bpf.JMP) (dst : bpf.reg) (imm : lsbvector 64) :
-  abstr_unary_test (bpf.reg → bpf.value) α
-    (λ cregs, bpf.JMP.doJMP_check op (cregs dst) (bpf.value.scalar imm.nth)))
+  abstr_unary_test (λ (cregs : bpf.reg → bpf.value), bpf.JMP.doJMP_check op (cregs dst) (bpf.value.scalar imm.nth)) α)
 
 -- Invert a reg/reg JMP op whose condition is true
 (invert_jmp_tt (op : bpf.JMP) (dst src : bpf.reg) :
-  abstr_unary_inversion (bpf.reg → bpf.value) α (with_bot α)
-    (λ (cregs : bpf.reg → bpf.value), bpf.JMP.doJMP op (cregs dst) (cregs src) = tt))
+  abstr_unary_inversion (λ (cregs : bpf.reg → bpf.value), bpf.JMP.doJMP op (cregs dst) (cregs src) = tt)
+    α (with_bot α))
 
 (is_scalar (r : bpf.reg) :
-  abstr_unary_test (bpf.reg → bpf.value) α
-    (λ (cregs : bpf.reg → bpf.value), (cregs r).is_scalar))
+  abstr_unary_test (λ (cregs : bpf.reg → bpf.value), (cregs r).is_scalar) α)
 
 (do_call_check (func : bpf.BPF_FUNC) :
-  abstr_unary_test (bpf.reg → bpf.value) α
-    (λ (cregs : bpf.reg → bpf.value), func.do_call_check cregs))
+  abstr_unary_test (λ (cregs : bpf.reg → bpf.value), func.do_call_check cregs) α)
 
 (do_call (func : bpf.BPF_FUNC) :
-  abstr_unary_relation (bpf.reg → bpf.value) (bpf.reg → bpf.value) α α
-    (λ pre post, ∃ (o : bpf.oracle) (next_rng : ℕ), post = func.do_call o next_rng pre))
+  abstr_unary_relation (λ pre post, ∃ (o : bpf.oracle) (next_rng : ℕ), post = func.do_call o next_rng pre)
+    α α)
 
 (const (rs : bpf.reg → bpf.value) :
-  abstr_nullary_relation (bpf.reg → bpf.value) α (eq rs))
+  abstr_nullary_relation (= rs) α)
 
 namespace nonrelational
 
@@ -88,7 +84,7 @@ instance : has_γ (bpf.reg → bpf.value) (aregs β) :=
     ∀ k, γ (interpret l k) (f k) }
 
 private def const (rs : bpf.reg → bpf.value) :
-  abstr_nullary_relation (bpf.reg → bpf.value) (aregs β) (eq rs) :=
+  abstr_nullary_relation (= rs) (aregs β) :=
 { op := (fin_enum.to_vector bpf.reg).map (λ r, (value_abstr.const (rs r)).op),
   correct := by {
     intros _ h r,
@@ -126,16 +122,18 @@ instance : abstr_join (bpf.reg → bpf.value) (aregs β) (aregs β) :=
       exact h₁ r } } }
 
 private def do_alu_check (op : bpf.ALU) (dst src : bpf.reg) :
-  abstr_unary_test (bpf.reg → bpf.value) (aregs β)
-    (λ (cregs : bpf.reg → bpf.value), op.doALU_check (cregs dst) (cregs src)) :=
+  abstr_unary_test
+    (λ (cregs : bpf.reg → bpf.value), op.doALU_check (cregs dst) (cregs src))
+    (aregs β) :=
 { test := λ (l : aregs β), (value_abstr.doALU_check op).test (interpret l dst) (interpret l src),
   test_sound := by {
     intros _ _ h₁ h₂,
     apply (value_abstr.doALU_check op).test_sound h₁ (h₂ _) (h₂ _) } }
 
 private def do_alu_imm_check (op : bpf.ALU) (dst : bpf.reg) (imm : lsbvector 64) :
-  abstr_unary_test (bpf.reg → bpf.value) (aregs β)
-    (λ (cregs : bpf.reg → bpf.value), op.doALU_check (cregs dst) (bpf.value.scalar imm.nth)) :=
+  abstr_unary_test
+    (λ (cregs : bpf.reg → bpf.value), op.doALU_check (cregs dst) (bpf.value.scalar imm.nth))
+    (aregs β) :=
 { test := λ (l : aregs β), (value_abstr.doALU_check op).test (interpret l dst) (value_abstr.const (bpf.value.scalar imm.nth)).op,
   test_sound := by {
     intros _ _ h₁ h₂,
@@ -143,8 +141,9 @@ private def do_alu_imm_check (op : bpf.ALU) (dst : bpf.reg) (imm : lsbvector 64)
     apply (value_abstr.const _).correct rfl } }
 
 private def do_alu (op : bpf.ALU) (dst src : bpf.reg) :
-  abstr_unary_transfer (bpf.reg → bpf.value) (bpf.reg → bpf.value) (aregs β) (aregs β)
-    (λ cregs, function.update cregs dst (bpf.ALU.doALU op (cregs dst) (cregs src))) :=
+  abstr_unary_transfer
+    (λ (cregs : bpf.reg → bpf.value), function.update cregs dst (bpf.ALU.doALU op (cregs dst) (cregs src)))
+    (aregs β) (aregs β) :=
 { op      := λ (l : aregs β), l.update_nth dst.to_fin ((value_abstr.doALU op).op (interpret l dst) (interpret l src)),
   correct := by {
     intros _ _ _ h₁ h r,
@@ -159,8 +158,9 @@ private def do_alu (op : bpf.ALU) (dst src : bpf.reg) :
       exact h₁ r } } }
 
 private def do_alu_imm (op : bpf.ALU) (dst : bpf.reg) (imm : lsbvector 64) :
-  abstr_unary_transfer (bpf.reg → bpf.value) (bpf.reg → bpf.value) (aregs β) (aregs β)
-    (λ cregs, function.update cregs dst (bpf.ALU.doALU op (cregs dst) (bpf.value.scalar imm.nth))) :=
+  abstr_unary_transfer
+    (λ (cregs : bpf.reg → bpf.value), function.update cregs dst (bpf.ALU.doALU op (cregs dst) (bpf.value.scalar imm.nth)))
+    (aregs β) (aregs β) :=
 { op      := λ (l : aregs β), l.update_nth dst.to_fin ((value_abstr.doALU op).op (interpret l dst) (value_abstr.const (bpf.value.scalar imm.nth)).op),
   correct := by {
     intros _ _ _ h₁ h r,
@@ -175,16 +175,18 @@ private def do_alu_imm (op : bpf.ALU) (dst : bpf.reg) (imm : lsbvector 64) :
       exact h₁ r } } }
 
 private def do_jmp_check (op : bpf.JMP) (dst src : bpf.reg) :
-  abstr_unary_test (bpf.reg → bpf.value) (aregs β)
-    (λ (cregs : bpf.reg → bpf.value), op.doJMP_check (cregs dst) (cregs src)) :=
+  abstr_unary_test
+    (λ (cregs : bpf.reg → bpf.value), op.doJMP_check (cregs dst) (cregs src))
+    (aregs β) :=
 { test := λ (l : aregs β), (value_abstr.doJMP_check op).test (interpret l dst) (interpret l src),
   test_sound := by {
     intros _ _ h₁ h₂,
     apply (value_abstr.doJMP_check op).test_sound h₁ (h₂ _) (h₂ _) } }
 
 private def do_jmp_imm_check (op : bpf.JMP) (dst : bpf.reg) (imm : lsbvector 64) :
-  abstr_unary_test (bpf.reg → bpf.value) (aregs β)
-    (λ (cregs : bpf.reg → bpf.value), op.doJMP_check (cregs dst) (bpf.value.scalar imm.nth)) :=
+  abstr_unary_test
+    (λ (cregs : bpf.reg → bpf.value), op.doJMP_check (cregs dst) (bpf.value.scalar imm.nth))
+    (aregs β) :=
 { test := λ (l : aregs β), (value_abstr.doJMP_check op).test (interpret l dst) (value_abstr.const (bpf.value.scalar imm.nth)).op,
   test_sound := by {
     intros _ _ h₁ h₂,
@@ -192,8 +194,9 @@ private def do_jmp_imm_check (op : bpf.JMP) (dst : bpf.reg) (imm : lsbvector 64)
     apply (value_abstr.const _).correct rfl } }
 
 private def invert_jmp_tt (op : bpf.JMP) (dst src : bpf.reg) :
-  abstr_unary_inversion (bpf.reg → bpf.value) (aregs β) (with_bot (aregs β))
-    (λ (cregs : bpf.reg → bpf.value), bpf.JMP.doJMP op (cregs dst) (cregs src) = tt) :=
+  abstr_unary_inversion
+    (λ (cregs : bpf.reg → bpf.value), bpf.JMP.doJMP op (cregs dst) (cregs src) = tt)
+    (aregs β) (with_bot (aregs β)) :=
 { inv := λ (l : aregs β),
     (let z := (value_abstr.doJMP_tt op).inv (interpret l dst) (interpret l src) in do
       dst' ← z.1,
@@ -227,16 +230,18 @@ private def invert_jmp_tt (op : bpf.JMP) (dst src : bpf.reg) :
     exact h₁ r } }
 
 private def is_scalar (r : bpf.reg) :
-  abstr_unary_test (bpf.reg → bpf.value) (aregs β)
-    (λ (cregs : bpf.reg → bpf.value), to_bool (cregs r).is_scalar) :=
+  abstr_unary_test
+    (λ (cregs : bpf.reg → bpf.value), (cregs r).is_scalar)
+    (aregs β) :=
 { test := λ (l : aregs β), value_abstr.is_scalar.test (interpret l r),
   test_sound := by {
     intros _ _ h₁ h₂,
     apply value_abstr.is_scalar.test_sound h₁ (h₂ _) } }
 
 private def do_call (func : bpf.BPF_FUNC) :
-  abstr_unary_relation (bpf.reg → bpf.value) (bpf.reg → bpf.value) (aregs β) (aregs β)
-    (λ (pre post : bpf.reg → bpf.value), ∃ (o : bpf.oracle) (next_rng : ℕ), post = func.do_call o next_rng pre) :=
+  abstr_unary_relation
+    (λ (pre post : bpf.reg → bpf.value), ∃ (o : bpf.oracle) (next_rng : ℕ), post = func.do_call o next_rng pre)
+    (aregs β) (aregs β) :=
 { op := λ (l : aregs β),
     let l₁ := list.foldl (λ (l' : aregs β) (r : bpf.reg), l'.update_nth r.to_fin (value_abstr.const bpf.value.uninitialized).op) l bpf.reg.caller_saved in
     l₁.update_nth bpf.reg.R0.to_fin value_abstr.unknown_scalar.op,
@@ -274,10 +279,11 @@ private def do_call (func : bpf.BPF_FUNC) :
       exact h₁ _ } } }
 
 private def do_call_check (func : bpf.BPF_FUNC) :
-  abstr_unary_test (bpf.reg → bpf.value) (aregs β) (λ (cregs : bpf.reg → bpf.value), func.do_call_check cregs) :=
+  abstr_unary_test (λ (cregs : bpf.reg → bpf.value), func.do_call_check cregs) (aregs β) :=
 { test := λ _, tt,
   test_sound := by {
-    intros, cases func, refl } }
+    intros, cases func,
+    simp only [bpf.BPF_FUNC.do_call_check, coe_sort_tt] } }
 
 instance : regs_abstr (aregs β) :=
 { const            := const,

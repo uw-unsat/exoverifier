@@ -193,7 +193,8 @@ begin
   { simp only [gen_constraints, list.mem_cons_iff],
     exact or.inl rfl },
   apply le_correct approx _,
-  apply (with_bot.lift_nullary_relation _).correct rfl
+  apply (with_bot.lift_nullary_relation _).correct _,
+  refl
 end
 
 /--
@@ -397,7 +398,6 @@ begin
   case bpf.cfg.instr.Exit {
     simp only [absint.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
     have h_ok := (with_bot.lift_unary_test (regs_abstr.is_scalar _)).test_sound check_tt rel,
-    simp only [to_bool_iff] at h_ok,
     cases h_ok with retval retval_h,
     existsi _,
     apply bpf.cfg.step.Exit _ fetch retval_h },

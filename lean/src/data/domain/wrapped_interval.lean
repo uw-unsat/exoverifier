@@ -35,7 +35,7 @@ instance : has_γ (fin n → bool) (interval n) :=
 
 instance : has_decidable_γ (fin n → bool) (interval n) := sorry
 
-protected def const (x : fin n → bool) : abstr_nullary_relation (fin n → bool) (interval n) (eq x) :=
+protected def const (x : fin n → bool) : abstr_nullary_relation (= x) (interval n) :=
 { op := ⟨vector.of_fn x, vector.of_fn x, sorry⟩,
   correct := by {
     intros _ _,

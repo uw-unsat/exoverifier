@@ -20,24 +20,24 @@ class bv_abstr (α : ℕ → Type) :=
   (to_abstr_join {n : ℕ} : abstr_join (fin n → bool) (α n) (α n))
 
   (const {n : ℕ} (c : fin n → bool) :
-    abstr_nullary_relation (fin n → bool) (α n) (eq c))
+    abstr_nullary_relation (= c) (α n))
 
-  (not {n : ℕ} : abstr_unary_transfer (fin n → bool) (fin n → bool) (α n) (α n) bv.not)
-  (neg {n : ℕ} : abstr_unary_transfer (fin n → bool) (fin n → bool) (α n) (α n) bv.neg)
+  (not {n : ℕ} : abstr_unary_transfer bv.not (α n) (α n))
+  (neg {n : ℕ} : abstr_unary_transfer bv.neg (α n) (α n))
 
-  (add {n : ℕ} : abstr_binary_transfer (fin n → bool) (fin n → bool) (fin n → bool) (α n) (α n) (α n) (+))
-  (sub {n : ℕ} : abstr_binary_transfer (fin n → bool) (fin n → bool) (fin n → bool) (α n) (α n) (α n) (λ x y, x - y))
-  (and {n : ℕ} : abstr_binary_transfer (fin n → bool) (fin n → bool) (fin n → bool) (α n) (α n) (α n) bv.and)
-  (or {n : ℕ} : abstr_binary_transfer (fin n → bool) (fin n → bool) (fin n → bool) (α n) (α n) (α n) bv.or)
-  (xor {n : ℕ} : abstr_binary_transfer (fin n → bool) (fin n → bool) (fin n → bool) (α n) (α n) (α n) bv.xor)
-  (mul {n : ℕ} : abstr_binary_transfer (fin n → bool) (fin n → bool) (fin n → bool) (α n) (α n) (α n) bv.mul)
+  (add {n : ℕ} : abstr_binary_transfer (+) (α n) (α n) (α n))
+  (sub {n : ℕ} : abstr_binary_transfer (λ x y, x - y) (α n) (α n) (α n))
+  (and {n : ℕ} : abstr_binary_transfer bv.and (α n) (α n) (α n))
+  (or {n : ℕ} : abstr_binary_transfer bv.or (α n) (α n) (α n))
+  (xor {n : ℕ} : abstr_binary_transfer bv.xor (α n) (α n) (α n))
+  (mul {n : ℕ} : abstr_binary_transfer bv.mul (α n) (α n) (α n))
 
-  (udiv {n : ℕ} : abstr_binary_transfer (fin n → bool) (fin n → bool) (fin n → bool) (α n) (α n) (α n) bv.udiv)
-  (urem {n : ℕ} : abstr_binary_transfer (fin n → bool) (fin n → bool) (fin n → bool) (α n) (α n) (α n) bv.urem)
+  (udiv {n : ℕ} : abstr_binary_transfer bv.udiv (α n) (α n) (α n))
+  (urem {n : ℕ} : abstr_binary_transfer bv.urem (α n) (α n) (α n))
 
-  (shl {n m : ℕ} : abstr_binary_transfer (fin n → bool) (fin m → bool) (fin n → bool) (α n) (α m) (α n) bv.shl)
-  (lshr {n m : ℕ} : abstr_binary_transfer (fin n → bool) (fin m → bool) (fin n → bool) (α n) (α m) (α n) bv.lshr)
-  (ashr {n m : ℕ} : abstr_binary_transfer (fin n → bool) (fin m → bool) (fin n → bool) (α n) (α m) (α n) bv.ashr)
+  (shl {n m : ℕ} : abstr_binary_transfer bv.shl (α n) (α m) (α n))
+  (lshr {n m : ℕ} : abstr_binary_transfer bv.lshr (α n) (α m) (α n))
+  (ashr {n m : ℕ} : abstr_binary_transfer bv.ashr (α n) (α m) (α n))
 
 namespace bv_abstr
 variables {α : ℕ → Type} [self : bv_abstr α] {n : ℕ}

@@ -45,7 +45,7 @@ private def and' : trit → trit → trit
 | _          _        := none
 
 /-- Create the AND of two trits. -/
-protected def and : abstr_binary_transfer bool bool bool trit trit trit band :=
+protected def and : abstr_binary_transfer band trit trit trit :=
 { op      := and',
   correct := by {
     intros x y z u v h₁ h₂ _,
@@ -59,7 +59,7 @@ private def or' : trit → trit → trit
 | _         _         := none
 
 /-- Create the OR of two trits. -/
-protected def or : abstr_binary_transfer bool bool bool trit trit trit bor :=
+protected def or : abstr_binary_transfer bor trit trit trit :=
 { op      := or',
   correct := by {
     intros x y z u v h₁ h₂ _,
@@ -73,7 +73,7 @@ private def bimplies' : trit → trit → trit
 | _         _         := none
 
 /-- Create the implication of two trits. -/
-protected def bimplies : abstr_binary_transfer bool bool bool trit trit trit bimplies :=
+protected def bimplies : abstr_binary_transfer bimplies trit trit trit :=
 { op      := bimplies',
   correct := by {
     intros x y z u v h₁ h₂ _,
@@ -81,11 +81,11 @@ protected def bimplies : abstr_binary_transfer bool bool bool trit trit trit bim
     cases x; cases y; cases u; cases v; cases h₁; cases h₂; dec_trivial } }
 
 /-- Create the XOR of two trits. -/
-protected def xor : abstr_binary_transfer bool bool bool trit trit trit bxor :=
+protected def xor : abstr_binary_transfer bxor trit trit trit :=
 with_top.lift_binary_relation $ id.binary_transfer bxor
 
 /-- Create the NOT of two trits. -/
-protected def not : abstr_unary_transfer bool bool trit trit bnot :=
+protected def not : abstr_unary_transfer bnot trit trit :=
 with_top.lift_unary_relation $ id.unary_transfer bnot
 
 /-- Create a full adder of two trits. -/
@@ -178,7 +178,7 @@ instance : has_decidable_γ (fin n → bool) (tnum n) :=
     apply_instance } }
 
 /-- Cast a constant to a tnum. -/
-protected def const (v : fin n → bool) : abstr_nullary_relation (fin n → bool) (tnum n) (eq v) :=
+protected def const (v : fin n → bool) : abstr_nullary_relation (= v) (tnum n) :=
 { op      := vector.of_fn $ λ i, (with_top.lift_nullary_relation (id.const (v i))).op,
   correct := by {
     intros _ h i,

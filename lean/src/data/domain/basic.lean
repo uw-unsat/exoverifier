@@ -77,38 +77,38 @@ A test function for abstract values. Given some test `p` on concrete values,
 it determines whether that test is satisfied for all concrete values represented by the
 abstract value.
 -/
-structure abstr_unary_test (β α : Type*) [has_γ β α] (p : β → bool) :=
+structure abstr_unary_test {β : Type*} (p : β → Prop) (α : Type*) [has_γ β α] :=
 (test       : α → bool)
 (test_sound : ∀ ⦃x : β⦄ ⦃u : α⦄,
   test u = tt →
   x ∈ γ u →
-  p x = tt)
+  p x)
 
-structure abstr_binary_test (β α : Type*) [has_γ β α] (p : β → β → bool) :=
-(test       : α → α → bool)
-(test_sound : ∀ ⦃x y : β⦄ ⦃u v : α⦄,
+structure abstr_binary_test {β₁ β₂ : Type*} (p : β₁ → β₂ → Prop) (α₁ α₂ : Type*) [has_γ β₁ α₁] [has_γ β₂ α₂] :=
+(test       : α₁ → α₂ → bool)
+(test_sound : ∀ ⦃x : β₁⦄ ⦃y : β₂⦄ ⦃u : α₁⦄ ⦃v : α₂⦄,
   test u v = tt →
   x ∈ γ u →
   y ∈ γ v →
-  p x y = tt)
+  p x y)
 
-structure abstr_nullary_relation (β₂ α₂ : Type*) [has_γ β₂ α₂] (R : β₂ → Prop) :=
-(op : α₂)
-(correct : ∀ ⦃x : β₂⦄,
+structure abstr_nullary_relation {β : Type*} (R : β → Prop) (α : Type*) [has_γ β α] :=
+(op : α)
+(correct : ∀ ⦃x : β⦄,
   R x →
   x ∈ γ op)
 
-structure abstr_unary_relation (β₁ β₂ α₁ α₂ : Type*) [has_γ β₁ α₁] [has_γ β₂ α₂] (R : β₁ → β₂ → Prop) :=
+structure abstr_unary_relation {β₁ β₂ : Type*} (R : β₁ → β₂ → Prop) (α₁ α₂ : Type*) [has_γ β₁ α₁] [has_γ β₂ α₂] :=
 (op : α₁ → α₂)
 (correct : ∀ ⦃x : β₁⦄ ⦃y : β₂⦄ ⦃u : α₁⦄,
   x ∈ γ u →
   R x y →
   y ∈ γ (op u))
 
-def abstr_unary_transfer (β₁ β₂ α₁ α₂ : Type*) [has_γ β₁ α₁] [has_γ β₂ α₂] (f : β₁ → β₂) :=
-abstr_unary_relation β₁ β₂ α₁ α₂ (λ x y, y = f x)
+def abstr_unary_transfer {β₁ β₂ : Type*} (f : β₁ → β₂) (α₁ α₂ : Type*) [has_γ β₁ α₁] [has_γ β₂ α₂] :=
+abstr_unary_relation (λ (x : β₁) (y : β₂), y = f x) α₁ α₂
 
-structure abstr_binary_relation (β₁ β₂ β₃ α₁ α₂ α₃ : Type*) [has_γ β₁ α₁] [has_γ β₂ α₂] [has_γ β₃ α₃] (R : β₁ → β₂ → β₃ → Prop) :=
+structure abstr_binary_relation {β₁ β₂ β₃ : Type*} (R : β₁ → β₂ → β₃ → Prop) (α₁ α₂ α₃ : Type*) [has_γ β₁ α₁] [has_γ β₂ α₂] [has_γ β₃ α₃] :=
 (op : α₁ → α₂ → α₃)
 (correct : ∀ ⦃x : β₁⦄ ⦃y : β₂⦄ ⦃z : β₃⦄ ⦃u : α₁⦄ ⦃v : α₂⦄,
   x ∈ γ u →
@@ -116,31 +116,19 @@ structure abstr_binary_relation (β₁ β₂ β₃ α₁ α₂ α₃ : Type*) [h
   R x y z →
   z ∈ γ (op u v))
 
-def abstr_binary_transfer (β₁ β₂ β₃ α₁ α₂ α₃ : Type*) [has_γ β₁ α₁] [has_γ β₂ α₂] [has_γ β₃ α₃] (f : β₁ → β₂ → β₃) :=
-abstr_binary_relation β₁ β₂ β₃ α₁ α₂ α₃ (λ x y z, z = f x y)
+def abstr_binary_transfer {β₁ β₂ β₃ : Type*} (f : β₁ → β₂ → β₃) (α₁ α₂ α₃ : Type*) [has_γ β₁ α₁] [has_γ β₂ α₂] [has_γ β₃ α₃] :=
+abstr_binary_relation (λ (x : β₁) (y : β₂) (z : β₃), z = f x y) α₁ α₂ α₃
 
-structure abstr_ternary_relation (β₁ β₂ α₁ α₂ : Type*) [has_γ β₁ α₁] [has_γ β₂ α₂] (R : β₁ → β₁ → β₁ → β₂ → Prop) :=
-(op : α₁ → α₁ → α₁ → α₂)
-(correct : ∀ ⦃x y z : β₁⦄ ⦃o : β₂⦄ ⦃u v w : α₁⦄,
-  x ∈ γ u →
-  y ∈ γ v →
-  z ∈ γ w →
-  R x y z o →
-  o ∈ γ (op u v w))
-
-def abstr_ternary_transfer (β₁ β₂ α₁ α₂ : Type*) [has_γ β₁ α₁] [has_γ β₂ α₂] (f : β₁ → β₁ → β₁ → β₂) :=
-abstr_ternary_relation β₁ β₂ α₁ α₂ (λ x y z w, w = f x y z)
-
-structure abstr_unary_inversion (β α₁ α₂ : Type*) [has_γ β α₁] [has_γ β α₂] (p : β → Prop) :=
+structure abstr_unary_inversion {β : Type*} (p : β → Prop) (α₁ α₂ : Type*) [has_γ β α₁] [has_γ β α₂] :=
 (inv     : α₁ → α₂)
 (correct : ∀ ⦃x : β⦄ ⦃u : α₁⦄,
   x ∈ γ u →
   p x →
   x ∈ γ (inv u))
 
-structure abstr_binary_inversion (β α₁ α₂ : Type*) [has_γ β α₁] [has_γ β α₂] (p : β → β → Prop) :=
-(inv     : α₁ → α₁ → (α₂ × α₂))
-(correct : ∀ ⦃x y : β⦄ ⦃u v : α₁⦄,
+structure abstr_binary_inversion {β₁ β₂ : Type*} (p : β₁ → β₂ → Prop) (α₁ α₂ α₁' α₂' : Type*) [has_γ β₁ α₁] [has_γ β₁ α₁'] [has_γ β₂ α₂] [has_γ β₂ α₂'] :=
+(inv     : α₁ → α₂ → (α₁' × α₂'))
+(correct : ∀ ⦃x : β₁⦄ ⦃y : β₂⦄ ⦃u : α₁⦄ ⦃v : α₂⦄,
   x ∈ γ u →
   y ∈ γ v →
   p x y →
@@ -336,8 +324,8 @@ instance meet_args [has_γ β α] [abstr_meet β α (with_bot α)] :
     dsimp only [γ, has_γ._match_1] at *,
     split; assumption } }
 
-def lift_unary_test {p : β → bool} [has_γ β α] (g : abstr_unary_test β α p) :
-  abstr_unary_test β (with_bot α) p :=
+def lift_unary_test {p : β → Prop} [has_γ β α] (g : abstr_unary_test p α) :
+  abstr_unary_test p (with_bot α) :=
 { test := λ (x : with_bot α),
     match x with
     | ⊥        := tt -- If ⊥, then the test is trivially satisfied for all elements.
@@ -349,8 +337,8 @@ def lift_unary_test {p : β → bool} [has_γ β α] (g : abstr_unary_test β α
     { cases xu },
     { apply g.test_sound test_tt xu } } }
 
-def lift_arg_unary_inversion {p : β → Prop} [has_γ β α] (g : abstr_unary_inversion β α (with_bot α) p) :
-  abstr_unary_inversion β (with_bot α) (with_bot α) p :=
+def lift_arg_unary_inversion {p : β → Prop} [has_γ β α] (g : abstr_unary_inversion p α (with_bot α)) :
+  abstr_unary_inversion p (with_bot α) (with_bot α) :=
 { inv     := λ (x : with_bot α), x >>= g.inv,
   correct := by {
     intros _ _ xu h,
@@ -360,8 +348,8 @@ def lift_arg_unary_inversion {p : β → Prop} [has_γ β α] (g : abstr_unary_i
       exact g.correct xu h } } }
 
 /-- Lift a unary relation function to work with ⊥. -/
-def lift_unary_relation {R : β₁ → β₂ → Prop} [has_γ β₁ α₁] [has_γ β₂ α₂] (g : abstr_unary_relation β₁ β₂ α₁ α₂ R) :
-  abstr_unary_relation β₁ β₂ (with_bot α₁) (with_bot α₂) R :=
+def lift_unary_relation {R : β₁ → β₂ → Prop} [has_γ β₁ α₁] [has_γ β₂ α₂] (g : abstr_unary_relation R α₁ α₂) :
+  abstr_unary_relation R (with_bot α₁) (with_bot α₂) :=
 { op := λ (x : with_bot α₁), option.map g.op x,
   correct := by {
     intros x x' u xu h,
@@ -370,8 +358,8 @@ def lift_unary_relation {R : β₁ → β₂ → Prop} [has_γ β₁ α₁] [has
     { apply g.correct xu h } } }
 
 /-- Lift a binary relation to work with ⊥. -/
-def lift_binary_relation {R : β₁ → β₂ → β₃ → Prop} [has_γ β₁ α₁] [has_γ β₂ α₂] [has_γ β₃ α₃] (g : abstr_binary_relation β₁ β₂ β₃ α₁ α₂ α₃ R) :
-  abstr_binary_relation β₁ β₂ β₃ (with_bot α₁) (with_bot α₂) (with_bot α₃) R :=
+def lift_binary_relation {R : β₁ → β₂ → β₃ → Prop} [has_γ β₁ α₁] [has_γ β₂ α₂] [has_γ β₃ α₃] (g : abstr_binary_relation R α₁ α₂ α₃) :
+  abstr_binary_relation R (with_bot α₁) (with_bot α₂) (with_bot α₃) :=
 { op := λ (x : with_bot α₁) (y : with_bot α₂),
     match x, y with
     | some x', some y' := some (g.op x' y')
@@ -385,8 +373,8 @@ def lift_binary_relation {R : β₁ → β₂ → β₃ → Prop} [has_γ β₁ 
     { cases yv },
     { apply g.correct xu yv h } } }
 
-def lift_nullary_relation {R : β₂ → Prop} [has_γ β₂ α₂] (g : abstr_nullary_relation β₂ α₂ R) :
-  abstr_nullary_relation β₂ (with_bot α₂) R :=
+def lift_nullary_relation {R : β → Prop} [has_γ β α] (g : abstr_nullary_relation R α) :
+  abstr_nullary_relation R (with_bot α) :=
 { op := some g.op,
   correct := by {
     intros _ h,
@@ -462,8 +450,8 @@ instance join_args [has_γ β α] [abstr_join β α (with_top α)] :
     apply join_correct,
     exact h } }
 
-def lift_unary_relation_arg {R : β₁ → β₂ → Prop} [has_γ β₁ α₁] [has_γ β₂ α₂] (g : abstr_unary_relation β₁ β₂ α₁ (with_top α₂) R) :
-  abstr_unary_relation β₁ β₂ (with_top α₁) (with_top α₂) R :=
+def lift_unary_relation_arg {R : β₁ → β₂ → Prop} [has_γ β₁ α₁] [has_γ β₂ α₂] (g : abstr_unary_relation R α₁ (with_top α₂)) :
+  abstr_unary_relation R (with_top α₁) (with_top α₂) :=
 { op := λ (x : with_top α₁),
     match x with
     | some x' := g.op x'
@@ -474,8 +462,8 @@ def lift_unary_relation_arg {R : β₁ → β₂ → Prop} [has_γ β₁ α₁] 
     cases u; simp only [lift_unary_relation_arg._match_1],
     apply g.correct xu h } }
 
-def lift_unary_relation {R : β₁ → β₂ → Prop} [has_γ β₁ α₁] [has_γ β₂ α₂] (g : abstr_unary_relation β₁ β₂ α₁ α₂ R) :
-  abstr_unary_relation β₁ β₂ (with_top α₁) (with_top α₂) R :=
+def lift_unary_relation {R : β₁ → β₂ → Prop} [has_γ β₁ α₁] [has_γ β₂ α₂] (g : abstr_unary_relation R α₁ α₂) :
+  abstr_unary_relation R (with_top α₁) (with_top α₂) :=
 lift_unary_relation_arg {
   op := λ x, some $ g.op x,
   correct := by {
@@ -488,8 +476,8 @@ Note this is not always the most precise approximation for `f`, for example,
 if `f` is MOV (i.e., λ _ y, y), then this is less precise than simply returning the
 right operand.
 -/
-def lift_binary_relation_arg {R : β₁ → β₂ → β₃ → Prop} [has_γ β₁ α₁] [has_γ β₂ α₂] [has_γ β₃ α₃] (g : abstr_binary_relation β₁ β₂ β₃ α₁ α₂ (with_top α₃) R) :
-  abstr_binary_relation β₁ β₂ β₃ (with_top α₁) (with_top α₂) (with_top α₃) R :=
+def lift_binary_relation_arg {R : β₁ → β₂ → β₃ → Prop} [has_γ β₁ α₁] [has_γ β₂ α₂] [has_γ β₃ α₃] (g : abstr_binary_relation R α₁ α₂ (with_top α₃)) :
+  abstr_binary_relation R (with_top α₁) (with_top α₂) (with_top α₃) :=
 { op := λ (x : with_top α₁) (y : with_top α₂),
     match x, y with
     | some x', some y' := g.op x' y'
@@ -504,16 +492,16 @@ def lift_binary_relation_arg {R : β₁ → β₂ → β₃ → Prop} [has_γ β
 Lift a relation to `with_top`. Note that, like `lift_binary_relation_arg`,
 this is not always maximally precise.
 -/
-def lift_binary_relation {R : β₁ → β₂ → β₃ → Prop} [has_γ β₁ α₁] [has_γ β₂ α₂] [has_γ β₃ α₃] (g : abstr_binary_relation β₁ β₂ β₃ α₁ α₂ α₃ R) :
-  abstr_binary_relation β₁ β₂ β₃ (with_top α₁) (with_top α₂) (with_top α₃) R :=
+def lift_binary_relation {R : β₁ → β₂ → β₃ → Prop} [has_γ β₁ α₁] [has_γ β₂ α₂] [has_γ β₃ α₃] (g : abstr_binary_relation R α₁ α₂ α₃) :
+  abstr_binary_relation R (with_top α₁) (with_top α₂) (with_top α₃) :=
 lift_binary_relation_arg {
   op := λ x y, some $ g.op x y,
   correct := by {
     intros _ _ _ _ _ _,
     apply g.correct; assumption } }
 
-def lift_nullary_relation {R : β₂ → Prop} [has_γ β₂ α₂] (g : abstr_nullary_relation β₂ α₂ R) :
-  abstr_nullary_relation β₂ (with_top α₂) R :=
+def lift_nullary_relation {R : β → Prop} [has_γ β α] (g : abstr_nullary_relation R α) :
+  abstr_nullary_relation R (with_top α) :=
 { op := some g.op,
   correct := by {
     intros _ h,
@@ -526,7 +514,7 @@ namespace abstr_meet
 open abstr_meet
 variables {α β : Type*} [has_γ β α] [abstr_meet β α (with_bot α)]
 
-def invert_equality : abstr_binary_inversion β α (with_bot α) eq :=
+def invert_equality : abstr_binary_inversion (eq : β → β → Prop) α α (with_bot α) (with_bot α) :=
 { inv := λ (x y : α), let z : with_bot α := meet x y in (z, z),
   correct := by {
     intros x y u v xu yv x_eq_y,
@@ -574,18 +562,18 @@ instance id_meet [decidable_eq α] : abstr_meet α (with_top (id α)) (with_bot 
     { exact h₁ },
     { rw [if_pos rfl], exact h₁ } } }
 
-def const (x : α) : abstr_nullary_relation α (id α) (eq x) :=
+def const (x : α) : abstr_nullary_relation (eq x) (id α) :=
 { op      := x,
   correct := by { intros, tauto } }
 
-def unary_transfer (f : α → α) : abstr_unary_transfer α α (id α) (id α) f :=
+def unary_transfer (f : α → α) : abstr_unary_transfer f (id α) (id α) :=
 { op      := f,
   correct := by {
     rintros _ _ _ ⟨⟩ _,
     subst_vars,
     constructor } }
 
-def binary_transfer (f : α → α → α) : abstr_binary_transfer α α α (id α) (id α) (id α) f :=
+def binary_transfer (f : α → α → α) : abstr_binary_transfer f (id α) (id α) (id α) :=
 { op      := f,
   correct := by {
     rintros _ _ _ _ _ ⟨⟩ ⟨⟩ _,
@@ -596,20 +584,20 @@ end id
 
 namespace abstr_binary_inversion
 open abstr_join abstr_meet
-variables {α α' β : Type*} [has_γ β α] [has_γ β α']
+variables {β₁ β₂ α₁ α₁' α₂ α₂' : Type*} [has_γ β₁ α₁] [has_γ β₁ α₁'] [has_γ β₂ α₂] [has_γ β₂ α₂']
 
 /-- A trivial inversion that learns nothing. -/
-def trivial {f} : abstr_binary_inversion β α (with_bot α) f :=
+def trivial {f : β₁ → β₂ → Prop} : abstr_binary_inversion f α₁ α₂ (with_bot α₁) (with_bot α₂) :=
 { inv := λ x y, (some x, some y),
   correct := by {
     intros _ _ _ _ h₁ h₂ _,
     exact ⟨h₁, h₂⟩ } }
 
-def invert_disjunction {f g} [abstr_join β α' α']
-    (inv₁ : abstr_binary_inversion β α α' f)
-    (inv₂ : abstr_binary_inversion β α α' g) :
-  abstr_binary_inversion β α α' (λ x y, f x y ∨ g x y) :=
-{ inv := λ (x y : α), (inv₁.inv x y) ⊔ (inv₂.inv x y),
+def invert_disjunction {f g : β₁ → β₁ → Prop} [abstr_join β₁ α₁' α₁']
+    (inv₁ : abstr_binary_inversion f α₁ α₁ α₁' α₁')
+    (inv₂ : abstr_binary_inversion g α₁ α₁ α₁' α₁') :
+  abstr_binary_inversion (λ x y, f x y ∨ g x y) α₁ α₁ α₁' α₁' :=
+{ inv := λ (x y : α₁), (inv₁.inv x y) ⊔ (inv₂.inv x y),
   correct := by {
     rintros _ _ _ _ xu yv (h₁ | h₁),
     { obtain ⟨hl, hr⟩ := inv₁.correct xu yv h₁,
@@ -617,21 +605,21 @@ def invert_disjunction {f g} [abstr_join β α' α']
     { obtain ⟨hl, hr⟩ := inv₂.correct xu yv h₁,
       exact ⟨join_correct (or.inr hl), join_correct (or.inr hr)⟩ } } }
 
-def invert_conjunction {f g} [abstr_meet β α' α']
-    (inv₁ : abstr_binary_inversion β α α' f)
-    (inv₂ : abstr_binary_inversion β α α' g) :
-  abstr_binary_inversion β α α' (λ x y, f x y ∧ g x y) :=
-{ inv := λ (x y : α), (inv₁.inv x y) ⊓ (inv₂.inv x y),
+def invert_conjunction {f g : β₁ → β₁ → Prop} [abstr_meet β₁ α₁' α₁']
+    (inv₁ : abstr_binary_inversion f α₁ α₁ α₁' α₁')
+    (inv₂ : abstr_binary_inversion g α₁ α₁ α₁' α₁') :
+  abstr_binary_inversion (λ x y, f x y ∧ g x y) α₁ α₁ α₁' α₁' :=
+{ inv := λ (x y : α₁), (inv₁.inv x y) ⊓ (inv₂.inv x y),
   correct := by {
     rintros _ _ _ _ xu yv ⟨h₁, h₂⟩,
     obtain ⟨hl₁, hr₁⟩ := inv₁.correct xu yv h₁,
     obtain ⟨hl₂, hr₂⟩ := inv₂.correct xu yv h₂,
     exact ⟨meet_correct ⟨hl₁, hl₂⟩, meet_correct ⟨hr₁, hr₂⟩⟩ } }
 
-def invert_swap {f}
-    (inv : abstr_binary_inversion β α α' f) :
-  abstr_binary_inversion β α α' (function.swap f) :=
-{ inv := λ (x y : α), (inv.inv y x).swap,
+def invert_swap {f : β₁ → β₂ → Prop}
+    (inv : abstr_binary_inversion f α₁ α₂ α₁' α₂') :
+  abstr_binary_inversion (function.swap f) α₂ α₁ α₂' α₁' :=
+{ inv := λ x y, (inv.inv y x).swap,
   correct := by {
     intros _ _ _ _ xu yv h₁,
     have h₂ := inv.correct yv xu h₁,
