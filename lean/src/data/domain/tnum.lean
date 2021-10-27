@@ -9,6 +9,7 @@ import .trit
 import data.bv.adc
 import data.bv.mul
 import data.bv.sbc
+import data.bv.circuit
 import misc.vector
 
 /-!
@@ -75,6 +76,36 @@ protected def const (v : fin n → bool) : abstr_nullary_relation (= v) (tnum n)
     subst h,
     simp only [vector.nth_of_fn],
     apply (with_top.lift_nullary_relation _).correct rfl } }
+
+/-- A tnum is constant iff every trit in it is constant. -/
+protected def is_const (x : tnum n) :=
+∀ (i : fin n), (x.nth i).is_const
+
+local attribute [reducible] tnum.is_const
+
+instance : decidable_pred (tnum.is_const : tnum n → Prop) := infer_instance
+
+/--
+Cast a tnum to a vector of constant bools.
+If each trit in the tnum was constant, then the result will be the single
+value the tnum can take on. Maps to vector rather than fin n → bool so that
+operations can be efficiently performed on the result.
+-/
+protected def to_const (x : tnum n) : vector bool n :=
+x.map trit.to_const
+
+/-- to_const returns a correct value if the input tnum is constant. -/
+protected theorem to_const_γ {x : tnum n} :
+  x.is_const →
+  ∀ (b : fin n → bool),
+    b ∈ γ x →
+    x.to_const = vector.of_fn b :=
+begin
+  intros h₁ b h₂,
+  ext i,
+  have h₃ := trit.to_const_γ (h₁ i) (b i) (h₂ i),
+  simp only [vector.nth_of_fn, ← h₃, tnum.to_const, vector.nth_map]
+end
 
 instance : abstr_top (fin n → bool) (tnum n) :=
 { top         := vector.repeat ⊤ n,
@@ -338,21 +369,45 @@ end
 
 end sub
 
-/-- Return "unknown" for the unsigned division of two tnums. -/
-protected def udiv : tnum n → tnum n → tnum n :=
-⊤
+/-- If inputs are constant, use circuit implementation of udiv, otherwise ⊤. -/
+protected def udiv (a b : tnum n) : tnum n :=
+if a.is_const ∧ b.is_const
+then vector.map some $ bv.circuit.udiv a.to_const b.to_const
+else ⊤
 
 protected theorem udiv_correct ⦃x y : fin n → bool⦄ ⦃a b : tnum n⦄ :
+  x ∈ γ a →
+  y ∈ γ b →
   x / y ∈ γ (tnum.udiv a b) :=
-abstr_top.top_correct _
+begin
+  intros h₁ h₂,
+  simp only [tnum.udiv],
+  split_ifs,
+  { intros i,
+    simp only [vector.nth_map, bv.circuit.nth_udiv, tnum.to_const_γ h.1 x h₁, tnum.to_const_γ h.2 y h₂, vector.nth_of_fn_ext],
+    exact rfl },
+  { apply abstr_top.top_correct _ }
+end
 
-/-- Return "unknown" for the unsigned remainder of two tnums. -/
-protected def urem : tnum n → tnum n → tnum n :=
-⊤
+/-- If inputs are constant, use circuit implementation of urem, otherwise ⊤. -/
+protected def urem (a b : tnum n) : tnum n :=
+if a.is_const ∧ b.is_const
+then vector.map some $ bv.circuit.urem a.to_const b.to_const
+else ⊤
 
 protected theorem urem_correct ⦃x y : fin n → bool⦄ ⦃a b : tnum n⦄ :
+  x ∈ γ a →
+  y ∈ γ b →
   x % y ∈ γ (tnum.urem a b) :=
-abstr_top.top_correct _
+begin
+  intros h₁ h₂,
+  simp only [tnum.urem],
+  split_ifs,
+  { intros i,
+    simp only [vector.nth_map, bv.circuit.nth_urem, tnum.to_const_γ h.1 x h₁, tnum.to_const_γ h.2 y h₂, vector.nth_of_fn_ext],
+    exact rfl },
+  { apply abstr_top.top_correct _ }
+end
 
 /-- Create the bitwise OR of two tnums. -/
 protected def or : tnum n → tnum n → tnum n :=

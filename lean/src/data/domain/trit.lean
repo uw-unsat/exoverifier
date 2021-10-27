@@ -20,6 +20,28 @@ def trit := with_top (id bool)
 namespace trit
 open has_γ
 
+protected def is_const (x : trit) : Prop := x.is_some
+
+local attribute [reducible] trit.is_const
+
+instance : decidable_pred trit.is_const := infer_instance
+
+protected def to_const (x : trit) : bool := x.get_or_else ff
+
+protected theorem to_const_γ {x : trit} :
+  x.is_const →
+  ∀ (b : bool),
+    b ∈ γ x →
+    x.to_const = b :=
+begin
+  intros h₁ b h₂,
+  simp only [trit.is_const, option.is_some_iff_exists] at h₁,
+  cases h₁,
+  subst_vars,
+  cases h₂,
+  refl
+end
+
 private def and' : trit → trit → trit
 | (some ff) _         := some ff
 | _         (some ff) := some ff
