@@ -3,6 +3,7 @@
 (require "../lib/tnum.rkt"
          rosette/lib/roseunit
          serval/lib/debug
+         serval/lib/solver
          serval/lib/unittest)
 
 (define N (make-parameter 64))
@@ -113,4 +114,4 @@
                (test-case+ "Test unknown tnums" (test-unknown (N)))))
 
 (module+ test
-  (time (run-tests tnum-tests)))
+  (time (with-prefer-boolector (run-tests tnum-tests))))
