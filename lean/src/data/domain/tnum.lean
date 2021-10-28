@@ -457,9 +457,9 @@ private def shl_aux : ℕ → tnum n → Π {m : ℕ}, tnum m → tnum n
 | amt a 0       _ := a
 | amt a (m + 1) b :=
   let a' := match b.head with
-            | some tt := (shiftl a amt)
             | some ff := a
-            | none    := a ⊔ (shiftl a amt)
+            | some tt := shiftl a amt
+            | none    := a ⊔ shiftl a amt
             end
   in @shl_aux (nat.shiftl amt 1) a' m b.tail
 
