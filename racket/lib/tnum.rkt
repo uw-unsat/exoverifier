@@ -46,9 +46,8 @@
 
 ; Union two tnums.
 (define (tnum-union a b)
-  (define v (bvor (tnum-value a) (tnum-value b)))
   (define mu (bvor (tnum-mask a) (tnum-mask b) (bvxor (tnum-value a) (tnum-value b))))
-  (tnum (bvand v (bvnot mu)) mu))
+  (tnum (bvand (tnum-value a) (bvnot mu)) mu))
 
 ; Bitwise AND of two tnums.
 (define (tnum-and a b)
