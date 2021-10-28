@@ -46,7 +46,7 @@ inductive avalue (β : Type) : Type
 
 namespace avalue
 
-variables {β : ℕ → Type} [bv_abstr β]
+variables {β : ℕ → Type} [abstr_bv β]
 
 section has_repr
 variables [has_repr (β 64)]
@@ -95,17 +95,17 @@ private def const (v : bpf.value) :
   abstr_nullary_relation (= v) (avalue (β 64)) :=
 { op :=
     match v with
-    | (bpf.value.scalar x)      := (avalue.scalar (bv_abstr.const x).op)
-    | (bpf.value.pointer m x)   := (avalue.pointer m (bv_abstr.const x).op)
+    | (bpf.value.scalar x)      := (avalue.scalar (abstr_bv.const x).op)
+    | (bpf.value.pointer m x)   := (avalue.pointer m (abstr_bv.const x).op)
     | (bpf.value.uninitialized) := (avalue.uninitialized)
     end,
   correct := by {
     intros x _,
     subst_vars,
     cases x,
-    { apply (bv_abstr.const x).correct rfl },
+    { apply (abstr_bv.const x).correct rfl },
     { refine ⟨rfl, _⟩,
-      apply (bv_abstr.const _).correct rfl },
+      apply (abstr_bv.const _).correct rfl },
     { triv } } }
 
 private def le : avalue (β 64) → avalue (β 64) → Prop
@@ -160,39 +160,39 @@ instance avalue_join : abstr_join bpf.value (avalue (β 64)) (with_top (avalue (
       apply abstr_top.top_correct } } }
 
 private def doALU_scalar : Π (op : bpf.ALU), abstr_binary_transfer op.doALU_scalar (β 64) (β 64) (β 64)
-| bpf.ALU.ADD  := bv_abstr.add
-| bpf.ALU.SUB  := bv_abstr.sub
+| bpf.ALU.ADD  := abstr_bv.add
+| bpf.ALU.SUB  := abstr_bv.sub
 | bpf.ALU.NEG  :=
-  { op      := λ x _, bv_abstr.neg.op x,
-    correct := by { intros, apply bv_abstr.neg.correct; assumption } }
-| bpf.ALU.MUL  := bv_abstr.mul
-| bpf.ALU.LSH  := bv_abstr.shl
-| bpf.ALU.XOR  := bv_abstr.xor
-| bpf.ALU.AND  := bv_abstr.and
-| bpf.ALU.OR   := bv_abstr.or
-| bpf.ALU.DIV  := bv_abstr.udiv
-| bpf.ALU.MOD  := bv_abstr.urem
-| bpf.ALU.RSH  := bv_abstr.lshr
-| bpf.ALU.ARSH := bv_abstr.ashr
+  { op      := λ x _, abstr_bv.neg.op x,
+    correct := by { intros, apply abstr_bv.neg.correct; assumption } }
+| bpf.ALU.MUL  := abstr_bv.mul
+| bpf.ALU.LSH  := abstr_bv.shl
+| bpf.ALU.XOR  := abstr_bv.xor
+| bpf.ALU.AND  := abstr_bv.and
+| bpf.ALU.OR   := abstr_bv.or
+| bpf.ALU.DIV  := abstr_bv.udiv
+| bpf.ALU.MOD  := abstr_bv.urem
+| bpf.ALU.RSH  := abstr_bv.lshr
+| bpf.ALU.ARSH := abstr_bv.ashr
 | _            := { op := λ _ _, ⊤, correct := by { intros, apply abstr_top.top_correct } }
 
 private def doALU_scalar_pointer : Π (op : bpf.ALU) (m : bpf.memregion), abstr_binary_transfer (op.doALU_pointer_scalar m) (β 64) (β 64) (avalue (β 64))
 | bpf.ALU.ADD m := {
-  op := λ x y, avalue.pointer m (bv_abstr.add.op x y),
+  op := λ x y, avalue.pointer m (abstr_bv.add.op x y),
   correct := by {
     intros _ _ _ _ _ h₁ h₂ h,
     subst h,
     constructor,
     refl,
-    apply bv_abstr.add.correct h₁ h₂ rfl } }
+    apply abstr_bv.add.correct h₁ h₂ rfl } }
 | bpf.ALU.SUB m := {
-  op := λ x y, avalue.pointer m (bv_abstr.sub.op x y),
+  op := λ x y, avalue.pointer m (abstr_bv.sub.op x y),
   correct := by {
     intros _ _ _ _ _ h₁ h₂ h,
     subst h,
     constructor,
     refl,
-    apply bv_abstr.sub.correct h₁ h₂ rfl } }
+    apply abstr_bv.sub.correct h₁ h₂ rfl } }
 | bpf.ALU.MUL m := {
   op := λ x y, avalue.pointer m x,
   correct := by {

@@ -493,7 +493,7 @@ begin
   apply abstr_top.top_correct _
 end
 
-instance : bv_abstr tnum :=
+instance : abstr_bv tnum :=
 { to_has_γ := λ _, infer_instance,
   to_has_decidable_γ := λ _, infer_instance,
   to_abstr_le := λ _, infer_instance,

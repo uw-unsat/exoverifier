@@ -202,7 +202,7 @@ begin
   sorry
 end
 
--- instance : bv_abstr (λ n, with_top (interval n)) :=
+-- instance : abstr_bv (λ n, with_top (interval n)) :=
 -- { neg := sorry,
 --   const := λ x, with_top.lift_nullary_relation $ interval.const x,
 --   not := sorry,

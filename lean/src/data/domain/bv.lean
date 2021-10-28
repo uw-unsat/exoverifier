@@ -11,7 +11,7 @@ An abstract domain for bitvector operations, for a fixed width.
 Must have decidable γ, ≤, ⊔, and ⊤.
 Additionally must implement bitvector transfer functions and inverse analyses.
 -/
-class bv_abstr (α : ℕ → Type) :=
+class abstr_bv (α : ℕ → Type) :=
   (to_has_γ {n : ℕ} : has_γ (fin n → bool) (α n))
   (to_has_decidable_γ {n : ℕ} : has_decidable_γ (fin n → bool) (α n))
   (to_abstr_le {n : ℕ} : abstr_le (fin n → bool) (α n))
@@ -39,25 +39,25 @@ class bv_abstr (α : ℕ → Type) :=
   (lshr {n m : ℕ} : abstr_binary_transfer bv.lshr (α n) (α m) (α n))
   (ashr {n m : ℕ} : abstr_binary_transfer bv.ashr (α n) (α m) (α n))
 
-namespace bv_abstr
-variables {α : ℕ → Type} [self : bv_abstr α] {n : ℕ}
+namespace abstr_bv
+variables {α : ℕ → Type} [self : abstr_bv α] {n : ℕ}
 include self
 
-instance : has_γ (fin n → bool) (α n) := bv_abstr.to_has_γ
-instance : has_decidable_γ (fin n → bool) (α n) := bv_abstr.to_has_decidable_γ
-instance : abstr_le (fin n → bool) (α n) := bv_abstr.to_abstr_le
-instance : abstr_join (fin n → bool) (α n) (α n) := bv_abstr.to_abstr_join
-instance : abstr_meet (fin n → bool) (α n) (with_bot (α n)) := bv_abstr.to_abstr_meet
-instance : abstr_top (fin n → bool) (α n) := bv_abstr.to_abstr_top
+instance : has_γ (fin n → bool) (α n) := abstr_bv.to_has_γ
+instance : has_decidable_γ (fin n → bool) (α n) := abstr_bv.to_has_decidable_γ
+instance : abstr_le (fin n → bool) (α n) := abstr_bv.to_abstr_le
+instance : abstr_join (fin n → bool) (α n) (α n) := abstr_bv.to_abstr_join
+instance : abstr_meet (fin n → bool) (α n) (with_bot (α n)) := abstr_bv.to_abstr_meet
+instance : abstr_top (fin n → bool) (α n) := abstr_bv.to_abstr_top
 
-instance : has_add (α n) := ⟨bv_abstr.add.op⟩
+instance : has_add (α n) := ⟨abstr_bv.add.op⟩
 
 -- def gt : abstr_binary_inversion (fin n → bool) α (with_bot α) (>) :=
 -- abstr_binary_inversion.invert_swap lt
 
 -- def le : abstr_binary_inversion (fin n → bool) α (with_bot α) (≤) :=
 -- begin
---   convert abstr_binary_inversion.invert_disjunction bv_abstr.eq bv_abstr.lt,
+--   convert abstr_binary_inversion.invert_disjunction abstr_bv.eq abstr_bv.lt,
 --   { ext x y,
 --     rw [le_iff_eq_or_lt] },
 --   apply_instance
@@ -66,4 +66,4 @@ instance : has_add (α n) := ⟨bv_abstr.add.op⟩
 -- def ge : abstr_binary_inversion (fin n → bool) α (with_bot α) (≥) :=
 -- abstr_binary_inversion.invert_swap le
 
-end bv_abstr
+end abstr_bv
