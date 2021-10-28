@@ -70,6 +70,17 @@
   (assume (bvult y (bv n n)))
   (bug-assert (=> (&& (tnum-contains? a x) (tnum-contains? b y)) (tnum-contains? c (bvshl x y)))))
 
+(define (test-lshr n)
+  (define a (fresh-tnum n))
+  (define b (fresh-tnum n))
+  (define c (tnum-lshr a b))
+  (bug-assert (tnum-valid? c) #:msg "lshr must be valid")
+
+  (define-symbolic* x y (bitvector n))
+  ; Assume shift amount is valid
+  (assume (bvult y (bv n n)))
+  (bug-assert (=> (&& (tnum-contains? a x) (tnum-contains? b y)) (tnum-contains? c (bvlshr x y)))))
+
 (define (test-lshift n)
   (define a (fresh-tnum n))
   (define-symbolic* shift (bitvector n))
@@ -98,6 +109,7 @@
                (test-case+ "Test shift left by constant" (test-lshift (N)))
                (test-case+ "Test shift right by constant" (test-rshift (N)))
                (test-case+ "Test shift left by tnum" (test-shl (N)))
+               (test-case+ "Test shift right by tnum" (test-lshr (N)))
                (test-case+ "Test unknown tnums" (test-unknown (N)))))
 
 (module+ test

@@ -69,7 +69,6 @@
 (define (tnum-shl a b)
   (define N (bitvector-size (type-of (tnum-value a))))
   (assert (is-pow2? N))
-  (define n (log2 N))
   (define amt (bv 1 N))
 
   ; Use only the lower log2(N) bits of b.
@@ -89,5 +88,31 @@
        (set! amt (bvshl amt (bv 1 N)))
        (set! b (tnum-rshift b (bv 1 N)))
        (loop (sub1 fuel))]))
-  (loop (add1 n))
+  (loop (add1 (log2 N)))
+  a)
+
+; Right shift (logical) a tnum by a tnum.
+(define (tnum-lshr a b)
+  (define N (bitvector-size (type-of (tnum-value a))))
+  (assert (is-pow2? N))
+  (define amt (bv 1 N))
+
+  ; Use only the lower log2(N) bits of b.
+  (set! b (tnum-and b (tnum-const (bvsub1 (bv N N)))))
+
+  (define (loop fuel)
+    (cond
+      [(zero? fuel) (bug-assert #f)]
+      [(! (bvzero? (bvor (tnum-value b) (tnum-mask b))))
+
+       (when (! (bvzero? (bvand (tnum-mask b) (bv 1 N))))
+         (set! a (tnum-union a (tnum-rshift a amt))))
+
+       (when (! (bvzero? (bvand (tnum-value b) (bv 1 N))))
+         (set! a (tnum-rshift a amt)))
+
+       (set! amt (bvshl amt (bv 1 N)))
+       (set! b (tnum-rshift b (bv 1 N)))
+       (loop (sub1 fuel))]))
+  (loop (add1 (log2 N)))
   a)
