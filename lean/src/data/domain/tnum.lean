@@ -456,12 +456,12 @@ end
 private def shl_aux : ℕ → tnum n → Π {m : ℕ}, tnum m → tnum n
 | amt a 0       _ := a
 | amt a (m + 1) b :=
-  match b.head with
-  | some x := @shl_aux (nat.shiftl amt 1) (cond x (shiftl a amt) a) m b.tail
-  | none :=
-    (@shl_aux (nat.shiftl amt 1) (shiftl a amt) m b.tail) ⊔
-    (@shl_aux (nat.shiftl amt 1) a              m b.tail)
-  end
+  let a' := match b.head with
+            | some tt := (shiftl a amt)
+            | some ff := a
+            | none    := a ⊔ (shiftl a amt)
+            end
+  in @shl_aux (nat.shiftl amt 1) a' m b.tail
 
 private theorem shl_aux_correct (amt : ℕ) {a : tnum n} {m : ℕ} {b : tnum m} {x : fin n → bool} {y : fin m → bool} :
   x ∈ γ a →
@@ -484,21 +484,7 @@ begin
     specialize @ih n (nat.shiftl amt 1) a b.tail x (fin.tail y) h₁ h₂',
     specialize @ih₂ n (nat.shiftl amt 1) (shiftl a amt) b.tail _ (fin.tail y) (shiftl_correct h₁) h₂',
     simp only [shl_aux, bv.to_nat_tail, nat.shiftl_eq_mul_pow] at ih ih₂ ⊢,
-    cases h_b : b.head with b',
-    case some {
-      simp only [shl_aux._match_1],
-      cases b',
-      case ff {
-        simp only [cond],
-        convert ih using 1,
-        sorry },
-      case tt {
-        simp only [cond],
-        convert ih₂ using 1,
-        sorry } },
-    case none {
-      simp only [shl_aux._match_1],
-      sorry } }
+    sorry }
 end
 
 protected def shl (a : tnum n) (b : tnum m) : tnum n :=
