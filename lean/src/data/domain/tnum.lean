@@ -445,6 +445,14 @@ by {
   convert (vector.repeat (some ff) (min n amt)).append (a.take (n - amt)),
   simp only [add_comm, min_eq_left (nat.sub_le _ _), nat.sub_add_min_cancel] }
 
+private theorem shiftl_correct {a : tnum n} {amt : ℕ} {x : fin n → bool} :
+  x ∈ γ a →
+  bv.of_nat ((bv.to_nat x) * 2^amt) ∈ γ (shiftl a amt) :=
+begin
+  intros h₁,
+  sorry,
+end
+
 private def shl_aux : ℕ → tnum n → Π {m : ℕ}, tnum m → tnum n
 | amt a 0       _ := a
 | amt a (m + 1) b :=
@@ -455,6 +463,44 @@ private def shl_aux : ℕ → tnum n → Π {m : ℕ}, tnum m → tnum n
     (@shl_aux (nat.shiftl amt 1) a              m b.tail)
   end
 
+private theorem shl_aux_correct (amt : ℕ) {a : tnum n} {m : ℕ} {b : tnum m} {x : fin n → bool} {y : fin m → bool} :
+  x ∈ γ a →
+  y ∈ γ b →
+  bv.shl x (bv.of_nat (bv.to_nat y * amt) : fin m → bool) ∈ γ (shl_aux amt a b) :=
+begin
+  induction m with m' ih generalizing a x b y n amt,
+  case zero {
+    intros h₁ h₂,
+    change y with 0,
+    simp only [shl_aux, bv.to_nat_zero, bv.shl, mul_one, bv.of_to_nat, pow_zero],
+    exact h₁ },
+  case succ {
+    intros h₁ h₂,
+    have h₂' : fin.tail y ∈ γ b.tail,
+    { intros i,
+      simp only [fin.tail, vector.nth_tail_succ],
+      exact h₂ i.succ },
+    have ih₂ := @ih,
+    specialize @ih n (nat.shiftl amt 1) a b.tail x (fin.tail y) h₁ h₂',
+    specialize @ih₂ n (nat.shiftl amt 1) (shiftl a amt) b.tail _ (fin.tail y) (shiftl_correct h₁) h₂',
+    simp only [shl_aux, bv.to_nat_tail, nat.shiftl_eq_mul_pow] at ih ih₂ ⊢,
+    cases h_b : b.head with b',
+    case some {
+      simp only [shl_aux._match_1],
+      cases b',
+      case ff {
+        simp only [cond],
+        convert ih using 1,
+        sorry },
+      case tt {
+        simp only [cond],
+        convert ih₂ using 1,
+        sorry } },
+    case none {
+      simp only [shl_aux._match_1],
+      sorry } }
+end
+
 protected def shl (a : tnum n) (b : tnum m) : tnum n :=
 shl_aux 1 a b
 
@@ -464,7 +510,9 @@ theorem shl_correct ⦃x : fin n → bool⦄ ⦃y : fin m → bool⦄ ⦃a : tnu
   bv.shl x y ∈ γ (tnum.shl a b) :=
 begin
   intros h₁ h₂,
-  sorry
+  have h₃ := shl_aux_correct 1 h₁ h₂,
+  simp only [mul_one, bv.of_to_nat] at h₃,
+  exact h₃
 end
 
 end shl
