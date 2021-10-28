@@ -73,7 +73,7 @@
   (define amt (bv 1 N))
 
   ; Use only the lower log2(N) bits of b.
-  (set! b (tnum-and b (tnum-const (bvsub1 (bvshl (bv 1 N) (bv n N))))))
+  (set! b (tnum-and b (tnum-const (bvsub1 (bv N N)))))
 
   (define (loop fuel)
     (cond
