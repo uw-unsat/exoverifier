@@ -6,7 +6,7 @@
          serval/lib/solver
          serval/lib/unittest)
 
-(define N (make-parameter 64))
+(define N (make-parameter (let ([s (getenv "BITWIDTH")]) (if s (string->number s) 64))))
 
 (define (test-unknown n)
   (define unknown (tnum-unknown n))
@@ -15,6 +15,14 @@
 
   (bug-assert (tnum-valid? unknown) #:msg "Unknown tnum must be valid")
   (bug-assert (tnum-contains? unknown c) #:msg "Unknown should contain all tnums"))
+
+(define (test-range n)
+  (define-symbolic* min max (bitvector n))
+  (define c (tnum-range min max))
+  (bug-assert (tnum-valid? c) #:msg "tnum range must be valid")
+
+  (define-symbolic* v (bitvector n))
+  (bug-assert (=> (&& (bvule min v) (bvule v max)) (tnum-contains? c v))))
 
 (define (test-const n)
   (define-symbolic* c c2 (bitvector n))
@@ -105,10 +113,12 @@
    "Tests for tnum"
    (test-case+ "Test tnum->symbolic" (test-tnum->symbolic (N)))
    (test-case+ "Test constant tnums" (test-const (N)))
+   (test-case+ "Test tnum range" (test-range (N)))
    (test-case+ "Test intersection of tnums" (test-intersect (N)))
    (test-case+ "Test union of tnums" (test-union (N)))
    (test-case+ "Test bitwise and of tnums" (verify-binary-operator (N) tnum-and bvand))
    (test-case+ "Test bitwise or of tnums" (verify-binary-operator (N) tnum-or bvor))
+   (test-case+ "Test bitwise xor of tnums" (verify-binary-operator (N) tnum-xor bvxor))
    (test-case+ "Test arithmetic add of tnums" (verify-binary-operator (N) tnum-add bvadd))
    (test-case+ "Test shift left by constant" (verify-constant-shift-operator (N) tnum-lshift bvshl))
    (test-case+ "Test shift right by constant" (verify-constant-shift-operator (N) tnum-rshift bvlshr))
@@ -117,6 +127,7 @@
    (test-case+ "Test precision of add" (with-z3 (verify-binary-op-precision (N) tnum-add bvadd)))
    (test-case+ "Test precision of and" (with-z3 (verify-binary-op-precision (N) tnum-and bvand)))
    (test-case+ "Test precision of or" (with-z3 (verify-binary-op-precision (N) tnum-or bvor)))
+   (test-case+ "Test precision of xor" (with-z3 (verify-binary-op-precision (N) tnum-xor bvxor)))
    (test-case+ "Test unknown tnums" (test-unknown (N)))))
 
 (module+ test

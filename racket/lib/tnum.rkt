@@ -1,6 +1,7 @@
 #lang rosette
 
 (require "pow.rkt"
+         "common.rkt"
          serval/lib/debug)
 
 (provide (all-defined-out))
@@ -42,6 +43,17 @@
   (assume (tnum-valid? t))
   t)
 
+(define (tnum-range min max)
+  (define N (bitvector-size (type-of min)))
+  (define chi (bvxor min max))
+  (define bits (fls chi))
+
+  (cond
+    [(bvugt bits (bv (sub1 N) N)) (tnum-unknown N)]
+    [else
+     (define delta (bvsub1 (bvshl (bv 1 N) bits)))
+     (tnum (bvand min (bvnot delta)) delta)]))
+
 ; Shift a tnum left by a constant
 (define (tnum-lshift a shift) (tnum (bvshl (tnum-value a) shift) (bvshl (tnum-mask a) shift)))
 
@@ -71,6 +83,12 @@
   (define v (bvor (tnum-value a) (tnum-value b)))
   (define mu (bvor (tnum-mask a) (tnum-mask b)))
   (tnum v (bvand mu (bvnot v))))
+
+; Bitwise XOR of two tnums.
+(define (tnum-xor a b)
+  (define v (bvxor (tnum-value a) (tnum-value b)))
+  (define mu (bvor (tnum-mask a) (tnum-mask b)))
+  (tnum (bvand v (bvnot mu)) mu))
 
 ; Arithmetic ADD of two tnums.
 (define (tnum-add a b)
