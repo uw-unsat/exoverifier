@@ -42,23 +42,14 @@
   (define-symbolic* v (bitvector n))
   (bug-assert (=> (|| (tnum-contains? a v) (tnum-contains? b v)) (tnum-contains? c v))))
 
-(define (test-and n)
+(define (verify-binary-operator n tnum-op bv-op)
   (define a (fresh-tnum n))
   (define b (fresh-tnum n))
-  (define c (tnum-and a b))
-  (bug-assert (tnum-valid? c) #:msg "and must be valid")
+  (define c (tnum-op a b))
+  (bug-assert (tnum-valid? c) #:msg "result of tnum op must be valid")
 
   (define-symbolic* x y (bitvector n))
-  (bug-assert (=> (&& (tnum-contains? a x) (tnum-contains? b y)) (tnum-contains? c (bvand x y)))))
-
-(define (test-add n)
-  (define a (fresh-tnum n))
-  (define b (fresh-tnum n))
-  (define c (tnum-add a b))
-  (bug-assert (tnum-valid? c) #:msg "add must be valid")
-
-  (define-symbolic* x y (bitvector n))
-  (bug-assert (=> (&& (tnum-contains? a x) (tnum-contains? b y)) (tnum-contains? c (bvadd x y)))))
+  (bug-assert (=> (&& (tnum-contains? a x) (tnum-contains? b y)) (tnum-contains? c (bv-op x y)))))
 
 (define (test-shl n)
   (define a (fresh-tnum n))
@@ -100,17 +91,39 @@
   (define-symbolic* x (bitvector n))
   (bug-assert (=> (tnum-contains? a x) (tnum-contains? b (bvlshr x shift)))))
 
+(define (verify-binary-op-precision n tnum-op bv-op)
+  (define a (fresh-tnum n))
+  (define b (fresh-tnum n))
+  (define c (tnum-op a b))
+
+  (define-values (approx-result _) (tnum->symbolic c))
+
+  (define-values (symbolic-a as) (tnum->symbolic a))
+  (define-values (symbolic-b bs) (tnum->symbolic b))
+
+  (define precise-result (bv-op symbolic-a symbolic-b))
+
+  ; Search for input tnums a and b and approximate result, such that, for any interpretation
+  ; of the precise result, the precise result and the approximate result are unequal.
+  ; If no solution exists, then every value represented by approximate result is in the precise
+  ; result, so the approximate result is as precise as can be.
+  (check-unsat?
+    (synthesize #:forall (list as bs)
+                #:guarantee (assert (! (equal? approx-result precise-result))))))
+
 (define tnum-tests
   (test-suite+ "Tests for tnum"
                (test-case+ "Test constant tnums" (test-const (N)))
                (test-case+ "Test intersection of tnums" (test-intersect (N)))
                (test-case+ "Test union of tnums" (test-union (N)))
-               (test-case+ "Test bitwise and of tnums" (test-and (N)))
-               (test-case+ "Test arithmetic add of tnums" (test-add (N)))
+               (test-case+ "Test bitwise and of tnums" (verify-binary-operator (N) tnum-and bvand))
+               (test-case+ "Test arithmetic add of tnums" (verify-binary-operator (N) tnum-add bvadd))
                (test-case+ "Test shift left by constant" (test-lshift (N)))
                (test-case+ "Test shift right by constant" (test-rshift (N)))
                (test-case+ "Test shift left by tnum" (test-shl (N)))
                (test-case+ "Test shift right by tnum" (test-lshr (N)))
+               (test-case+ "Test precision of add" (with-z3 (verify-binary-op-precision (N) tnum-add bvadd)))
+               (test-case+ "Test precision of and" (with-z3 (verify-binary-op-precision (N) tnum-and bvand)))
                (test-case+ "Test unknown tnums" (test-unknown (N)))))
 
 (module+ test
