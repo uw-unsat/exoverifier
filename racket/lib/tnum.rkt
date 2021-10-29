@@ -66,6 +66,12 @@
   (define v (bvand (tnum-value a) (tnum-value b)))
   (tnum v (bvand alpha beta (bvnot v))))
 
+; Bitwise OR of two tnums.
+(define (tnum-or a b)
+  (define v (bvor (tnum-value a) (tnum-value b)))
+  (define mu (bvor (tnum-mask a) (tnum-mask b)))
+  (tnum v (bvand mu (bvnot v))))
+
 ; Arithmetic ADD of two tnums.
 (define (tnum-add a b)
   (define sm (bvadd (tnum-mask a) (tnum-mask b)))
