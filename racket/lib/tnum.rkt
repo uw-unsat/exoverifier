@@ -150,3 +150,10 @@
        (loop (sub1 fuel))]))
   (loop (add1 (log2 N)))
   a)
+
+(define (tnum-in a b)
+  (cond
+    [(! (bvzero? (bvand (tnum-mask b) (bvnot (tnum-mask a))))) #f]
+    [else
+     (define b-value2 (bvand (tnum-value b) (bvnot (tnum-mask a))))
+     (equal? (tnum-value a) b-value2)]))

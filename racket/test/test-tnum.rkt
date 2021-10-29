@@ -32,6 +32,12 @@
   (bug-assert (<=> (tnum-contains? const c2) (equal? c c2))
               #:msg "tnum-const contains only the constant"))
 
+(define (test-in n)
+  (define a (fresh-tnum n))
+  (define b (fresh-tnum n))
+  (define-symbolic* v (bitvector n))
+  (bug-assert (=> (&& (tnum-in b a) (tnum-contains? a v)) (tnum-contains? b v))))
+
 (define (test-intersect n)
   (define a (fresh-tnum n))
   (define b (fresh-tnum n))
@@ -114,6 +120,7 @@
    (test-case+ "Test tnum->symbolic" (test-tnum->symbolic (N)))
    (test-case+ "Test constant tnums" (test-const (N)))
    (test-case+ "Test tnum range" (test-range (N)))
+   (test-case+ "Test tnum in (subset)" (test-in (N)))
    (test-case+ "Test intersection of tnums" (test-intersect (N)))
    (test-case+ "Test union of tnums" (test-union (N)))
    (test-case+ "Test bitwise and of tnums" (verify-binary-operator (N) tnum-and bvand))
