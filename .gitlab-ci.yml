@@ -1,4 +1,4 @@
-image: unsat/lean:3.34.0
+image: unsat/lean:3.35.0
 
 before_script:
   - cd lean && leanpkg configure

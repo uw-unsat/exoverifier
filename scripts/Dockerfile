@@ -1,6 +1,6 @@
 FROM alpine:3.13
 
-ARG LEAN_VERSION=v3.34.0
+ARG LEAN_VERSION=v3.35.0
 
 RUN apk add --no-cache \
     bash \
