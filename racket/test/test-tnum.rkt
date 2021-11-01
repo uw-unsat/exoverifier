@@ -129,8 +129,14 @@
    (test-case+ "Test arithmetic add of tnums" (verify-binary-operator (N) tnum-add bvadd))
    (test-case+ "Test shift left by constant" (verify-constant-shift-operator (N) tnum-lshift bvshl))
    (test-case+ "Test shift right by constant" (verify-constant-shift-operator (N) tnum-rshift bvlshr))
-   (test-case+ "Test shift left by tnum" (verify-shift-operator (N) tnum-shl bvshl))
-   (test-case+ "Test shift right by tnum" (verify-shift-operator (N) tnum-lshr bvlshr))
+   (test-case+ "Test arithmetic shift right by constant"
+               (verify-constant-shift-operator (N) (lambda (a c) (tnum-arshift a c (N))) bvashr))
+   (test-case+ "Test shift left by tnum"
+               (verify-shift-operator (N) (lambda (a b) (tnum-shl a b (N))) bvshl))
+   (test-case+ "Test logical shift right by tnum"
+               (verify-shift-operator (N) (lambda (a b) (tnum-lshr a b (N))) bvlshr))
+   (test-case+ "Test arithmetic shift right by tnum"
+               (verify-shift-operator (N) (lambda (a b) (tnum-ashr a b (N))) bvashr))
    (test-case+ "Test precision of add" (with-z3 (verify-binary-op-precision (N) tnum-add bvadd)))
    (test-case+ "Test precision of and" (with-z3 (verify-binary-op-precision (N) tnum-and bvand)))
    (test-case+ "Test precision of or" (with-z3 (verify-binary-op-precision (N) tnum-or bvor)))

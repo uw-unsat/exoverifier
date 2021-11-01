@@ -2,15 +2,16 @@
 
 (require "pow.rkt"
          "common.rkt"
-         serval/lib/debug)
+         serval/lib/debug
+         serval/lib/bvarith)
 
 (provide (all-defined-out))
 
-(struct tnum (value mask)
-  #:transparent)
+(struct tnum (value mask) #:transparent)
 
 ; A tnum is valid if there is no bit set in the value and the mask.
-(define (tnum-valid? t) (bvzero? (bvand (tnum-value t) (tnum-mask t))))
+(define (tnum-valid? t)
+  (bvzero? (bvand (tnum-value t) (tnum-mask t))))
 
 ; The unknown tnum of width n.
 (define (tnum-unknown n) (tnum (bv 0 n) (bvnot (bv 0 n))))
@@ -55,10 +56,21 @@
      (tnum (bvand min (bvnot delta)) delta)]))
 
 ; Shift a tnum left by a constant
-(define (tnum-lshift a shift) (tnum (bvshl (tnum-value a) shift) (bvshl (tnum-mask a) shift)))
+(define (tnum-lshift a shift)
+  (tnum (bvshl (tnum-value a) shift) (bvshl (tnum-mask a) shift)))
 
 ; Shift a tnum right (logical) by a constant
-(define (tnum-rshift a shift) (tnum (bvlshr (tnum-value a) shift) (bvlshr (tnum-mask a) shift)))
+(define (tnum-rshift a shift)
+  (tnum (bvlshr (tnum-value a) shift) (bvlshr (tnum-mask a) shift)))
+
+; Shift a tnum right (arithmetic) by a constant
+(define (tnum-arshift a shift bitness)
+  (define lomask (trunc bitness (tnum-mask a)))
+  (define lovalue (trunc bitness (tnum-value a)))
+  (define loshift (trunc bitness shift))
+
+  (tnum (zero-extend (bvashr lovalue loshift) (type-of shift))
+        (zero-extend (bvashr lomask loshift) (type-of shift))))
 
 ; Intersect two tnums. Sets value bit to 1 if disagreement.
 (define (tnum-intersect a b)
@@ -100,13 +112,13 @@
   (tnum (bvand sv (bvnot mu)) mu))
 
 ; Left shift a tnum by a tnum.
-(define (tnum-shl a b)
+(define (tnum-shl a b bitness)
   (define N (bitvector-size (type-of (tnum-value a))))
-  (assert (is-pow2? N))
+  (assert (is-pow2? bitness))
   (define amt (bv 1 N))
 
   ; Use only the lower log2(N) bits of b.
-  (set! b (tnum-and b (tnum-const (bvsub1 (bv N N)))))
+  (set! b (tnum-and b (tnum-const (bvsub1 (bv bitness N)))))
 
   (define (loop fuel)
     (cond
@@ -126,13 +138,13 @@
   a)
 
 ; Right shift (logical) a tnum by a tnum.
-(define (tnum-lshr a b)
+(define (tnum-lshr a b bitness)
   (define N (bitvector-size (type-of (tnum-value a))))
-  (assert (is-pow2? N))
+  (assert (is-pow2? bitness))
   (define amt (bv 1 N))
 
   ; Use only the lower log2(N) bits of b.
-  (set! b (tnum-and b (tnum-const (bvsub1 (bv N N)))))
+  (set! b (tnum-and b (tnum-const (bvsub1 (bv bitness N)))))
 
   (define (loop fuel)
     (cond
@@ -144,6 +156,32 @@
 
        (when (! (bvzero? (bvand (tnum-value b) (bv 1 N))))
          (set! a (tnum-rshift a amt)))
+
+       (set! amt (bvshl amt (bv 1 N)))
+       (set! b (tnum-rshift b (bv 1 N)))
+       (loop (sub1 fuel))]))
+  (loop (add1 (log2 N)))
+  a)
+
+; Right shift (arithmetic) a tnum by a tnum.
+(define (tnum-ashr a b bitness)
+  (define N (bitvector-size (type-of (tnum-value a))))
+  (assert (is-pow2? bitness))
+  (define amt (bv 1 N))
+
+  ; Use only the lower log2(N) bits of b.
+  (set! b (tnum-and b (tnum-const (bvsub1 (bv bitness N)))))
+
+  (define (loop fuel)
+    (cond
+      [(zero? fuel) (bug-assert #f)]
+      [(! (bvzero? (bvor (tnum-value b) (tnum-mask b))))
+
+       (when (! (bvzero? (bvand (tnum-mask b) (bv 1 N))))
+         (set! a (tnum-union a (tnum-arshift a amt bitness))))
+
+       (when (! (bvzero? (bvand (tnum-value b) (bv 1 N))))
+         (set! a (tnum-arshift a amt bitness)))
 
        (set! amt (bvshl amt (bv 1 N)))
        (set! b (tnum-rshift b (bv 1 N)))
