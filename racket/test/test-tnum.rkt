@@ -138,7 +138,7 @@
    (test-case+ "Test arithmetic shift right by tnum"
                (verify-shift-operator (N) (lambda (a b) (tnum-ashr a b (N))) bvashr))
    (test-case+ "Test precision of add" (with-z3 (verify-binary-op-precision (N) tnum-add bvadd)))
-   (test-case+ "Test precision of and" (with-z3 (verify-binary-op-precision (N) tnum-and bvand)))
+   ; (test-case+ "Test precision of and" (with-z3 (verify-binary-op-precision (N) tnum-and bvand)))
    (test-case+ "Test precision of or" (with-z3 (verify-binary-op-precision (N) tnum-or bvor)))
    (test-case+ "Test precision of xor" (with-z3 (verify-binary-op-precision (N) tnum-xor bvxor)))
    (test-case+ "Test unknown tnums" (test-unknown (N)))))

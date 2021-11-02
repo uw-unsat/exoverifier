@@ -1,5 +1,10 @@
 image: unsat/lean:3.35.0
 
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+  BOOLECTOR: /opt/boolector/3.2.1-cadical/bin/boolector
+  Z3: /opt/z3/4.8.7/bin/z3
+
 before_script:
   - cd lean && leanpkg configure
 
@@ -40,3 +45,7 @@ test-lean:
 test-python-tests:
   script:
     - green -vv -f test
+
+test-racket:
+  script:
+    - raco test -- ../racket/test
