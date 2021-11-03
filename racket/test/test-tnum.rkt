@@ -149,6 +149,7 @@
    (test-case+ "Test bitwise or of tnums" (verify-binary-operator (N) tnum-or bvor))
    (test-case+ "Test bitwise xor of tnums" (verify-binary-operator (N) tnum-xor bvxor))
    (test-case+ "Test arithmetic add of tnums" (verify-binary-operator (N) tnum-add bvadd))
+   (test-case+ "Test arithmetic sub of tnums" (verify-binary-operator (N) tnum-sub bvsub))
    (test-case+ "Test shift left by constant" (verify-constant-shift-operator (N) tnum-lshift bvshl))
    (test-case+ "Test shift right by constant" (verify-constant-shift-operator (N) tnum-rshift bvlshr))
    (test-case+ "Test arithmetic shift right by constant"

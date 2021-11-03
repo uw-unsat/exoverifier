@@ -117,6 +117,15 @@
   (define mu (bvor chi (tnum-mask a) (tnum-mask b)))
   (tnum (bvand sv (bvnot mu)) mu))
 
+; Arithmetic SUB of two tnums.
+(define (tnum-sub a b)
+  (define dv (bvsub (tnum-value a) (tnum-value b)))
+  (define alpha (bvadd dv (tnum-mask a)))
+  (define beta (bvsub dv (tnum-mask b)))
+  (define chi (bvxor alpha beta))
+  (define mu (bvor chi (tnum-mask a) (tnum-mask b)))
+  (tnum (bvand dv (bvnot mu)) mu))
+
 ; Left shift a tnum by a tnum.
 (define (tnum-shl a b bitness)
   (define N (bitvector-size (type-of (tnum-value a))))
