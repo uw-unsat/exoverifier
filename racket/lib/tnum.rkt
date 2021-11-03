@@ -44,6 +44,12 @@
   (assume (tnum-valid? t))
   t)
 
+; Whether a tnum represents just a single constant.
+(define (tnum-is-const? a) (bvzero? (tnum-mask a)))
+
+; Whether a tnum is completely unknown.
+(define (tnum-is-unknown? a) (bvzero? (bvnot (tnum-mask a))))
+
 (define (tnum-range min max)
   (define N (bitvector-size (type-of min)))
   (define chi (bvxor min max))
@@ -189,6 +195,19 @@
   (loop (add1 (log2 N)))
   a)
 
+; Cast tnum a to a tnum of the same width but masking out all but lower 8*size bits.
+(define (tnum-cast a size)
+  (define N (bitvector-size (type-of (tnum-value a))))
+  (define newvalue (bvand (tnum-value a) (bvsub1 (bvshl (bv 1 N) (bvmul size (bv 8 N))))))
+  (define newmask (bvand (tnum-mask a) (bvsub1 (bvshl (bv 1 N) (bvmul size (bv 8 N))))))
+  (tnum newvalue newmask))
+
+; Mask out all but lower 32 bits of a tnum.
+(define (tnum-subreg a)
+  (define N (bitvector-size (type-of (tnum-value a))))
+  (tnum-cast a (bv 4 N)))
+
+; Return whether tnum b is a subset of tnum a.
 (define (tnum-in a b)
   (cond
     [(! (bvzero? (bvand (tnum-mask b) (bvnot (tnum-mask a))))) #f]

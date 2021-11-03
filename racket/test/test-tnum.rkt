@@ -95,6 +95,25 @@
   (assume (tnum-contains? a c))
   (check-sat? (solve (assert (equal? symbolic-a c)))))
 
+(define (test-cast)
+  (define a (fresh-tnum 64))
+
+  (define b (tnum-cast a (bv 4 64)))
+  (assert (tnum-valid? b))
+
+  (define-symbolic* c (bitvector 64))
+  (bug-assert (=> (tnum-contains? a c) (tnum-contains? b (concat (bv 0 32) (extract 31 0 c))))))
+
+(define (test-is-const n)
+  (define a (fresh-tnum n))
+  (define-symbolic* x y (bitvector n))
+  (bug-assert (=> (&& (tnum-is-const? a) (tnum-contains? a x) (tnum-contains? a y)) (equal? x y))))
+
+(define (test-is-unknown n)
+  (define a (fresh-tnum n))
+  (define-symbolic* x (bitvector n))
+  (bug-assert (=> (tnum-is-unknown? a) (tnum-contains? a x))))
+
 (define (verify-binary-op-precision n tnum-op bv-op)
   (define a (fresh-tnum n))
   (define b (fresh-tnum n))
@@ -120,9 +139,12 @@
    (test-case+ "Test tnum->symbolic" (test-tnum->symbolic (N)))
    (test-case+ "Test constant tnums" (test-const (N)))
    (test-case+ "Test tnum range" (test-range (N)))
+   (test-case+ "Test tnum is-const" (test-is-const (N)))
+   (test-case+ "Test tnum is-unknown" (test-is-unknown (N)))
    (test-case+ "Test tnum in (subset)" (test-in (N)))
    (test-case+ "Test intersection of tnums" (test-intersect (N)))
    (test-case+ "Test union of tnums" (test-union (N)))
+   (test-case+ "Test cast tnum" (test-cast))
    (test-case+ "Test bitwise and of tnums" (verify-binary-operator (N) tnum-and bvand))
    (test-case+ "Test bitwise or of tnums" (verify-binary-operator (N) tnum-or bvor))
    (test-case+ "Test bitwise xor of tnums" (verify-binary-operator (N) tnum-xor bvxor))
