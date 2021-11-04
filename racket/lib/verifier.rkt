@@ -125,7 +125,16 @@
 
 (define (__reg_deduce_bounds reg) (void))
 
-(define (__reg_bound_offset reg) (void))
+; Refine tnum based on the unsigned 32- and 64-bit bounds.
+(define (__reg_bound_offset reg)
+  (define var64_off
+    (tnum-intersect (bpf-reg-state-var-off reg)
+                    (tnum-range (bpf-reg-state-umin-val reg) (bpf-reg-state-umax-val reg))))
+  (define var32_off
+    (tnum-intersect (tnum-subreg (bpf-reg-state-var-off reg))
+                    (tnum-range (zero-extend (bpf-reg-state-u32-min-val reg) (bitvector 64))
+                                (zero-extend (bpf-reg-state-u32-max-val reg) (bitvector 64)))))
+  (set-bpf-reg-state-var-off! reg (tnum-or (tnum-clear-subreg var64_off) var32_off)))
 
 ; Throw away bounds information for a register
 (define (__mark_reg_unbounded reg)
