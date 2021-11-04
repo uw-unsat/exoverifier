@@ -1,6 +1,7 @@
 #lang rosette
 
 (require "tnum.rkt"
+         "common.rkt"
          (prefix-in bpf: serval/bpf))
 
 (provide (all-defined-out))
@@ -46,12 +47,13 @@
       (bvsle (bpf-reg-state-s32-min-val env) low32)
       (bvsle low32 (bpf-reg-state-s32-max-val env))))
 
-(define S64_MIN (bvshl (bv 1 64) (bv 63 64)))
-(define S64_MAX (bvnot S64_MIN))
-(define U64_MAX (bv -1 64))
-(define S32_MIN (bvshl (bv 1 32) (bv 31 32)))
-(define S32_MAX (bvnot S32_MIN))
-(define U32_MAX (bv -1 32))
+(define (bpf-reg-state-invariants env) #t)
+
+(define (bpf-verifier-env-invariants env)
+  (define regs (bpf-verifier-env-regs env))
+  (apply &&
+         (for/list ([i (in-range bpf:MAX_BPF_JIT_REG)])
+           (bpf-reg-state-invariants (bpf:@reg-ref regs (bpf:idx->reg i))))))
 
 (define (__reg_assign_32_into_64 reg)
   (set-bpf-reg-state-umin-val! reg (zero-extend (bpf-reg-state-u32-min-val reg) (bitvector 64)))
@@ -123,7 +125,12 @@
   (__update_reg32_bounds reg)
   (__update_reg64_bounds reg))
 
-(define (__reg_deduce_bounds reg) (void))
+(define (__reg32_deduce_bounds reg) (void))
+(define (__reg64_deduce_bounds reg) (void))
+
+(define (__reg_deduce_bounds reg)
+  (__reg32_deduce_bounds reg)
+  (__reg64_deduce_bounds reg))
 
 ; Refine tnum based on the unsigned 32- and 64-bit bounds.
 (define (__reg_bound_offset reg)
@@ -249,10 +256,8 @@
                                         S32_MAX)])])) ; (bpf-reg-state-u32-max-val dst_reg))])]))
 
 (define (scalar_min_max_and dst_reg src_reg)
-
   (define src_known (tnum-is-const? (bpf-reg-state-var-off src_reg)))
   (define dst_known (tnum-is-const? (bpf-reg-state-var-off dst_reg)))
-
   (define smin_val (bpf-reg-state-smin-val src_reg))
   (define umax_val (bpf-reg-state-umax-val src_reg))
 
@@ -300,30 +305,35 @@
      (set-bpf-reg-state-var-off! dst_reg
                                  (tnum-add (bpf-reg-state-var-off dst_reg)
                                            (bpf-reg-state-var-off src_reg)))]
+
     [(BPF_SUB)
      (scalar32_min_max_sub dst_reg src_reg)
      (scalar_min_max_sub dst_reg src_reg)
      (set-bpf-reg-state-var-off! dst_reg
                                  (tnum-sub (bpf-reg-state-var-off dst_reg)
                                            (bpf-reg-state-var-off src_reg)))]
+
     [(BPF_AND)
      (set-bpf-reg-state-var-off! dst_reg
                                  (tnum-and (bpf-reg-state-var-off dst_reg)
                                            (bpf-reg-state-var-off src_reg)))
      (scalar32_min_max_and dst_reg src_reg)
      (scalar_min_max_and dst_reg src_reg)]
+
     [(BPF_OR)
      (scalar32_min_max_or dst_reg src_reg)
      (scalar_min_max_or dst_reg src_reg)
      (set-bpf-reg-state-var-off! dst_reg
                                  (tnum-or (bpf-reg-state-var-off dst_reg)
                                           (bpf-reg-state-var-off src_reg)))]
+
     [(BPF_XOR)
      (scalar32_min_max_xor dst_reg src_reg)
      (scalar_min_max_xor dst_reg src_reg)
      (set-bpf-reg-state-var-off! dst_reg
                                  (tnum-xor (bpf-reg-state-var-off dst_reg)
                                            (bpf-reg-state-var-off src_reg)))]
+
     [else (assert #f)])
 
   (when alu32

@@ -16,3 +16,10 @@
   (if (bvzero? val) (bv 0 N) (loop N)))
 
 (define fls64 fls)
+
+(define S64_MIN (bvshl (bv 1 64) (bv 63 64)))
+(define S64_MAX (bvnot S64_MIN))
+(define U64_MAX (bv -1 64))
+(define S32_MIN (bvshl (bv 1 32) (bv 31 32)))
+(define S32_MAX (bvnot S32_MIN))
+(define U32_MAX (bv -1 32))
