@@ -222,13 +222,23 @@ private def repr : ALU → string
 
 instance : has_repr ALU := ⟨repr⟩
 
-/-- Whether a particular ALU operation is allowed. -/
-def doALU_scalar_check : ALU → i64 → i64 → bool
+/-- Whether a particular ALU64 operation is allowed. -/
+def doALU64_scalar_check : ALU → i64 → i64 → bool
 | DIV x y  := y ≠ 0 -- Disallow division by zero.
 | MOD x y  := y ≠ 0 -- Disallow mod by zero.
 | LSH x y  := y < 64 -- Prohibit oversized shift.
 | RSH x y  := y < 64 -- Prohibit oversized shift.
 | ARSH x y := y < 64 -- Prohibit oversized shift.
+| END x y  := ff -- Disallow endianness conversion for now TODO
+| _ x y    := tt
+
+/-- Whether a particular ALU32 operation is allowed. -/
+def doALU32_scalar_check : ALU → i32 → i32 → bool
+| DIV x y  := y ≠ 0 -- Disallow division by zero.
+| MOD x y  := y ≠ 0 -- Disallow mod by zero.
+| LSH x y  := y < 32 -- Prohibit oversized shift.
+| RSH x y  := y < 32 -- Prohibit oversized shift.
+| ARSH x y := y < 32 -- Prohibit oversized shift.
 | END x y  := ff -- Disallow endianness conversion for now TODO
 | _ x y    := tt
 
@@ -252,8 +262,8 @@ One can use a tactic like the following to use these match simplification lemmas
 mk_simp_attribute match_simp "Simplification lemmas for multi-way matches."
 
 @[match_simp]
-def doALU_check : ALU → value → value → bool
-| op (value.scalar x) (value.scalar y) := doALU_scalar_check op x y
+def doALU64_check : ALU → value → value → bool
+| op (value.scalar x) (value.scalar y) := doALU64_scalar_check op x y
 
 | op (value.pointer _ _) (value.scalar _) := doALU_pointer_scalar_check op
 
@@ -266,36 +276,46 @@ def doALU_check : ALU → value → value → bool
 
 @[match_simp]
 private theorem doALU_check_pointer_def (op : ALU) {x m y} :
-  op.doALU_check x (value.pointer m y) = if op = ALU.MOV then tt else ff :=
+  op.doALU64_check x (value.pointer m y) = if op = ALU.MOV then tt else ff :=
 by cases x; refl
 
 @[match_simp]
 private theorem doALU_check_pointer_scalar (op : ALU) {x m y} :
-  op.doALU_check (value.pointer m x) (value.scalar y) = op.doALU_pointer_scalar_check :=
+  op.doALU64_check (value.pointer m x) (value.scalar y) = op.doALU_pointer_scalar_check :=
 by refl
 
 @[match_simp]
 private theorem doALU_check_scalar_def (op : ALU) (x y : i64) :
-  op.doALU_check (value.scalar x) (value.scalar y) = doALU_scalar_check op x y :=
+  op.doALU64_check (value.scalar x) (value.scalar y) = doALU64_scalar_check op x y :=
 by refl
 
 @[match_simp]
 private theorem doALU_check_mov_scalar_def {x} (y : i64) :
-  MOV.doALU_check x (value.scalar y) = tt :=
+  MOV.doALU64_check x (value.scalar y) = tt :=
 by cases x; refl
 
 @[match_simp]
 private theorem doALU_check_mov_pointer_def {x m} (y : i64) :
-  MOV.doALU_check x (value.pointer m y) = tt :=
+  MOV.doALU64_check x (value.pointer m y) = tt :=
 by cases x; refl
 
 @[match_simp]
 private theorem doALU_check_uninitialized_def (op : ALU) (a) :
-  op.doALU_check a value.uninitialized = ff:=
+  op.doALU64_check a value.uninitialized = ff:=
 by cases op; cases a; refl
 
+@[match_simp]
+def doALU32_check : ALU → value → value → bool
+| op (value.scalar x) (value.scalar y) := doALU32_scalar_check op (trunc32 x) (trunc32 y)
+
+/- It is legal to move scalars into uninitialized registers. -/
+| op _ (value.scalar _) := if op = ALU.MOV then tt else ff
+
+/- Remaining ops are illegal. -/
+| _ _ _       := ff
+
 /-- The result of an ALU operation. -/
-def doALU_scalar {n : ℕ} : ALU → (fin n → bool) → (fin n → bool) → (fin n → bool)
+private def doALU_scalar {n : ℕ} : ALU → (fin n → bool) → (fin n → bool) → (fin n → bool)
 | ADD x y  := x + y
 | SUB x y  := x - y
 | MUL x y  := x * y
@@ -311,6 +331,8 @@ def doALU_scalar {n : ℕ} : ALU → (fin n → bool) → (fin n → bool) → (
 | ARSH x y := bv.ashr x y
 | END x y  := x -- TODO
 
+def doALU64_scalar := @doALU_scalar 64
+
 @[match_simp]
 def doALU_pointer_scalar : ALU → memregion → i64 → i64 → value
 | ADD m off val := value.pointer m (off + val)
@@ -319,8 +341,8 @@ def doALU_pointer_scalar : ALU → memregion → i64 → i64 → value
 | _   m off _   := value.pointer m off
 
 @[match_simp]
-def doALU : ALU → value → value → value
-| op (value.scalar x) (value.scalar y) := value.scalar (op.doALU_scalar x y)
+def doALU64 : ALU → value → value → value
+| op (value.scalar x) (value.scalar y) := value.scalar (op.doALU64_scalar x y)
 | op (value.pointer m off) (value.scalar val) := op.doALU_pointer_scalar m off val
 
 /- MOV always returns src. -/
@@ -331,18 +353,18 @@ def doALU : ALU → value → value → value
 
 @[match_simp]
 private theorem doALU_MOV_def (x y : value) :
-  MOV.doALU x y = y :=
+  MOV.doALU64 x y = y :=
 by cases x; cases y; refl
 
 @[match_simp]
 private theorem doALU_scalar_def (op : ALU) (x y : i64) :
-  op.doALU (value.scalar x) (value.scalar y) = value.scalar (doALU_scalar op x y) :=
-by cases op; simp only [doALU]
+  op.doALU64 (value.scalar x) (value.scalar y) = value.scalar (doALU64_scalar op x y) :=
+by cases op; simp only [doALU64]
 
 @[match_simp]
 private theorem doALU_pointer_scalar_def (op : ALU) {m} (x y : i64) :
-  op.doALU (value.pointer m x) (value.scalar y) = op.doALU_pointer_scalar m x y :=
-by cases op; simp only [doALU]
+  op.doALU64 (value.pointer m x) (value.scalar y) = op.doALU_pointer_scalar m x y :=
+by cases op; simp only [doALU64]
 
 /--
 Perform a 32-bit ALU operation by truncating registers to 32 bits and zero-extending
@@ -351,6 +373,16 @@ the result back to 64 bits.
 @[reducible]
 def doALU32_scalar (op : ALU) (x y : i64) : i64 :=
 bv.concat (0 : i32) (doALU_scalar op (trunc32 x) (trunc32 y))
+
+@[match_simp]
+def doALU32 : ALU → value → value → value
+| op (value.scalar x) (value.scalar y) := value.scalar (doALU32_scalar op x y)
+
+/- MOV scalar into uninitialized is okay. -/
+| ALU.MOV _ (value.scalar src) := value.scalar $ bv.concat (0 : i32) (trunc32 src)
+
+/- Remaining illegal ops (for which ALU_check is ff) are nops here. -/
+| _ dst _ := dst
 
 end ALU
 
@@ -453,6 +485,8 @@ bit ordering accordingly.
 inductive instr : Type
 | ALU64_X : ALU → reg → reg → instr
 | ALU64_K : ALU → reg → msbvector 32 → instr
+| ALU32_X : ALU → reg → reg → instr
+| ALU32_K : ALU → reg → msbvector 32 → instr
 | JMP_X   : JMP → reg → reg → msbvector 16 → instr
 | JMP_K   : JMP → reg → msbvector 32 → msbvector 16 → instr
 | STX     : SIZE → reg → reg → msbvector 16 → instr
@@ -464,6 +498,8 @@ namespace instr
 private def repr' : instr → string
 | (ALU64_X op dst src)   := "ALU64_X " ++ repr op ++ " " ++ repr dst ++ " " ++ repr src
 | (ALU64_K op dst imm)   := "ALU64_K " ++ repr op ++ " " ++ repr dst ++ " " ++ repr imm
+| (ALU32_X op dst src)   := "ALU32_X " ++ repr op ++ " " ++ repr dst ++ " " ++ repr src
+| (ALU32_K op dst imm)   := "ALU32_K " ++ repr op ++ " " ++ repr dst ++ " " ++ repr imm
 | (JMP_X op dst src off) := "JMP_X " ++ repr op ++ " " ++ repr dst ++ " " ++ repr src ++ " " ++ repr off
 | (JMP_K op dst imm off) := "JMP_K " ++ repr op ++ " " ++ repr dst ++ " " ++ repr imm ++ " " ++ repr off
 | (STX size dst src off) := "STX " ++ repr size ++ " " ++ repr dst ++ " " ++ repr src ++ " " ++ repr off

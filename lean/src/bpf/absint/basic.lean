@@ -45,11 +45,11 @@ def gen_one_constraint (current : CTRL) : bpf.cfg.instr CTRL → list constraint
 | (bpf.cfg.instr.ALU64_X op dst src next) :=
   [{ target  := next,
      source  := current,
-     compute := (with_bot.lift_unary_relation (regs_abstr.do_alu op dst src)).op }]
+     compute := (with_bot.lift_unary_relation (regs_abstr.do_alu64 op dst src)).op }]
 | (bpf.cfg.instr.ALU64_K op dst imm next) :=
   [{ target  := next,
      source  := current,
-     compute := (with_bot.lift_unary_relation (regs_abstr.do_alu_imm op dst imm)).op }]
+     compute := (with_bot.lift_unary_relation (regs_abstr.do_alu64_imm op dst imm)).op }]
 | (bpf.cfg.instr.JMP_X op dst src if_true if_false) :=
   [{ target  := if_true,
      source  := current,
@@ -104,11 +104,15 @@ def gen_one_safety (p : PGRM) (current : CTRL) : bpf.cfg.instr CTRL → STATE �
 | i@(bpf.cfg.instr.ALU64_X op dst src next) :=
   λ mem,
     (lookup next p.code).is_some ∧
-    (with_bot.lift_unary_test (regs_abstr.do_alu_check op dst src)).test mem = tt
+    (with_bot.lift_unary_test (regs_abstr.do_alu64_check op dst src)).test mem = tt
 | i@(bpf.cfg.instr.ALU64_K op dst imm next) :=
   λ mem,
     (lookup next p.code).is_some ∧
-    (with_bot.lift_unary_test (regs_abstr.do_alu_imm_check op dst imm)).test mem = tt
+    (with_bot.lift_unary_test (regs_abstr.do_alu64_imm_check op dst imm)).test mem = tt
+| (bpf.cfg.instr.ALU32_X size dst src next) :=
+  λ _, (lookup next p.code).is_some ∧ false
+| (bpf.cfg.instr.ALU32_K size dst imm next) :=
+  λ _, (lookup next p.code).is_some ∧ false
 | (bpf.cfg.instr.JMP_X op dst src if_true if_false) :=
   λ mem,
     (lookup if_true p.code).is_some ∧
@@ -227,7 +231,7 @@ begin
       specialize approx (gen_one_constraint_mem fetch 0),
       simp only [constraint_holds, gen_one_constraint, list.nth_le] at approx,
       apply le_correct approx,
-      apply (with_bot.lift_unary_relation (regs_abstr.do_alu op dst src)).correct ih rfl },
+      apply (with_bot.lift_unary_relation (regs_abstr.do_alu64 op dst src)).correct ih rfl },
     case bpf.cfg.step.ALU64_K : s₀ op dst imm v next fetch check doalu {
       specialize ih s₀ rfl,
       clear tail,
@@ -236,7 +240,7 @@ begin
       specialize approx (gen_one_constraint_mem fetch 0),
       simp only [constraint_holds, gen_one_constraint, list.nth_le] at approx,
       apply le_correct approx,
-      apply (with_bot.lift_unary_relation (regs_abstr.do_alu_imm op dst imm)).correct ih rfl },
+      apply (with_bot.lift_unary_relation (regs_abstr.do_alu64_imm op dst imm)).correct ih rfl },
     case bpf.cfg.step.JMP_X : s₀ op dst src v if_true if_false fetch jmpcheck dojmp {
       specialize ih s₀ rfl,
       clear tail,
@@ -367,13 +371,13 @@ begin
     existsi _,
     apply bpf.cfg.step.ALU64_X _ fetch _ rfl,
     cases check_tt with _ check_tt,
-    exact (with_bot.lift_unary_test (regs_abstr.do_alu_check _ dst src)).test_sound check_tt rel },
+    exact (with_bot.lift_unary_test (regs_abstr.do_alu64_check _ dst src)).test_sound check_tt rel },
   case bpf.cfg.instr.ALU64_K : op dst imm next {
     simp only [absint.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
     existsi _,
     apply bpf.cfg.step.ALU64_K _ fetch _ rfl,
     cases check_tt with _ check_tt,
-    exact (with_bot.lift_unary_test (regs_abstr.do_alu_imm_check _ dst imm)).test_sound check_tt rel },
+    exact (with_bot.lift_unary_test (regs_abstr.do_alu64_imm_check _ dst imm)).test_sound check_tt rel },
   case bpf.cfg.instr.JMP_X : op dst src if_true if_false {
     simp only [absint.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
     rcases check_tt with ⟨-, -, check_tt⟩,
@@ -387,6 +391,12 @@ begin
     apply bpf.cfg.step.JMP_K _ fetch _ rfl,
     exact (with_bot.lift_unary_test (regs_abstr.do_jmp_imm_check _ dst _)).test_sound check_tt rel },
   case bpf.cfg.instr.STX {
+    simp only [gen_one_safety, to_bool_false_eq_ff, and_false] at check_tt,
+    cases check_tt },
+  case bpf.cfg.instr.ALU32_X {
+    simp only [gen_one_safety, to_bool_false_eq_ff, and_false] at check_tt,
+    cases check_tt },
+  case bpf.cfg.instr.ALU32_K {
     simp only [gen_one_safety, to_bool_false_eq_ff, and_false] at check_tt,
     cases check_tt },
   case bpf.cfg.instr.CALL {

@@ -273,6 +273,10 @@ begin
       apply step_alu64_x_increasing ih },
     case instr.ALU64_K : op dst imm next {
       apply step_alu64_k_increasing ih },
+    case instr.ALU32_X : op dst src next {
+      apply die_increasing },
+    case instr.ALU32_K : op dst imm next {
+      apply die_increasing },
     case instr.JMP_X : op r₁ r₂ if_true if_false {
       apply step_jmp64_x_increasing ih },
     case instr.JMP_K : op r₁ imm if_true if_false {
@@ -628,14 +632,14 @@ begin
   { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₃, simp only at r, rw [← r],
     apply symvalue.doALU_increasing },
 
-  have h₁ := symvalue.sat_doALU_check f₁ (pre.regs_ok dst) (pre.regs_ok src),
+  have h₁ := symvalue.sat_doALU64_check f₁ (pre.regs_ok dst) (pre.regs_ok src),
   have h₂ := assert_spec (of_le l₁ pre) h₁ f₂,
-  have h₃ := symvalue.sat_doALU f₃ (factory.sat_of_le (le_trans l₁ l₂) (pre.regs_ok dst))
+  have h₃ := symvalue.sat_doALU64 f₃ (factory.sat_of_le (le_trans l₁ l₂) (pre.regs_ok dst))
                            (factory.sat_of_le (le_trans l₁ l₂) (pre.regs_ok src)),
   specialize @ih _ _ c _
-      (asserts && (bimplies assumes (bpf.ALU.doALU_check op (concrete.regs dst) (concrete.regs src))))
+      (asserts && (bimplies assumes (bpf.ALU.doALU64_check op (concrete.regs dst) (concrete.regs src))))
       assumes
-      { regs := function.update concrete.regs dst (bpf.ALU.doALU op (concrete.regs dst) (concrete.regs src)),
+      { regs := function.update concrete.regs dst (bpf.ALU.doALU64 op (concrete.regs dst) (concrete.regs src)),
         pc := next,
         ..concrete }
        true.intro _ f₄,
@@ -700,14 +704,14 @@ begin
   { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₄, simp only at r, rw [← r],
     apply symvalue.doALU_increasing },
 
-  have h₂ := symvalue.sat_doALU_check f₂ (sat_of_le l₁ $ pre.regs_ok dst) (symvalue.sat_mk_scalar f₁),
+  have h₂ := symvalue.sat_doALU64_check f₂ (sat_of_le l₁ $ pre.regs_ok dst) (symvalue.sat_mk_scalar f₁),
   have h₃ := assert_spec (of_le (le_trans l₁ l₂) pre) h₂ f₃,
-  have h₄ := symvalue.sat_doALU f₄ (factory.sat_of_le (le_trans l₁ (le_trans l₂ l₃)) (pre.regs_ok dst))
+  have h₄ := symvalue.sat_doALU64 f₄ (factory.sat_of_le (le_trans l₁ (le_trans l₂ l₃)) (pre.regs_ok dst))
                            (factory.sat_of_le (le_trans l₂ l₃) (symvalue.sat_mk_scalar f₁)),
 
-  specialize @ih _ _ c _ (asserts && (bimplies assumes (bpf.ALU.doALU_check op (concrete.regs dst) (bpf.value.scalar imm.nth))))
+  specialize @ih _ _ c _ (asserts && (bimplies assumes (bpf.ALU.doALU64_check op (concrete.regs dst) (bpf.value.scalar imm.nth))))
                          assumes
-                         { regs := function.update concrete.regs dst (bpf.ALU.doALU op (concrete.regs dst) (bpf.value.scalar imm.nth)),
+                         { regs := function.update concrete.regs dst (bpf.ALU.doALU64 op (concrete.regs dst) (bpf.value.scalar imm.nth)),
                            pc := next,
                           ..concrete }
                          true.intro _ f₅,
@@ -874,6 +878,10 @@ begin
     cases instr; simp only [step_symeval._match_1] at mk,
     case ALU64_X { exact step_alu64_x_correct k_inc ih fetch_i pre mk },
     case ALU64_K { exact step_alu64_k_correct k_inc ih fetch_i pre mk },
+    case ALU32_X {
+      exact die_correct true.intro pre mk },
+    case ALU32_K {
+      exact die_correct true.intro pre mk },
     case JMP_X { exact step_jmp64_x_correct k_inc ih fetch_i pre mk },
     case JMP_K { exact step_jmp64_k_correct k_inc ih fetch_i pre mk },
     case STX {

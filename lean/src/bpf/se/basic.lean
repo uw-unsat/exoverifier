@@ -130,6 +130,8 @@ def step_symeval (cfg : CFG χ η) (o : erased bpf.oracle) (k : symstate β η �
     step_alu64_x cfg k op dst src next s
   | some (instr.ALU64_K op dst imm next) :=
     step_alu64_k cfg k op dst imm next s
+  | some (instr.ALU32_X op dst src next) := die
+  | some (instr.ALU32_K op dst imm next) := die
   | some (instr.JMP_X op r₁ r₂ if_true if_false) :=
     step_jmp64_x cfg k op r₁ r₂ if_true if_false s
   | some (instr.JMP_K op r₁ imm if_true if_false) :=

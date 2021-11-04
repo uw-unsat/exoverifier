@@ -147,7 +147,7 @@ begin
   constructor
 end
 
-private def doALU_scalar : Π (op : ALU) (a b : β), state γ β
+private def doALU64_scalar : Π (op : ALU) (a b : β), state γ β
 | ALU.ADD  := mk_add
 | ALU.AND  := mk_and
 | ALU.ARSH := mk_ashr
@@ -163,11 +163,11 @@ private def doALU_scalar : Π (op : ALU) (a b : β), state γ β
 | ALU.SUB  := mk_sub
 | ALU.XOR  := mk_xor
 
-private theorem sat_doALU_scalar ⦃g g' : γ⦄ ⦃op : ALU⦄ ⦃e₁ e₂ e₃ : β⦄ ⦃v₁ v₂ : bpf.i64⦄ :
-  (doALU_scalar op e₁ e₂).run g = (e₃, g') →
+private theorem sat_doALU6464_scalar ⦃g g' : γ⦄ ⦃op : ALU⦄ ⦃e₁ e₂ e₃ : β⦄ ⦃v₁ v₂ : bpf.i64⦄ :
+  (doALU64_scalar op e₁ e₂).run g = (e₃, g') →
   factory.sat g e₁ (⟨64, v₁⟩ : Σ (n : ℕ), fin n → bool) →
   factory.sat g e₂ (⟨64, v₂⟩ : Σ (n : ℕ), fin n → bool) →
-  factory.sat g' e₃ (⟨64, op.doALU_scalar v₁ v₂⟩ : Σ (n : ℕ), fin n → bool) :=
+  factory.sat g' e₃ (⟨64, op.doALU64_scalar v₁ v₂⟩ : Σ (n : ℕ), fin n → bool) :=
 begin
   intros mk sat₁ sat₂,
   cases op,
@@ -194,7 +194,7 @@ private def doALU_pointer_scalar : Π (op : ALU) (m : bpf.memregion) (off val : 
 | ALU.MOV  m off val := pure $ symvalue.scalar val
 | _        m off _   := pure $ symvalue.pointer m off
 
-private theorem sat_doALU_pointer_scalar ⦃g g' : γ⦄ ⦃op : ALU⦄ ⦃m : bpf.memregion⦄ ⦃e₁ e₂ : β⦄ ⦃v₁ v₂ : bpf.i64⦄ ⦃e₃ : symvalue β⦄ :
+private theorem sat_doALU64_pointer_scalar ⦃g g' : γ⦄ ⦃op : ALU⦄ ⦃m : bpf.memregion⦄ ⦃e₁ e₂ : β⦄ ⦃v₁ v₂ : bpf.i64⦄ ⦃e₃ : symvalue β⦄ :
   (doALU_pointer_scalar op m e₁ e₂).run g = (e₃, g') →
   factory.sat g e₁ (⟨64, v₁⟩ : Σ (n : ℕ), fin n → bool) →
   factory.sat g e₂ (⟨64, v₂⟩ : Σ (n : ℕ), fin n → bool) →
@@ -220,14 +220,14 @@ end
 
 @[match_simp]
 def doALU : Π (op : ALU) (a b : symvalue β), state γ (symvalue β)
-| op      (symvalue.scalar x)      (symvalue.scalar y)   := symvalue.scalar <$> doALU_scalar op x y
+| op      (symvalue.scalar x)      (symvalue.scalar y)   := symvalue.scalar <$> doALU64_scalar op x y
 | op      (symvalue.pointer m off) (symvalue.scalar val) := doALU_pointer_scalar op m off val
 | ALU.MOV _                        b                     := pure b
 | _       a                        _                     := pure a
 
 @[match_simp]
-private theorem doALU_scalar_def {op : ALU} {x y : β} :
-  (doALU op (symvalue.scalar x) (symvalue.scalar y) : state γ _) = symvalue.scalar <$> doALU_scalar op x y :=
+private theorem doALU64_scalar_def {op : ALU} {x y : β} :
+  (doALU op (symvalue.scalar x) (symvalue.scalar y) : state γ _) = symvalue.scalar <$> doALU64_scalar op x y :=
 by cases op; refl
 
 @[match_simp]
@@ -272,11 +272,11 @@ begin
   case XOR { apply increasing_map, apply le_mk_xor }
 end
 
-theorem sat_doALU ⦃g g' : γ⦄ ⦃op : ALU⦄ ⦃e₁ e₂ e₃ : symvalue β⦄ ⦃v₁ v₂ : bpf.value⦄ :
+theorem sat_doALU64 ⦃g g' : γ⦄ ⦃op : ALU⦄ ⦃e₁ e₂ e₃ : symvalue β⦄ ⦃v₁ v₂ : bpf.value⦄ :
   (doALU op e₁ e₂).run g = (e₃, g') →
   sat g  e₁ v₁ →
   sat g  e₂ v₂ →
-  sat g' e₃ (bpf.ALU.doALU op v₁ v₂) :=
+  sat g' e₃ (bpf.ALU.doALU64 op v₁ v₂) :=
 begin
   intros mk sat₁ sat₂,
   cases sat₁,
@@ -288,7 +288,7 @@ begin
       cases op; cases mk; exact sat₁ <|> exact sat₂ },
     case sat_scalar {
       simp only with match_simp at mk ⊢,
-      apply sat_doALU_pointer_scalar mk,
+      apply sat_doALU64_pointer_scalar mk,
       assumption,
       assumption } },
   case sat.sat_uninitialized {
@@ -304,13 +304,13 @@ begin
   cases mk,
   simp only with match_simp,
   constructor,
-  apply sat_doALU_scalar,
+  apply sat_doALU6464_scalar,
   { rw prod.mk.eta },
   { assumption },
   { assumption }
 end
 
-private def doALU_scalar_check : Π (op : ALU) (a b : β), state γ β
+private def doALU64_scalar_check : Π (op : ALU) (a b : β), state γ β
 | ALU.DIV _ y  := mk_redor y
 | ALU.MOD _ y  := mk_redor y
 | ALU.LSH _ y  := mk_const (vector.of_fn 64 : lsbvector 64) >>= mk_ult y
@@ -327,7 +327,7 @@ private def doALU_pointer_scalar_check : Π (op : ALU), state γ β
 
 @[match_simp]
 def doALU_check : Π (op : ALU) (a b : symvalue β), state γ β
-| op (symvalue.scalar x) (symvalue.scalar y) := doALU_scalar_check op x y
+| op (symvalue.scalar x) (symvalue.scalar y) := doALU64_scalar_check op x y
 | op (symvalue.pointer m x) (symvalue.scalar y) := doALU_pointer_scalar_check op
 | op _ (symvalue.scalar _) := if op = ALU.MOV then mk_true else mk_false
 | op _ (symvalue.pointer _ _) := if op = ALU.MOV then mk_true else mk_false
@@ -335,7 +335,7 @@ def doALU_check : Π (op : ALU) (a b : symvalue β), state γ β
 
 @[match_simp]
 private theorem doALU_check_scalar_scalar_def {op : ALU} {x y : β} :
-  (doALU_check op (symvalue.scalar x) (symvalue.scalar y) : state γ _) = doALU_scalar_check op x y :=
+  (doALU_check op (symvalue.scalar x) (symvalue.scalar y) : state γ _) = doALU64_scalar_check op x y :=
 by cases op; refl
 
 @[match_simp]
@@ -355,27 +355,27 @@ begin
   case DIV { apply le_mk_redor },
   case MOD { apply le_mk_redor },
   case LSH {
-    simp only [doALU_scalar_check],
+    simp only [doALU64_scalar_check],
     apply increasing_bind; intros,
     apply le_mk_const,
     apply le_mk_ult },
   case RSH {
-    simp only [doALU_scalar_check],
+    simp only [doALU64_scalar_check],
     apply increasing_bind; intros,
     apply le_mk_const,
     apply le_mk_ult },
   case ARSH {
-    simp only [doALU_scalar_check],
+    simp only [doALU64_scalar_check],
     apply increasing_bind; intros,
     apply le_mk_const,
     apply le_mk_ult }
 end
 
-theorem sat_doALU_check ⦃g g' : γ⦄ ⦃op : bpf.ALU⦄ ⦃e₁ e₂ : symvalue β⦄ ⦃e₃ : β⦄ ⦃v₁ v₂ : bpf.value⦄ :
+theorem sat_doALU64_check ⦃g g' : γ⦄ ⦃op : bpf.ALU⦄ ⦃e₁ e₂ : symvalue β⦄ ⦃e₃ : β⦄ ⦃v₁ v₂ : bpf.value⦄ :
   (doALU_check op e₁ e₂).run g = (e₃, g') →
   sat g e₁ v₁ →
   sat g e₂ v₂ →
-  factory.sat g' e₃ (⟨1, λ _, bpf.ALU.doALU_check op v₁ v₂⟩ : Σ (n : ℕ), fin n → bool) :=
+  factory.sat g' e₃ (⟨1, λ _, bpf.ALU.doALU64_check op v₁ v₂⟩ : Σ (n : ℕ), fin n → bool) :=
 begin
   intros mk sat₁ sat₂,
   cases sat₂,
@@ -397,17 +397,17 @@ begin
     simp only with match_simp at mk ⊢,
     cases op,
     case LSH {
-      simp only [ALU.doALU_scalar_check, doALU_scalar_check, state_t.run_bind] at mk ⊢,
+      simp only [ALU.doALU64_scalar_check, doALU64_scalar_check, state_t.run_bind] at mk ⊢,
       have h := sat_mk_ult mk (factory.sat_of_le le_mk_const sat₂') (sat_mk_const (by rw [prod.mk.eta])),
       simp only [vector.nth_of_fn_ext] at h,
       exact h },
     case RSH {
-      simp only [ALU.doALU_scalar_check, doALU_scalar_check, state_t.run_bind] at mk ⊢,
+      simp only [ALU.doALU64_scalar_check, doALU64_scalar_check, state_t.run_bind] at mk ⊢,
       have h := sat_mk_ult mk (factory.sat_of_le le_mk_const sat₂') (sat_mk_const (by rw [prod.mk.eta])),
       simp only [vector.nth_of_fn_ext] at h,
       exact h },
     case ARSH {
-      simp only [ALU.doALU_scalar_check, doALU_scalar_check, state_t.run_bind] at mk ⊢,
+      simp only [ALU.doALU64_scalar_check, doALU64_scalar_check, state_t.run_bind] at mk ⊢,
       have h := sat_mk_ult mk (factory.sat_of_le le_mk_const sat₂') (sat_mk_const (by rw [prod.mk.eta])),
       simp only [vector.nth_of_fn_ext] at h,
       exact h },

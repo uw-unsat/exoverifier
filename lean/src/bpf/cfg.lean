@@ -28,6 +28,8 @@ section syntax
 inductive instr (α : Type*)
 | ALU64_X : ALU → reg → reg → α → instr
 | ALU64_K : ALU → reg → lsbvector 64 → α → instr
+| ALU32_X : ALU → reg → reg → α → instr
+| ALU32_K : ALU → reg → lsbvector 32 → α → instr
 | JMP_X   : JMP → reg → reg → α → α → instr
 | JMP_K   : JMP → reg → lsbvector 64 → α → α → instr
 | STX     : SIZE → reg → reg → lsbvector 64 → α → instr
@@ -40,6 +42,8 @@ variable {α : Type*}
 private meta def to_pexpr' [has_to_pexpr α] : instr α → pexpr
 | (ALU64_X op dst src next) := ``(ALU64_X %%op %%dst %%src %%next)
 | (ALU64_K op dst imm next) := ``(ALU64_K %%op %%dst %%imm %%next)
+| (ALU32_X op dst src next) := ``(ALU32_X %%op %%dst %%src %%next)
+| (ALU32_K op dst imm next) := ``(ALU32_K %%op %%dst %%imm %%next)
 | (JMP_X op r₁ r₂ if_true if_false) := ``(JMP_X %%op %%r₁ %%r₂ %%if_true %%if_false)
 | (JMP_K op r₁ imm if_true if_false) := ``(JMP_K %%op %%r₁ %%imm %%if_true %%if_false)
 | (STX size dst src off next) := ``(STX %%size %%dst %%src %%off %%next)
@@ -51,6 +55,8 @@ meta instance [has_to_pexpr α] : has_to_pexpr (instr α) := ⟨to_pexpr'⟩
 private def repr' [has_repr α] : instr α → string
 | (ALU64_X op dst src next)          := "ALU64_X(" ++ repr op ++ ", " ++ repr dst ++ ", " ++ repr src ++ ", " ++ repr next ++ ")"
 | (ALU64_K op dst imm next)          := "ALU64_K(" ++ repr op ++ ", " ++ repr dst ++ ", " ++ repr imm ++ ", " ++ repr next ++ ")"
+| (ALU32_X op dst src next)          := "ALU32_X(" ++ repr op ++ ", " ++ repr dst ++ ", " ++ repr src ++ ", " ++ repr next ++ ")"
+| (ALU32_K op dst imm next)          := "ALU32_K(" ++ repr op ++ ", " ++ repr dst ++ ", " ++ repr imm ++ ", " ++ repr next ++ ")"
 | (JMP_X op r1 r2 if_true if_false)  := "JMP_X(" ++ repr op ++ ", " ++ repr r1 ++ ", " ++ repr r2 ++ ", " ++ repr if_true ++ ", " ++ repr if_false ++ ")"
 | (JMP_K op r1 imm if_true if_false) := "JMP_K(" ++ repr op ++ ", " ++ repr r1 ++ ", " ++ repr imm ++ ", " ++ repr if_true ++ ", " ++ repr if_false ++ ")"
 | (STX size dst src off next)        := "STX(" ++ repr size ++ ", " ++ repr dst ++ ", " ++ repr src ++ ", " ++ repr off ++ ", " ++ repr next ++ ")"
@@ -146,6 +152,10 @@ private def decode_flat_instr (cur : num) (pr : trie (instr pos_num)) : bpf.inst
 | (bpf.instr.ALU64_K op dst imm) :=
   let imm64 := msb_imm32_sext_to_lsb_imm64 imm in
   pr.kinsert cur.succ' (instr.ALU64_K op dst imm64 (cur + 1).succ')
+| (bpf.instr.ALU32_X op dst src) :=
+  pr.kinsert cur.succ' (instr.ALU32_X op dst src (cur + 1).succ')
+| (bpf.instr.ALU32_K op dst imm) :=
+  pr.kinsert cur.succ' (instr.ALU32_K op dst imm (cur + 1).succ')
 | (bpf.instr.STX op dst src off) :=
   let off64 := msb_imm16_sext_to_lsb_imm64 off in
   pr.kinsert cur.succ' (instr.STX op dst src off64 (cur + 1).succ')
@@ -196,14 +206,14 @@ inductive step (cfg : CFG χ α) (o : oracle) : state α → state α → Prop
 | ALU64_X :
   ∀ (s : runstate α) {op : ALU} {dst src : reg} {v : value} {next : α},
     lookup s.pc cfg.code = some (instr.ALU64_X op dst src next) →
-    ALU.doALU_check op (s.regs dst) (s.regs src) = tt →
-    ALU.doALU op (s.regs dst) (s.regs src) = v →
+    ALU.doALU64_check op (s.regs dst) (s.regs src) = tt →
+    ALU.doALU64 op (s.regs dst) (s.regs src) = v →
     step (state.running s) (state.running { pc := next, regs := function.update s.regs dst v, ..s })
 | ALU64_K :
   ∀ (s : runstate α) {op : ALU} {dst : reg} {imm : lsbvector 64} {v : value} {next : α},
     lookup s.pc cfg.code = some (instr.ALU64_K op dst imm next) →
-    ALU.doALU_check op (s.regs dst) (value.scalar imm.nth) = tt →
-    ALU.doALU op (s.regs dst) (value.scalar imm.nth) = v →
+    ALU.doALU64_check op (s.regs dst) (value.scalar imm.nth) = tt →
+    ALU.doALU64 op (s.regs dst) (value.scalar imm.nth) = v →
     step (state.running s) (state.running { pc := next, regs := function.update s.regs dst v, ..s })
 | JMP_X :
   ∀ (s : runstate α) {op : JMP} {r₁ r₂ : reg} {c : bool} {if_true if_false : α},
@@ -233,7 +243,7 @@ theorem do_step_alu64_x {cfg : CFG χ α} {o : oracle} :
     lookup s.pc cfg.code = some (instr.ALU64_X op dst src next) →
     ∀ {s' : state α},
       step cfg o (state.running s) s' →
-      s' = state.running { pc := next, regs := function.update s.regs dst (ALU.doALU op (s.regs dst) (s.regs src)), ..s } :=
+      s' = state.running { pc := next, regs := function.update s.regs dst (ALU.doALU64 op (s.regs dst) (s.regs src)), ..s } :=
 begin
   intros _ _ _ _ _ fetch _ step₁,
   cases step₁,
@@ -272,7 +282,7 @@ theorem do_step_alu64_k {cfg : CFG χ α} {o : oracle} :
     lookup s.pc cfg.code = some (instr.ALU64_K op dst imm next) →
     ∀ {s' : state α},
       step cfg o (state.running s) s' →
-      s' = state.running { pc := next, regs := function.update s.regs dst (ALU.doALU op (s.regs dst) (value.scalar imm.nth)), ..s } :=
+      s' = state.running { pc := next, regs := function.update s.regs dst (ALU.doALU64 op (s.regs dst) (value.scalar imm.nth)), ..s } :=
 begin
   intros _ _ _ _ _ fetch _ step₁,
   cases step₁,

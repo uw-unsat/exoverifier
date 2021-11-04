@@ -24,24 +24,24 @@ class regs_abstr (α : Type*) extends
   abstr_join (bpf.reg → bpf.value) α α :=
 
 -- Do a reg-reg ALU op.
-(do_alu (op : bpf.ALU) (dst src : bpf.reg) :
+(do_alu64 (op : bpf.ALU) (dst src : bpf.reg) :
   abstr_unary_transfer
-    (λ (cregs : bpf.reg → bpf.value), function.update cregs dst (bpf.ALU.doALU op (cregs dst) (cregs src)))
+    (λ (cregs : bpf.reg → bpf.value), function.update cregs dst (bpf.ALU.doALU64 op (cregs dst) (cregs src)))
     α α)
 
 -- Check if an ALU op is legal.
-(do_alu_check (op : bpf.ALU) (dst src : bpf.reg) :
-  abstr_unary_test (λ (cregs : bpf.reg → bpf.value), bpf.ALU.doALU_check op (cregs dst) (cregs src)) α)
+(do_alu64_check (op : bpf.ALU) (dst src : bpf.reg) :
+  abstr_unary_test (λ (cregs : bpf.reg → bpf.value), bpf.ALU.doALU64_check op (cregs dst) (cregs src)) α)
 
 -- Do an ALU op with an immediate.
-(do_alu_imm (op : bpf.ALU) (dst : bpf.reg) (imm : lsbvector 64) :
+(do_alu64_imm (op : bpf.ALU) (dst : bpf.reg) (imm : lsbvector 64) :
   abstr_unary_transfer
-    (λ (cregs : bpf.reg → bpf.value), function.update cregs dst (bpf.ALU.doALU op (cregs dst) (bpf.value.scalar imm.nth)))
+    (λ (cregs : bpf.reg → bpf.value), function.update cregs dst (bpf.ALU.doALU64 op (cregs dst) (bpf.value.scalar imm.nth)))
     α α)
 
 -- Check if an ALU op is legal.
-(do_alu_imm_check (op : bpf.ALU) (dst : bpf.reg) (imm : lsbvector 64) :
-  abstr_unary_test (λ (cregs : bpf.reg → bpf.value), bpf.ALU.doALU_check op (cregs dst) (bpf.value.scalar imm.nth)) α)
+(do_alu64_imm_check (op : bpf.ALU) (dst : bpf.reg) (imm : lsbvector 64) :
+  abstr_unary_test (λ (cregs : bpf.reg → bpf.value), bpf.ALU.doALU64_check op (cregs dst) (bpf.value.scalar imm.nth)) α)
 
 -- Check if a JMP is legal on some operands.
 (do_jmp_check (op : bpf.JMP) (dst src : bpf.reg) :
@@ -121,30 +121,30 @@ instance : abstr_join (bpf.reg → bpf.value) (aregs β) (aregs β) :=
     { right,
       exact h₁ r } } }
 
-private def do_alu_check (op : bpf.ALU) (dst src : bpf.reg) :
+private def do_alu64_check (op : bpf.ALU) (dst src : bpf.reg) :
   abstr_unary_test
-    (λ (cregs : bpf.reg → bpf.value), op.doALU_check (cregs dst) (cregs src))
+    (λ (cregs : bpf.reg → bpf.value), op.doALU64_check (cregs dst) (cregs src))
     (aregs β) :=
-{ test := λ (l : aregs β), (value_abstr.doALU_check op).test (interpret l dst) (interpret l src),
+{ test := λ (l : aregs β), (value_abstr.doALU64_check op).test (interpret l dst) (interpret l src),
   test_sound := by {
     intros _ _ h₁ h₂,
-    apply (value_abstr.doALU_check op).test_sound h₁ (h₂ _) (h₂ _) } }
+    apply (value_abstr.doALU64_check op).test_sound h₁ (h₂ _) (h₂ _) } }
 
-private def do_alu_imm_check (op : bpf.ALU) (dst : bpf.reg) (imm : lsbvector 64) :
+private def do_alu64_imm_check (op : bpf.ALU) (dst : bpf.reg) (imm : lsbvector 64) :
   abstr_unary_test
-    (λ (cregs : bpf.reg → bpf.value), op.doALU_check (cregs dst) (bpf.value.scalar imm.nth))
+    (λ (cregs : bpf.reg → bpf.value), op.doALU64_check (cregs dst) (bpf.value.scalar imm.nth))
     (aregs β) :=
-{ test := λ (l : aregs β), (value_abstr.doALU_check op).test (interpret l dst) (value_abstr.const (bpf.value.scalar imm.nth)).op,
+{ test := λ (l : aregs β), (value_abstr.doALU64_check op).test (interpret l dst) (value_abstr.const (bpf.value.scalar imm.nth)).op,
   test_sound := by {
     intros _ _ h₁ h₂,
-    apply (value_abstr.doALU_check op).test_sound h₁ (h₂ _) _,
+    apply (value_abstr.doALU64_check op).test_sound h₁ (h₂ _) _,
     apply (value_abstr.const _).correct rfl } }
 
-private def do_alu (op : bpf.ALU) (dst src : bpf.reg) :
+private def do_alu64 (op : bpf.ALU) (dst src : bpf.reg) :
   abstr_unary_transfer
-    (λ (cregs : bpf.reg → bpf.value), function.update cregs dst (bpf.ALU.doALU op (cregs dst) (cregs src)))
+    (λ (cregs : bpf.reg → bpf.value), function.update cregs dst (bpf.ALU.doALU64 op (cregs dst) (cregs src)))
     (aregs β) (aregs β) :=
-{ op      := λ (l : aregs β), l.update_nth dst.to_fin ((value_abstr.doALU op).op (interpret l dst) (interpret l src)),
+{ op      := λ (l : aregs β), l.update_nth dst.to_fin ((value_abstr.doALU64 op).op (interpret l dst) (interpret l src)),
   correct := by {
     intros _ _ _ h₁ h r,
     subst h,
@@ -152,16 +152,16 @@ private def do_alu (op : bpf.ALU) (dst src : bpf.reg) :
     split_ifs with h,
     { subst h,
       simp only [interpret, option.get_or_else_some, vector.nth_update_nth_same],
-      exact (value_abstr.doALU op).correct (h₁ r) (h₁ src) rfl },
+      exact (value_abstr.doALU64 op).correct (h₁ r) (h₁ src) rfl },
     { simp only [interpret],
       rw [vector.nth_update_nth_of_ne (bpf.reg.to_fin_ne_of_ne (ne.symm h))],
       exact h₁ r } } }
 
-private def do_alu_imm (op : bpf.ALU) (dst : bpf.reg) (imm : lsbvector 64) :
+private def do_alu64_imm (op : bpf.ALU) (dst : bpf.reg) (imm : lsbvector 64) :
   abstr_unary_transfer
-    (λ (cregs : bpf.reg → bpf.value), function.update cregs dst (bpf.ALU.doALU op (cregs dst) (bpf.value.scalar imm.nth)))
+    (λ (cregs : bpf.reg → bpf.value), function.update cregs dst (bpf.ALU.doALU64 op (cregs dst) (bpf.value.scalar imm.nth)))
     (aregs β) (aregs β) :=
-{ op      := λ (l : aregs β), l.update_nth dst.to_fin ((value_abstr.doALU op).op (interpret l dst) (value_abstr.const (bpf.value.scalar imm.nth)).op),
+{ op      := λ (l : aregs β), l.update_nth dst.to_fin ((value_abstr.doALU64 op).op (interpret l dst) (value_abstr.const (bpf.value.scalar imm.nth)).op),
   correct := by {
     intros _ _ _ h₁ h r,
     subst h,
@@ -169,7 +169,7 @@ private def do_alu_imm (op : bpf.ALU) (dst : bpf.reg) (imm : lsbvector 64) :
     split_ifs with h,
     { subst h,
       simp only [interpret, option.get_or_else_some, vector.nth_update_nth_same],
-      exact (value_abstr.doALU op).correct (h₁ r) ((value_abstr.const _).correct rfl) rfl },
+      exact (value_abstr.doALU64 op).correct (h₁ r) ((value_abstr.const _).correct rfl) rfl },
     { simp only [interpret],
       rw [vector.nth_update_nth_of_ne (bpf.reg.to_fin_ne_of_ne (ne.symm h))],
       exact h₁ r } } }
@@ -286,17 +286,17 @@ private def do_call_check (func : bpf.BPF_FUNC) :
     simp only [bpf.BPF_FUNC.do_call_check, coe_sort_tt] } }
 
 instance : regs_abstr (aregs β) :=
-{ const            := const,
-  do_alu           := do_alu,
-  do_call          := do_call,
-  do_call_check    := do_call_check,
-  do_alu_check     := do_alu_check,
-  do_alu_imm       := do_alu_imm,
-  do_alu_imm_check := do_alu_imm_check,
-  do_jmp_imm_check := do_jmp_imm_check,
-  invert_jmp_tt    := invert_jmp_tt,
-  is_scalar        := is_scalar,
-  do_jmp_check     := do_jmp_check }
+{ const              := const,
+  do_alu64           := do_alu64,
+  do_call            := do_call,
+  do_call_check      := do_call_check,
+  do_alu64_check     := do_alu64_check,
+  do_alu64_imm       := do_alu64_imm,
+  do_alu64_imm_check := do_alu64_imm_check,
+  do_jmp_imm_check   := do_jmp_imm_check,
+  invert_jmp_tt      := invert_jmp_tt,
+  is_scalar          := is_scalar,
+  do_jmp_check       := do_jmp_check }
 
 end nonrelational
 end absint

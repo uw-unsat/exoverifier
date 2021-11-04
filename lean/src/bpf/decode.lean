@@ -93,6 +93,16 @@ private def decode_op : msbvector 32 → msbvector 16 → reg → reg → list b
   op ← decode_alu_op [op₁, op₂, op₃, op₄],
   some $ instr.ALU64_K op dst imm
 
+/- BPF_ALU(32) | BPF_X -/
+| imm off dst src [op₁, op₂, op₃, op₄, tt, tt, ff, ff] := do
+  op ← decode_alu_op [op₁, op₂, op₃, op₄],
+  some $ instr.ALU32_X op dst src
+
+/- BPF_ALU(32) | BPF_K -/
+| imm off dst src [op₁, op₂, op₃, op₄, ff, tt, ff, ff] := do
+  op ← decode_alu_op [op₁, op₂, op₃, op₄],
+  some $ instr.ALU32_K op dst imm
+
 /- BPF_MEM | BPF_STX -/
 | imm off dst src [ff, tt, tt, size₁, size₂, ff, tt, tt] := do
   size ← decode_mem_size [size₁, size₂],
