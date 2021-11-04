@@ -1,11 +1,13 @@
 #lang rosette
 
-(require "../lib/verifier.rkt"
+(require "../../lib/verifier.rkt"
          rosette/lib/roseunit
          serval/lib/debug
          serval/lib/solver
          serval/lib/unittest
          (prefix-in bpf: serval/bpf))
+
+(provide (all-defined-out))
 
 ; Check that the assumptions are satisfiable
 (define (test-assumptions-satisfiable)
@@ -48,17 +50,7 @@
 
 (define verifier-tests
   (test-suite+ "Verifier tests"
-               (test-case+ "Test assumptions satisfiable" (test-assumptions-satisfiable))
-               (test-case+ "test ALU ADD X" (test-insn '(BPF_ALU BPF_ADD BPF_X)))
-               (test-case+ "test ALU64 ADD X" (test-insn '(BPF_ALU64 BPF_ADD BPF_X)))
-               (test-case+ "test ALU SUB X" (test-insn '(BPF_ALU BPF_SUB BPF_X)))
-               (test-case+ "test ALU64 SUB X" (test-insn '(BPF_ALU64 BPF_SUB BPF_X)))
-               (test-case+ "test ALU AND X" (test-insn '(BPF_ALU BPF_AND BPF_X)))
-               (test-case+ "test ALU64 AND X" (test-insn '(BPF_ALU64 BPF_AND BPF_X)))
-               (test-case+ "test ALU OR X" (test-insn '(BPF_ALU BPF_OR BPF_X)))
-               (test-case+ "test ALU64 OR X" (test-insn '(BPF_ALU64 BPF_OR BPF_X)))
-               (test-case+ "test ALU XOR X" (test-insn '(BPF_ALU BPF_XOR BPF_X)))
-               (test-case+ "test ALU64 XOR X" (test-insn '(BPF_ALU64 BPF_XOR BPF_X)))))
+               (test-case+ "Test assumptions satisfiable" (test-assumptions-satisfiable))))
 
 (module+ test
   (time (with-prefer-boolector (run-tests verifier-tests))))
