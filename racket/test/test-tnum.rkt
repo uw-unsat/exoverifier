@@ -99,7 +99,7 @@
   (define a (fresh-tnum 64))
 
   (define b (tnum-cast a (bv 4 64)))
-  (assert (tnum-valid? b))
+  (bug-assert (tnum-valid? b))
 
   (define-symbolic* c (bitvector 64))
   (bug-assert (=> (tnum-contains? a c) (tnum-contains? b (concat (bv 0 32) (extract 31 0 c))))))
@@ -108,6 +108,28 @@
   (define a (fresh-tnum n))
   (define-symbolic* x y (bitvector n))
   (bug-assert (=> (&& (tnum-is-const? a) (tnum-contains? a x) (tnum-contains? a y)) (equal? x y))))
+
+(define (test-clear-subreg)
+  (define a (fresh-tnum 64))
+  (define-symbolic* x (bitvector 64))
+  (define b (tnum-clear-subreg a))
+  (bug-assert (tnum-valid? b))
+  (bug-assert (=> (tnum-contains? a x) (tnum-contains? b (concat (extract 63 32 x) (bv 0 32))))))
+
+(define (test-subreg-is-const)
+  (define a (fresh-tnum 64))
+  (define-symbolic* x y (bitvector 64))
+  (bug-assert (=> (&& (tnum-is-const? a) (tnum-contains? a x) (tnum-contains? a y))
+                  (equal? (extract 31 0 x) (extract 31 0 y)))))
+
+(define (test-const-subreg)
+  (define a (fresh-tnum 64))
+  (define-symbolic* x y (bitvector 64))
+  (define-symbolic* imm (bitvector 32))
+  (define b (tnum-const-subreg a imm))
+  (bug-assert (tnum-valid? b))
+  (bug-assert (=> (tnum-contains? a x) (tnum-contains? b (concat (extract 63 32 x) imm))))
+  (bug-assert (=> (tnum-contains? b x) (equal? (extract 31 0 x) imm))))
 
 (define (test-is-unknown n)
   (define a (fresh-tnum n))
@@ -140,6 +162,9 @@
    (test-case+ "Test constant tnums" (test-const (N)))
    (test-case+ "Test tnum range" (test-range (N)))
    (test-case+ "Test tnum is-const" (test-is-const (N)))
+   (test-case+ "Test tnum subreg-is-const" (test-subreg-is-const))
+   (test-case+ "Test tnum clear-subreg" (test-subreg-is-const))
+   (test-case+ "Test tnum const-subreg" (test-const-subreg))
    (test-case+ "Test tnum is-unknown" (test-is-unknown (N)))
    (test-case+ "Test tnum in (subset)" (test-in (N)))
    (test-case+ "Test intersection of tnums" (test-intersect (N)))

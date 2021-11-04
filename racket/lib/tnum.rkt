@@ -47,6 +47,10 @@
 ; Whether a tnum represents just a single constant.
 (define (tnum-is-const? a) (bvzero? (tnum-mask a)))
 
+; Whether the lower 32 bits of a tnum are constant.
+(define (tnum-subreg-is-const? a)
+  (bvzero? (tnum-mask (tnum-subreg a))))
+
 ; Whether a tnum is completely unknown.
 (define (tnum-is-unknown? a) (bvzero? (bvnot (tnum-mask a))))
 
@@ -215,6 +219,15 @@
 (define (tnum-subreg a)
   (define N (bitvector-size (type-of (tnum-value a))))
   (tnum-cast a (bv 4 N)))
+
+; Clear the lower 32 bits of a tnum
+(define (tnum-clear-subreg a)
+  (define N (bitvector-size (type-of (tnum-value a))))
+  (tnum-lshift (tnum-rshift a (bv 32 N)) (bv 32 N)))
+
+; Make a tnum by setting the lower 32 bits of "a" to the constant "value".
+(define (tnum-const-subreg a value)
+  (tnum-or (tnum-clear-subreg a) (tnum-const (zero-extend value (bitvector 64)))))
 
 ; Return whether tnum b is a subset of tnum a.
 (define (tnum-in a b)
