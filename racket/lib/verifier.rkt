@@ -252,6 +252,15 @@
 ; NB: "signed_add_overflows" works with any bitwidth.
 (define signed_add32_overflows signed_add_overflows)
 
+(define (signed_sub_overflows a b)
+  (define N (bitvector-size (type-of a)))
+  (define res (bvsub a b))
+  (cond
+    [(bvslt b (bv 0 N)) (bvslt res a)]
+    [else (bvsgt res a)]))
+
+(define signed_sub32_overflows signed_sub_overflows)
+
 ; Whether concrete state "cpu" is approximated by "env".
 (define (bpf-verifier-env-contains? env cpu)
   (define regs (bpf-verifier-env-regs env))
@@ -311,8 +320,51 @@
      (set-bpf-reg-state-u32-max-val! dst (bvadd (bpf-reg-state-u32-max-val dst) umax-val))]))
 
 ; Compute new bounds for BPF_SUB
-(define (scalar32_min_max_sub dst src) (__mark_reg_unbounded dst))
-(define (scalar_min_max_sub dst src) (__mark_reg_unbounded dst))
+(define (scalar32_min_max_sub dst src)
+  (define smin-val (bpf-reg-state-s32-min-val src))
+  (define smax-val (bpf-reg-state-s32-max-val src))
+  (define umin-val (bpf-reg-state-u32-min-val src))
+  (define umax-val (bpf-reg-state-u32-max-val src))
+
+  (cond
+    [(|| (signed_sub32_overflows (bpf-reg-state-s32-min-val dst) smax-val)
+         (signed_sub32_overflows (bpf-reg-state-s32-max-val dst) smin-val))
+     (set-bpf-reg-state-s32-min-val! dst S32_MIN)
+     (set-bpf-reg-state-s32-max-val! dst S32_MAX)]
+    [else
+     (set-bpf-reg-state-s32-min-val! dst (bvsub (bpf-reg-state-s32-min-val dst) smax-val))
+     (set-bpf-reg-state-s32-max-val! dst (bvsub (bpf-reg-state-s32-max-val dst) smin-val))])
+
+  (cond
+    [(bvult (bpf-reg-state-u32-min-val dst) umax-val)
+     (set-bpf-reg-state-u32-min-val! dst (bv 0 32))
+     (set-bpf-reg-state-u32-max-val! dst U32_MAX)]
+    [else
+     (set-bpf-reg-state-u32-min-val! dst (bvsub (bpf-reg-state-u32-min-val dst) umax-val))
+     (set-bpf-reg-state-u32-max-val! dst (bvsub (bpf-reg-state-u32-max-val dst) umin-val))]))
+
+(define (scalar_min_max_sub dst src)
+  (define smin-val (bpf-reg-state-smin-val src))
+  (define smax-val (bpf-reg-state-smax-val src))
+  (define umin-val (bpf-reg-state-umin-val src))
+  (define umax-val (bpf-reg-state-umax-val src))
+
+  (cond
+    [(|| (signed_sub_overflows (bpf-reg-state-smin-val dst) smax-val)
+         (signed_sub_overflows (bpf-reg-state-smax-val dst) smin-val))
+     (set-bpf-reg-state-smin-val! dst S64_MIN)
+     (set-bpf-reg-state-smax-val! dst S64_MAX)]
+    [else
+     (set-bpf-reg-state-smin-val! dst (bvsub (bpf-reg-state-smin-val dst) smax-val))
+     (set-bpf-reg-state-smax-val! dst (bvsub (bpf-reg-state-smax-val dst) smin-val))])
+
+  (cond
+    [(bvult (bpf-reg-state-umin-val dst) umax-val)
+     (set-bpf-reg-state-umin-val! dst (bv 0 64))
+     (set-bpf-reg-state-umax-val! dst U64_MAX)]
+    [else
+     (set-bpf-reg-state-umin-val! dst (bvsub (bpf-reg-state-umin-val dst) umax-val))
+     (set-bpf-reg-state-umax-val! dst (bvsub (bpf-reg-state-umax-val dst) umin-val))]))
 
 ; Compute new tnum for BPF_AND
 (define (scalar32_min_max_and dst_reg src_reg)
