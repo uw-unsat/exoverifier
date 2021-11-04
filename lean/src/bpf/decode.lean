@@ -56,10 +56,10 @@ private def decode_jmp_op : list bool → option JMP
 | [tt, tt, ff, tt] := some JMP.JSLE /- 0xd -/
 | _                := none
 
-private def decode_jmp_x : reg → reg → msbvector 16 → list bool → option instr
+private def decode_jmp64_x : reg → reg → msbvector 16 → list bool → option instr
 | dst src off op := do
   op' ← decode_jmp_op op,
-  pure $ instr.JMP_X op' dst src off
+  pure $ instr.JMP64_X op' dst src off
 
 private def decode_call : list bool → option instr
 | [ff, ff, ff, ff, ff, ff, ff, ff,
@@ -68,12 +68,12 @@ private def decode_call : list bool → option instr
    ff, ff, ff, ff, ff, tt, tt, tt] := some $ instr.CALL BPF_FUNC.get_prandom_u32
 | _ := none
 
-private def decode_jmp_k : reg → msbvector 32 → msbvector 16 → list bool → option instr
+private def decode_jmp64_k : reg → msbvector 32 → msbvector 16 → list bool → option instr
 | dst imm off [tt, ff, ff, ff] := decode_call imm.to_list
 | dst imm off [tt, ff, ff, tt] := some $ instr.Exit
 | dst imm off op := do
   op' ← decode_jmp_op op,
-  pure $ instr.JMP_K op' dst imm off
+  pure $ instr.JMP64_K op' dst imm off
 
 private def decode_mem_size : list bool → option SIZE
 | [ff, ff] := some SIZE.W  /- 0x00 >> 3 -/
@@ -108,13 +108,13 @@ private def decode_op : msbvector 32 → msbvector 16 → reg → reg → list b
   size ← decode_mem_size [size₁, size₂],
   some $ instr.STX size dst src off
 
-/- BPF_JMP | BPF_X -/
+/- BPF_JMP(64) | BPF_X -/
 | imm off dst src [op₁, op₂, op₃, op₄, tt, tt, ff, tt] :=
-  decode_jmp_x dst src off [op₁, op₂, op₃, op₄]
+  decode_jmp64_x dst src off [op₁, op₂, op₃, op₄]
 
-/- BPF_JMP | BPF_K -/
+/- BPF_JMP(64) | BPF_K -/
 | imm off dst src [op₁, op₂, op₃, op₄, ff, tt, ff, tt] :=
-  decode_jmp_k dst imm off [op₁, op₂, op₃, op₄]
+  decode_jmp64_k dst imm off [op₁, op₂, op₃, op₄]
 
 | _ _ _ _ _ := none
 

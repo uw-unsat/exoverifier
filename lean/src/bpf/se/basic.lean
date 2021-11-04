@@ -81,9 +81,9 @@ k {regs        := s.regs.update_nth dst.to_fin val,
 
 /-- Step symbolic evaluation for a JMP_X instruction. -/
 def step_jmp64_x (cfg : CFG χ η) (k : symstate β η → state γ β) (op : JMP) (dst src : reg) (if_true if_false : η) (s : symstate β η) : state γ β := do
-check ← symvalue.doJMP_check op (s.regs.nth dst.to_fin) (s.regs.nth src.to_fin),
+check ← symvalue.doJMP64_check op (s.regs.nth dst.to_fin) (s.regs.nth src.to_fin),
 s' ← assert check s,
-cond ← symvalue.doJMP op (s'.regs.nth dst.to_fin) (s'.regs.nth src.to_fin),
+cond ← symvalue.doJMP64 op (s'.regs.nth dst.to_fin) (s'.regs.nth src.to_fin),
 ncond ← mk_not cond,
 truestate ← assume_ cond s',
 true_condition ← k {current := if_true, ..truestate},
@@ -94,9 +94,9 @@ mk_and true_condition false_condition
 /-- Step symbolic evaluation for a JMP_K instruction. -/
 def step_jmp64_k (cfg : CFG χ η) (k : symstate β η → state γ β) (op : JMP) (dst : reg) (imm : lsbvector 64) (if_true if_false : η) (s : symstate β η) : state γ β := do
 (const : symvalue β) ← symvalue.mk_scalar imm,
-check ← symvalue.doJMP_check op (s.regs.nth dst.to_fin) const,
+check ← symvalue.doJMP64_check op (s.regs.nth dst.to_fin) const,
 s' ← assert check s,
-cond ← symvalue.doJMP op (s'.regs.nth dst.to_fin) const,
+cond ← symvalue.doJMP64 op (s'.regs.nth dst.to_fin) const,
 ncond ← mk_not cond,
 truestate ← assume_ cond s',
 true_condition ← k {current := if_true, ..truestate},
@@ -132,9 +132,9 @@ def step_symeval (cfg : CFG χ η) (o : erased bpf.oracle) (k : symstate β η �
     step_alu64_k cfg k op dst imm next s
   | some (instr.ALU32_X op dst src next) := die
   | some (instr.ALU32_K op dst imm next) := die
-  | some (instr.JMP_X op r₁ r₂ if_true if_false) :=
+  | some (instr.JMP64_X op r₁ r₂ if_true if_false) :=
     step_jmp64_x cfg k op r₁ r₂ if_true if_false s
-  | some (instr.JMP_K op r₁ imm if_true if_false) :=
+  | some (instr.JMP64_K op r₁ imm if_true if_false) :=
     step_jmp64_k cfg k op r₁ imm if_true if_false s
   | some (instr.Exit) := step_exit cfg k s
   | some (instr.STX size dst src imm next) := die

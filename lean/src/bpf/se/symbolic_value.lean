@@ -428,20 +428,20 @@ begin
       refl } }
 end
 
-def doJMP_check : Π (op : JMP) (a b : symvalue β), state γ β
+def doJMP64_check : Π (op : JMP) (a b : symvalue β), state γ β
 | _ (symvalue.scalar x) (symvalue.scalar y) := mk_true
 | op a                   b                  := mk_false
 
-theorem doJMP_check_increasing {op : JMP} {a b : symvalue β} : increasing (doJMP_check op a b : state γ β) :=
+theorem doJMP64_check_increasing {op : JMP} {a b : symvalue β} : increasing (doJMP64_check op a b : state γ β) :=
 begin
   cases a; cases b; apply le_mk_const <|> apply le_mk_var
 end
 
-theorem sat_doJMP_check ⦃g g' : γ⦄ ⦃op : JMP⦄ ⦃e₁ e₂ : symvalue β⦄ ⦃e₃ : β⦄ ⦃v₁ v₂ : bpf.value⦄ :
-  (doJMP_check op e₁ e₂).run g = (e₃, g') →
+theorem sat_doJMP64_check ⦃g g' : γ⦄ ⦃op : JMP⦄ ⦃e₁ e₂ : symvalue β⦄ ⦃e₃ : β⦄ ⦃v₁ v₂ : bpf.value⦄ :
+  (doJMP64_check op e₁ e₂).run g = (e₃, g') →
   sat g e₁ v₁ →
   sat g e₂ v₂ →
-  factory.sat g' e₃ (⟨1, λ _, bpf.JMP.doJMP_check op v₁ v₂⟩ : Σ (n : ℕ), fin n → bool) :=
+  factory.sat g' e₃ (⟨1, λ _, bpf.JMP.doJMP64_check op v₁ v₂⟩ : Σ (n : ℕ), fin n → bool) :=
 begin
   intros mk sat₁ sat₂,
   cases sat₁,
@@ -462,7 +462,7 @@ begin
       refl } }
 end
 
-private def doJMP_scalar : Π (op : JMP) (a b : β), state γ β
+private def doJMP64_scalar : Π (op : JMP) (a b : β), state γ β
 | JMP.JEQ  x y := mk_eq x y
 | JMP.JNE  x y := mk_eq x y >>= mk_not
 | JMP.JSET x y := mk_and x y >>= mk_redor
@@ -475,11 +475,11 @@ private def doJMP_scalar : Π (op : JMP) (a b : β), state γ β
 | JMP.JSLE x y := mk_sle x y
 | JMP.JSGE x y := mk_sle y x
 
-def doJMP : Π (op : JMP) (a b : symvalue β), state γ β
-| op (symvalue.scalar x) (symvalue.scalar y) := doJMP_scalar op x y
+def doJMP64 : Π (op : JMP) (a b : symvalue β), state γ β
+| op (symvalue.scalar x) (symvalue.scalar y) := doJMP64_scalar op x y
 | op a                   b                   := mk_false
 
-theorem doJMP_increasing {op : JMP} {a b : symvalue β} : increasing (doJMP op a b : state γ β) :=
+theorem doJMP64_increasing {op : JMP} {a b : symvalue β} : increasing (doJMP64 op a b : state γ β) :=
 begin
   cases a; try{apply le_mk_const},
   cases b; try{apply le_mk_const},
@@ -503,11 +503,11 @@ begin
   case JSGT { apply le_mk_slt }
 end
 
-theorem sat_doJMP ⦃g g' : γ⦄ ⦃op : JMP⦄ ⦃e₁ e₂ : symvalue β⦄ ⦃e₃ : β⦄ ⦃v₁ v₂ : bpf.value⦄ :
-  (doJMP op e₁ e₂).run g = (e₃, g') →
+theorem sat_doJMP64 ⦃g g' : γ⦄ ⦃op : JMP⦄ ⦃e₁ e₂ : symvalue β⦄ ⦃e₃ : β⦄ ⦃v₁ v₂ : bpf.value⦄ :
+  (doJMP64 op e₁ e₂).run g = (e₃, g') →
   sat g  e₁ v₁ →
   sat g  e₂ v₂ →
-  factory.sat g' e₃ (⟨1, λ _, bpf.JMP.doJMP op v₁ v₂⟩ : Σ (n : ℕ), fin n → bool) :=
+  factory.sat g' e₃ (⟨1, λ _, bpf.JMP.doJMP64 op v₁ v₂⟩ : Σ (n : ℕ), fin n → bool) :=
 begin
   intros mk sat₁ sat₂,
   cases sat₁,
@@ -544,15 +544,15 @@ begin
       case JSGE {
         exact sat_mk_sle mk sat₂' sat₁' },
       case JNE {
-        simp only [doJMP, doJMP_scalar, state_t.run_bind] at mk,
+        simp only [doJMP64, doJMP64_scalar, state_t.run_bind] at mk,
         convert (sat_mk_not mk (sat_mk_eq (by rw [prod.mk.eta]) sat₁' sat₂')),
         ext i,
-        simp only [bpf.JMP.doJMP, bpf.JMP.doJMP_scalar, fin.eq_zero i, bv.not, bool.to_bool_not] },
+        simp only [bpf.JMP.doJMP64, bpf.JMP.doJMP64_scalar, fin.eq_zero i, bv.not, bool.to_bool_not] with match_simp },
       case JSET {
-        simp only [doJMP, doJMP_scalar, state_t.run_bind] at mk,
+        simp only [doJMP64, doJMP64_scalar, state_t.run_bind] at mk,
         convert (sat_mk_redor mk (sat_mk_and (by rw [prod.mk.eta]) sat₁' sat₂')),
         ext i,
-        simp only [bpf.JMP.doJMP, bpf.JMP.doJMP_scalar, bv.any_eq_to_bool_nonzero] } } }
+        simp only [bpf.JMP.doJMP64, bpf.JMP.doJMP64_scalar, bv.any_eq_to_bool_nonzero] with match_simp } } }
 end
 
 end symvalue

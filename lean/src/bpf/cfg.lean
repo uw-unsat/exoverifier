@@ -30,8 +30,8 @@ inductive instr (α : Type*)
 | ALU64_K : ALU → reg → lsbvector 64 → α → instr
 | ALU32_X : ALU → reg → reg → α → instr
 | ALU32_K : ALU → reg → lsbvector 32 → α → instr
-| JMP_X   : JMP → reg → reg → α → α → instr
-| JMP_K   : JMP → reg → lsbvector 64 → α → α → instr
+| JMP64_X : JMP → reg → reg → α → α → instr
+| JMP64_K : JMP → reg → lsbvector 64 → α → α → instr
 | STX     : SIZE → reg → reg → lsbvector 64 → α → instr
 | CALL    : BPF_FUNC → α → instr
 | Exit    : instr
@@ -40,28 +40,28 @@ namespace instr
 variable {α : Type*}
 
 private meta def to_pexpr' [has_to_pexpr α] : instr α → pexpr
-| (ALU64_X op dst src next) := ``(ALU64_X %%op %%dst %%src %%next)
-| (ALU64_K op dst imm next) := ``(ALU64_K %%op %%dst %%imm %%next)
-| (ALU32_X op dst src next) := ``(ALU32_X %%op %%dst %%src %%next)
-| (ALU32_K op dst imm next) := ``(ALU32_K %%op %%dst %%imm %%next)
-| (JMP_X op r₁ r₂ if_true if_false) := ``(JMP_X %%op %%r₁ %%r₂ %%if_true %%if_false)
-| (JMP_K op r₁ imm if_true if_false) := ``(JMP_K %%op %%r₁ %%imm %%if_true %%if_false)
-| (STX size dst src off next) := ``(STX %%size %%dst %%src %%off %%next)
-| (CALL func next) := ``(CALL %%func %%next)
-| Exit := ``(Exit)
+| (ALU64_X op dst src next)            := ``(ALU64_X %%op %%dst %%src %%next)
+| (ALU64_K op dst imm next)            := ``(ALU64_K %%op %%dst %%imm %%next)
+| (ALU32_X op dst src next)            := ``(ALU32_X %%op %%dst %%src %%next)
+| (ALU32_K op dst imm next)            := ``(ALU32_K %%op %%dst %%imm %%next)
+| (JMP64_X op r₁ r₂ if_true if_false)  := ``(JMP64_X %%op %%r₁ %%r₂ %%if_true %%if_false)
+| (JMP64_K op r₁ imm if_true if_false) := ``(JMP64_K %%op %%r₁ %%imm %%if_true %%if_false)
+| (STX size dst src off next)          := ``(STX %%size %%dst %%src %%off %%next)
+| (CALL func next)                     := ``(CALL %%func %%next)
+| Exit                                 := ``(Exit)
 
 meta instance [has_to_pexpr α] : has_to_pexpr (instr α) := ⟨to_pexpr'⟩
 
 private def repr' [has_repr α] : instr α → string
-| (ALU64_X op dst src next)          := "ALU64_X(" ++ repr op ++ ", " ++ repr dst ++ ", " ++ repr src ++ ", " ++ repr next ++ ")"
-| (ALU64_K op dst imm next)          := "ALU64_K(" ++ repr op ++ ", " ++ repr dst ++ ", " ++ repr imm ++ ", " ++ repr next ++ ")"
-| (ALU32_X op dst src next)          := "ALU32_X(" ++ repr op ++ ", " ++ repr dst ++ ", " ++ repr src ++ ", " ++ repr next ++ ")"
-| (ALU32_K op dst imm next)          := "ALU32_K(" ++ repr op ++ ", " ++ repr dst ++ ", " ++ repr imm ++ ", " ++ repr next ++ ")"
-| (JMP_X op r1 r2 if_true if_false)  := "JMP_X(" ++ repr op ++ ", " ++ repr r1 ++ ", " ++ repr r2 ++ ", " ++ repr if_true ++ ", " ++ repr if_false ++ ")"
-| (JMP_K op r1 imm if_true if_false) := "JMP_K(" ++ repr op ++ ", " ++ repr r1 ++ ", " ++ repr imm ++ ", " ++ repr if_true ++ ", " ++ repr if_false ++ ")"
-| (STX size dst src off next)        := "STX(" ++ repr size ++ ", " ++ repr dst ++ ", " ++ repr src ++ ", " ++ repr off ++ ", " ++ repr next ++ ")"
-| (CALL func next)                   := "CALL(" ++ repr func ++ ", " ++ repr next ++ ")"
-| Exit                               := "Exit()"
+| (ALU64_X op dst src next)            := "ALU64_X(" ++ repr op ++ ", " ++ repr dst ++ ", " ++ repr src ++ ", " ++ repr next ++ ")"
+| (ALU64_K op dst imm next)            := "ALU64_K(" ++ repr op ++ ", " ++ repr dst ++ ", " ++ repr imm ++ ", " ++ repr next ++ ")"
+| (ALU32_X op dst src next)            := "ALU32_X(" ++ repr op ++ ", " ++ repr dst ++ ", " ++ repr src ++ ", " ++ repr next ++ ")"
+| (ALU32_K op dst imm next)            := "ALU32_K(" ++ repr op ++ ", " ++ repr dst ++ ", " ++ repr imm ++ ", " ++ repr next ++ ")"
+| (JMP64_X op r1 r2 if_true if_false)  := "JMP64_X(" ++ repr op ++ ", " ++ repr r1 ++ ", " ++ repr r2 ++ ", " ++ repr if_true ++ ", " ++ repr if_false ++ ")"
+| (JMP64_K op r1 imm if_true if_false) := "JMP64_K(" ++ repr op ++ ", " ++ repr r1 ++ ", " ++ repr imm ++ ", " ++ repr if_true ++ ", " ++ repr if_false ++ ")"
+| (STX size dst src off next)          := "STX(" ++ repr size ++ ", " ++ repr dst ++ ", " ++ repr src ++ ", " ++ repr off ++ ", " ++ repr next ++ ")"
+| (CALL func next)                     := "CALL(" ++ repr func ++ ", " ++ repr next ++ ")"
+| Exit                                 := "Exit()"
 
 instance [has_repr α] : has_repr (instr α) := ⟨repr'⟩
 
@@ -161,13 +161,13 @@ private def decode_flat_instr (cur : num) (pr : trie (instr pos_num)) : bpf.inst
   pr.kinsert cur.succ' (instr.STX op dst src off64 (cur + 1).succ')
 | (bpf.instr.CALL func) :=
   pr.kinsert cur.succ' (instr.CALL func (cur + 1).succ')
-| (bpf.instr.JMP_X op dst src off) :=
+| (bpf.instr.JMP64_X op dst src off) :=
   let target : num := jump_off_to_jump_target cur off in
-  pr.kinsert cur.succ' (instr.JMP_X op dst src target.succ' (cur + 1).succ')
-| (bpf.instr.JMP_K op dst imm off) :=
+  pr.kinsert cur.succ' (instr.JMP64_X op dst src target.succ' (cur + 1).succ')
+| (bpf.instr.JMP64_K op dst imm off) :=
   let target : num := jump_off_to_jump_target cur off,
       imm64 := msb_imm32_sext_to_lsb_imm64 imm in
-    pr.kinsert cur.succ' (instr.JMP_K op dst imm64 target.succ' (cur + 1).succ')
+    pr.kinsert cur.succ' (instr.JMP64_K op dst imm64 target.succ' (cur + 1).succ')
 | (bpf.instr.Exit) := pr.kinsert cur.succ' instr.Exit
 
 private def decode_from_flat_aux : list bpf.instr → num → trie (instr pos_num) → trie (cfg.instr pos_num)
@@ -215,17 +215,17 @@ inductive step (cfg : CFG χ α) (o : oracle) : state α → state α → Prop
     ALU.doALU64_check op (s.regs dst) (value.scalar imm.nth) = tt →
     ALU.doALU64 op (s.regs dst) (value.scalar imm.nth) = v →
     step (state.running s) (state.running { pc := next, regs := function.update s.regs dst v, ..s })
-| JMP_X :
+| JMP64_X :
   ∀ (s : runstate α) {op : JMP} {r₁ r₂ : reg} {c : bool} {if_true if_false : α},
-    lookup s.pc cfg.code = some (instr.JMP_X op r₁ r₂ if_true if_false) →
-    JMP.doJMP_check op (s.regs r₁) (s.regs r₂) = tt →
-    c = JMP.doJMP op (s.regs r₁) (s.regs r₂) →
+    lookup s.pc cfg.code = some (instr.JMP64_X op r₁ r₂ if_true if_false) →
+    JMP.doJMP64_check op (s.regs r₁) (s.regs r₂) = tt →
+    c = JMP.doJMP64 op (s.regs r₁) (s.regs r₂) →
     step (state.running s) (state.running { pc := if c then if_true else if_false, ..s })
-| JMP_K :
+| JMP64_K :
   ∀ (s : runstate α) {op : JMP} {r₁ : reg} {imm : lsbvector 64} {c : bool} {if_true if_false : α},
-    lookup s.pc cfg.code = some (instr.JMP_K op r₁ imm if_true if_false) →
-    JMP.doJMP_check op (s.regs r₁) (value.scalar imm.nth) = tt →
-    c = JMP.doJMP op (s.regs r₁) (value.scalar imm.nth) →
+    lookup s.pc cfg.code = some (instr.JMP64_K op r₁ imm if_true if_false) →
+    JMP.doJMP64_check op (s.regs r₁) (value.scalar imm.nth) = tt →
+    c = JMP.doJMP64 op (s.regs r₁) (value.scalar imm.nth) →
     step (state.running s) (state.running { pc := if c then if_true else if_false, ..s })
 | CALL :
   ∀ (s : runstate α) {func : BPF_FUNC} {next : α},
@@ -254,10 +254,10 @@ begin
   case ALU64_K : _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
-  case JMP_X : _ _ _ _ _ _ _ fetch' {
+  case JMP64_X : _ _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
-  case JMP_K : _ _ _ _ _ _ _ fetch' {
+  case JMP64_K : _ _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
   case CALL : _ _ _ fetch' {
@@ -293,10 +293,10 @@ begin
     rw [fetch] at fetch',
     cases fetch',
     subst_vars },
-  case JMP_X : _ _ _ _ _ _ _ fetch' {
+  case JMP64_X : _ _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
-  case JMP_K : _ _ _ _ _ _ _ fetch' {
+  case JMP64_K : _ _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
   case CALL : _ _ _ fetch' {
@@ -316,12 +316,12 @@ begin
   rw [do_step_alu64_k _ fetch step₁, do_step_alu64_k _ fetch step₂]
 end
 
-theorem do_step_jmp_x {cfg : CFG χ α} {o : oracle} :
+theorem do_step_jmp64_x {cfg : CFG χ α} {o : oracle} :
   ∀ (s : runstate α) {op r₁ r₂ if_true if_false},
-    lookup s.pc cfg.code = some (instr.JMP_X op r₁ r₂ if_true if_false) →
+    lookup s.pc cfg.code = some (instr.JMP64_X op r₁ r₂ if_true if_false) →
     ∀ {s' : state α},
       step cfg o (state.running s) s' →
-      s' = state.running { pc := if JMP.doJMP op (s.regs r₁) (s.regs r₂) then if_true else if_false, ..s } :=
+      s' = state.running { pc := if JMP.doJMP64 op (s.regs r₁) (s.regs r₂) then if_true else if_false, ..s } :=
 begin
   intros _ _ _ _ _ _ fetch _ step₁,
   cases step₁,
@@ -331,11 +331,11 @@ begin
   case ALU64_K : _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
-  case JMP_X : _ _ _ _ _ _ _ fetch' {
+  case JMP64_X : _ _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch',
     subst_vars },
-  case JMP_K : _ _ _ _ _ _ _ fetch' {
+  case JMP64_K : _ _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
   case CALL : _ _ _ fetch' {
@@ -346,21 +346,21 @@ begin
     cases fetch' },
 end
 
-theorem step_jmp_x_det {cfg : CFG χ α} {o : oracle} :
+theorem step_jmp64_x_det {cfg : CFG χ α} {o : oracle} :
   ∀ (s : runstate α) {op r₁ r₂ if_true if_false},
-    lookup s.pc cfg.code = some (instr.JMP_X op r₁ r₂ if_true if_false) →
+    lookup s.pc cfg.code = some (instr.JMP64_X op r₁ r₂ if_true if_false) →
     set.subsingleton (step cfg o (state.running s)) :=
 begin
   intros _ _ _ _ _ _ fetch s₁ step₁ s₂ step₂,
-  rw [do_step_jmp_x _ fetch step₁, do_step_jmp_x _ fetch step₂]
+  rw [do_step_jmp64_x _ fetch step₁, do_step_jmp64_x _ fetch step₂]
 end
 
-theorem do_step_jmp_k {cfg : CFG χ α} {o : oracle} :
+theorem do_step_jmp64_k {cfg : CFG χ α} {o : oracle} :
   ∀ (s : runstate α) {op r₁ imm if_true if_false},
-    lookup s.pc cfg.code = some (instr.JMP_K op r₁ imm if_true if_false) →
+    lookup s.pc cfg.code = some (instr.JMP64_K op r₁ imm if_true if_false) →
     ∀ {s' : state α},
       step cfg o (state.running s) s' →
-      s' = state.running { pc := if JMP.doJMP op (s.regs r₁) (value.scalar imm.nth) then if_true else if_false, ..s } :=
+      s' = state.running { pc := if JMP.doJMP64 op (s.regs r₁) (value.scalar imm.nth) then if_true else if_false, ..s } :=
 begin
   intros _ _ _ _ _ _ fetch _ step₁,
   cases step₁,
@@ -370,10 +370,10 @@ begin
   case ALU64_K : _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
-  case JMP_X : _ _ _ _ _ _ _ fetch' {
+  case JMP64_X : _ _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
-  case JMP_K : _ _ _ _ _ _ _ fetch' {
+  case JMP64_K : _ _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch',
     subst_vars },
@@ -385,13 +385,13 @@ begin
     cases fetch' },
 end
 
-theorem step_jmp_k_det {cfg : CFG χ α} {o : oracle} :
+theorem step_jmp64_k_det {cfg : CFG χ α} {o : oracle} :
   ∀ (s : runstate α) {op r₁ imm if_true if_false},
-    lookup s.pc cfg.code = some (instr.JMP_K op r₁ imm if_true if_false) →
+    lookup s.pc cfg.code = some (instr.JMP64_K op r₁ imm if_true if_false) →
     set.subsingleton (step cfg o (state.running s)) :=
 begin
   intros _ _ _ _ _ _ fetch s₁ step₁ s₂ step₂,
-  rw [do_step_jmp_k _ fetch step₁, do_step_jmp_k _ fetch step₂]
+  rw [do_step_jmp64_k _ fetch step₁, do_step_jmp64_k _ fetch step₂]
 end
 
 theorem do_step_exit {cfg : CFG χ α} {o : oracle} :
@@ -411,10 +411,10 @@ begin
   case ALU64_K : _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
-  case JMP_X : _ _ _ _ _ _ _ fetch' {
+  case JMP64_X : _ _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
-  case JMP_K : _ _ _ _ _ _ _ fetch' {
+  case JMP64_K : _ _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
   case CALL : _ _ _ fetch' {
@@ -453,10 +453,10 @@ begin
   case ALU64_K : _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
-  case JMP_X : _ _ _ _ _ _ _ fetch' {
+  case JMP64_X : _ _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
-  case JMP_K : _ _ _ _ _ _ _ fetch' {
+  case JMP64_K : _ _ _ _ _ _ _ fetch' {
     rw [fetch] at fetch',
     cases fetch' },
   case CALL : _ _ _ fetch' {

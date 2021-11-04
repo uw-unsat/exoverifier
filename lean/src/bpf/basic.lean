@@ -418,12 +418,13 @@ private def repr : JMP → string
 instance : has_repr JMP := ⟨repr⟩
 
 /- Whether a JMP operation between two operands is allowed. -/
-def doJMP_check : JMP → value → value → bool
+def doJMP64_check : JMP → value → value → bool
 | _ (value.scalar _) (value.scalar _) := tt
 | _ _ _ := ff
 
 /-- Evaluate a JMP condition on two concrete bitvectors. -/
-def doJMP_scalar {n : ℕ} : JMP → (fin n → bool) → (fin n → bool) → bool
+@[match_simp]
+private def doJMP_scalar {n : ℕ} : JMP → (fin n → bool) → (fin n → bool) → bool
 | JEQ x y  := x = y
 | JNE x y  := x ≠ y
 | JLE x y  := x ≤ y
@@ -436,7 +437,10 @@ def doJMP_scalar {n : ℕ} : JMP → (fin n → bool) → (fin n → bool) → b
 | JSGT x y := bv.sgt x y
 | JSET x y := bv.and x y ≠ 0
 
-def doJMP : JMP → value → value → bool
+@[reducible]
+def doJMP64_scalar := @doJMP_scalar 64
+
+def doJMP64 : JMP → value → value → bool
 | op (value.scalar x) (value.scalar y) := doJMP_scalar op x y
 | _ _ _ := ff
 
@@ -487,8 +491,8 @@ inductive instr : Type
 | ALU64_K : ALU → reg → msbvector 32 → instr
 | ALU32_X : ALU → reg → reg → instr
 | ALU32_K : ALU → reg → msbvector 32 → instr
-| JMP_X   : JMP → reg → reg → msbvector 16 → instr
-| JMP_K   : JMP → reg → msbvector 32 → msbvector 16 → instr
+| JMP64_X : JMP → reg → reg → msbvector 16 → instr
+| JMP64_K : JMP → reg → msbvector 32 → msbvector 16 → instr
 | STX     : SIZE → reg → reg → msbvector 16 → instr
 | CALL    : BPF_FUNC → instr
 | Exit    : instr
@@ -496,15 +500,15 @@ inductive instr : Type
 namespace instr
 
 private def repr' : instr → string
-| (ALU64_X op dst src)   := "ALU64_X " ++ repr op ++ " " ++ repr dst ++ " " ++ repr src
-| (ALU64_K op dst imm)   := "ALU64_K " ++ repr op ++ " " ++ repr dst ++ " " ++ repr imm
-| (ALU32_X op dst src)   := "ALU32_X " ++ repr op ++ " " ++ repr dst ++ " " ++ repr src
-| (ALU32_K op dst imm)   := "ALU32_K " ++ repr op ++ " " ++ repr dst ++ " " ++ repr imm
-| (JMP_X op dst src off) := "JMP_X " ++ repr op ++ " " ++ repr dst ++ " " ++ repr src ++ " " ++ repr off
-| (JMP_K op dst imm off) := "JMP_K " ++ repr op ++ " " ++ repr dst ++ " " ++ repr imm ++ " " ++ repr off
-| (STX size dst src off) := "STX " ++ repr size ++ " " ++ repr dst ++ " " ++ repr src ++ " " ++ repr off
-| (CALL BPF_FUNC)        := "CALL " ++ repr BPF_FUNC
-| Exit                   := "Exit"
+| (ALU64_X op dst src)     := "ALU64_X " ++ repr op ++ " " ++ repr dst ++ " " ++ repr src
+| (ALU64_K op dst imm)     := "ALU64_K " ++ repr op ++ " " ++ repr dst ++ " " ++ repr imm
+| (ALU32_X op dst src)     := "ALU32_X " ++ repr op ++ " " ++ repr dst ++ " " ++ repr src
+| (ALU32_K op dst imm)     := "ALU32_K " ++ repr op ++ " " ++ repr dst ++ " " ++ repr imm
+| (JMP64_X op dst src off) := "JMP64_X " ++ repr op ++ " " ++ repr dst ++ " " ++ repr src ++ " " ++ repr off
+| (JMP64_K op dst imm off) := "JMP64_K " ++ repr op ++ " " ++ repr dst ++ " " ++ repr imm ++ " " ++ repr off
+| (STX size dst src off)   := "STX " ++ repr size ++ " " ++ repr dst ++ " " ++ repr src ++ " " ++ repr off
+| (CALL BPF_FUNC)          := "CALL " ++ repr BPF_FUNC
+| Exit                     := "Exit"
 
 instance : has_repr instr := ⟨repr'⟩
 

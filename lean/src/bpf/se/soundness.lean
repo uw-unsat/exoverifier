@@ -183,11 +183,11 @@ private theorem step_jmp64_x_increasing {cfg : CFG χ η} {k : symstate β η �
     increasing (step_jmp64_x cfg k op dst src if_true if_false s)
 | op dst src if_true if_false s := by {
   apply increasing_bind; intros,
-  apply symvalue.doJMP_check_increasing,
+  apply symvalue.doJMP64_check_increasing,
   apply increasing_bind; intros,
   apply assert_increasing,
   apply increasing_bind; intros,
-  apply symvalue.doJMP_increasing,
+  apply symvalue.doJMP64_increasing,
   apply increasing_bind; intros,
   apply le_mk_not,
   apply increasing_bind; intros,
@@ -207,11 +207,11 @@ private theorem step_jmp64_k_increasing {cfg : CFG χ η} {k : symstate β η �
   apply increasing_bind; intros,
   apply symvalue.le_mk_scalar,
   apply increasing_bind; intros,
-  apply symvalue.doJMP_check_increasing,
+  apply symvalue.doJMP64_check_increasing,
   apply increasing_bind; intros,
   apply assert_increasing,
   apply increasing_bind; intros,
-  apply symvalue.doJMP_increasing,
+  apply symvalue.doJMP64_increasing,
   apply increasing_bind; intros,
   apply le_mk_not,
   apply increasing_bind; intros,
@@ -277,9 +277,9 @@ begin
       apply die_increasing },
     case instr.ALU32_K : op dst imm next {
       apply die_increasing },
-    case instr.JMP_X : op r₁ r₂ if_true if_false {
+    case instr.JMP64_X : op r₁ r₂ if_true if_false {
       apply step_jmp64_x_increasing ih },
-    case instr.JMP_K : op r₁ imm if_true if_false {
+    case instr.JMP64_K : op r₁ imm if_true if_false {
       apply step_jmp64_k_increasing ih },
     case instr.STX : op dst src off next {
       apply die_increasing },
@@ -377,14 +377,14 @@ private theorem step_jmp64_x_correct
   {cfg : CFG χ η} {o : oracle} {k : symstate β η → state γ β}
   (k_inc : ∀ s, increasing (k s)) (ih : se_correct cfg o ⊤ k)
   {op : JMP} {dst src : reg} {if_true if_false : η} :
-    se_correct cfg o (λ s, lookup s.current cfg.code = some (instr.JMP_X op dst src if_true if_false))
+    se_correct cfg o (λ s, lookup s.current cfg.code = some (instr.JMP64_X op dst src if_true if_false))
                (step_jmp64_x cfg k op dst src if_true if_false) :=
 begin
   intros _ _ vc _ _ _ _ fetch_i pre mk,
   simp only [step_jmp64_x, state_t.run_bind] at mk,
-  cases f₁₀ : (symvalue.doJMP_check op (abs.regs.nth dst.to_fin) (abs.regs.nth src.to_fin)).run g with check g₁₀,
+  cases f₁₀ : (symvalue.doJMP64_check op (abs.regs.nth dst.to_fin) (abs.regs.nth src.to_fin)).run g with check g₁₀,
   cases f₁₁ : (assert check abs).run g₁₀ with s' g₁₁,
-  cases f₁ : (symvalue.doJMP op (s'.regs.nth dst.to_fin) (s'.regs.nth src.to_fin)).run g₁₁ with eq g₁,
+  cases f₁ : (symvalue.doJMP64 op (s'.regs.nth dst.to_fin) (s'.regs.nth src.to_fin)).run g₁₁ with eq g₁,
   cases f₂ : (mk_not eq).run g₁ with neq g₂,
   cases f₃ : (assume_ eq s').run g₂ with truestate g₃,
   cases f₄ : (k {current := if_true, ..truestate}).run g₃ with true_condition g₄,
@@ -397,13 +397,13 @@ begin
 
   have l₁₀ : g ≤ g₁₀,
   { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₁₀, simp only at r, rw [← r],
-    apply symvalue.doJMP_check_increasing },
+    apply symvalue.doJMP64_check_increasing },
   have l₁₁ : g₁₀ ≤ g₁₁,
   { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₁₁, simp only at r, rw [← r],
     apply assert_increasing },
   have l₁ : g₁₁ ≤ g₁,
   { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₁, simp only at r, rw [← r],
-    apply symvalue.doJMP_increasing },
+    apply symvalue.doJMP64_increasing },
   have l₂ : g₁ ≤ g₂,
   { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₂, simp only at r, rw [← r],
     apply le_mk_not },
@@ -423,9 +423,9 @@ begin
   { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₇, simp only at r, rw [← r],
     apply le_mk_and },
 
-  have h₁₀ := symvalue.sat_doJMP_check f₁₀ (pre.regs_ok dst) (pre.regs_ok src),
+  have h₁₀ := symvalue.sat_doJMP64_check f₁₀ (pre.regs_ok dst) (pre.regs_ok src),
   have h₁₁ := assert_spec (of_le l₁₀ pre) h₁₀ f₁₁,
-  have h₁ := symvalue.sat_doJMP f₁ (h₁₁.regs_ok dst) (h₁₁.regs_ok src),
+  have h₁ := symvalue.sat_doJMP64 f₁ (h₁₁.regs_ok dst) (h₁₁.regs_ok src),
   have h₂ := sat_mk_not f₂ h₁,
   have h₃ := assume_spec (of_le (le_trans l₁ l₂) h₁₁) (sat_of_le l₂ h₁) f₃,
   simp only [bv.not] at h₂,
@@ -433,7 +433,7 @@ begin
 
   rename ih → ih₁,
   have ih₂ := ih₁,
-  specialize @ih₁ g₃ g₄ true_condition _ (asserts && bimplies assumes (op.doJMP_check (concrete.regs dst) (concrete.regs src))) ((bpf.JMP.doJMP op (concrete.regs dst) (concrete.regs src)) && assumes) { pc := if_true, ..concrete } true.intro _ f₄,
+  specialize @ih₁ g₃ g₄ true_condition _ (asserts && bimplies assumes (op.doJMP64_check (concrete.regs dst) (concrete.regs src))) ((bpf.JMP.doJMP64 op (concrete.regs dst) (concrete.regs src)) && assumes) { pc := if_true, ..concrete } true.intro _ f₄,
   { apply concretizes.mk,
     { apply h₃.asserts_ok },
     { apply h₃.assumes_ok },
@@ -441,7 +441,7 @@ begin
       apply h₃.regs_ok r },
     { refl },
     { apply h₃.next_rng_ok } },
-  specialize @ih₂ g₅ g₆ false_condition _ (asserts && bimplies assumes (op.doJMP_check (concrete.regs dst) (concrete.regs src))) (!(bpf.JMP.doJMP op (concrete.regs dst) (concrete.regs src)) && assumes) { pc := if_false, ..concrete } true.intro _ f₆,
+  specialize @ih₂ g₅ g₆ false_condition _ (asserts && bimplies assumes (op.doJMP64_check (concrete.regs dst) (concrete.regs src))) (!(bpf.JMP.doJMP64 op (concrete.regs dst) (concrete.regs src)) && assumes) { pc := if_false, ..concrete } true.intro _ f₆,
   { apply concretizes.mk,
     { apply h₅.asserts_ok },
     { apply h₅.assumes_ok },
@@ -461,15 +461,15 @@ begin
     rcases vcs_true with ⟨⟨⟩, ⟨⟩⟩,
     simp only [eq_self_iff_true, to_bool_iff, forall_true_left, band_tt] at vc₁_sound,
     simp only [bnot_eq_true_eq_eq_ff, bool.to_bool_not, eq_self_iff_true, to_bool_ff_iff, forall_true_left, band_tt] at vc₂_sound,
-    cases cond : bpf.JMP.doJMP op (concrete.regs dst) (concrete.regs src),
+    cases cond : bpf.JMP.doJMP64 op (concrete.regs dst) (concrete.regs src),
     case tt {
       clear vc₂_sound,
       obtain ⟨as_ok, tail⟩ := vc₁_sound cond,
       simp only [band_eq_true_eq_eq_tt_and_eq_tt, bimplies] at as_ok,
       refine ⟨as_ok.1, _⟩,
       simp only [set.mem_def, pre.pc_ok] at fetch_i,
-      apply bpf.cfg.safe_from_state_of_det_step tail _ (bpf.cfg.step_jmp_x_det concrete fetch_i),
-      have step := bpf.cfg.step.JMP_X concrete fetch_i as_ok.2 rfl,
+      apply bpf.cfg.safe_from_state_of_det_step tail _ (bpf.cfg.step_jmp64_x_det concrete fetch_i),
+      have step := bpf.cfg.step.JMP64_X concrete fetch_i as_ok.2 rfl,
       rw [cond] at step,
       exact step },
     case ff {
@@ -478,8 +478,8 @@ begin
       simp only [band_eq_true_eq_eq_tt_and_eq_tt, bimplies] at as_ok,
       refine ⟨as_ok.1, _⟩,
       simp only [set.mem_def, pre.pc_ok] at fetch_i,
-      apply bpf.cfg.safe_from_state_of_det_step tail _ (bpf.cfg.step_jmp_x_det concrete fetch_i),
-      have step := bpf.cfg.step.JMP_X concrete fetch_i as_ok.2 rfl,
+      apply bpf.cfg.safe_from_state_of_det_step tail _ (bpf.cfg.step_jmp64_x_det concrete fetch_i),
+      have step := bpf.cfg.step.JMP64_X concrete fetch_i as_ok.2 rfl,
       rw [cond] at step,
       exact step } }
 end
@@ -488,15 +488,15 @@ private theorem step_jmp64_k_correct
   {cfg : CFG χ η} {o : oracle} {k : symstate β η → state γ β}
   (k_inc : ∀ s, increasing (k s)) (ih : se_correct cfg o ⊤ k)
   {op : JMP} {dst : reg} {imm : lsbvector 64} {if_true if_false : η} :
-    se_correct cfg o (λ s, lookup s.current cfg.code = some (instr.JMP_K op dst imm if_true if_false))
+    se_correct cfg o (λ s, lookup s.current cfg.code = some (instr.JMP64_K op dst imm if_true if_false))
                (step_jmp64_k cfg k op dst imm if_true if_false) :=
 begin
   intros _ _ vc _ _ _ _ fetch_i pre mk,
   simp only [step_jmp64_k, state_t.run_bind] at mk,
   cases f₀₀ : (symvalue.mk_scalar imm : state γ (symvalue β)).run g with const g₀₀,
-  cases f₁₀ : (symvalue.doJMP_check op (abs.regs.nth dst.to_fin) const).run g₀₀ with check g₁₀,
+  cases f₁₀ : (symvalue.doJMP64_check op (abs.regs.nth dst.to_fin) const).run g₀₀ with check g₁₀,
   cases f₁₁ : (assert check abs).run g₁₀ with s' g₁₁,
-  cases f₁ : (symvalue.doJMP op (s'.regs.nth dst.to_fin) const).run g₁₁ with eq g₁,
+  cases f₁ : (symvalue.doJMP64 op (s'.regs.nth dst.to_fin) const).run g₁₁ with eq g₁,
   cases f₂ : (mk_not eq).run g₁ with neq g₂,
   cases f₃ : (assume_ eq s').run g₂ with truestate g₃,
   cases f₄ : (k {current := if_true, ..truestate}).run g₃ with true_condition g₄,
@@ -514,13 +514,13 @@ begin
     apply symvalue.le_mk_scalar },
   have l₁₀ : g₀₀ ≤ g₁₀,
   { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₁₀, simp only at r, rw [← r],
-    apply symvalue.doJMP_check_increasing },
+    apply symvalue.doJMP64_check_increasing },
   have l₁₁ : g₁₀ ≤ g₁₁,
   { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₁₁, simp only at r, rw [← r],
     apply assert_increasing },
   have l₁ : g₁₁ ≤ g₁,
   { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₁, simp only at r, rw [← r],
-    apply symvalue.doJMP_increasing },
+    apply symvalue.doJMP64_increasing },
   have l₂ : g₁ ≤ g₂,
   { obtain ⟨-, r⟩ := prod.eq_iff_fst_eq_snd_eq.1 f₂, simp only at r, rw [← r],
     apply le_mk_not },
@@ -541,9 +541,9 @@ begin
     apply le_mk_and },
 
   have h₀₀ := symvalue.sat_mk_scalar f₀₀,
-  have h₁₀ := symvalue.sat_doJMP_check f₁₀ (sat_of_le l₀₀ (pre.regs_ok dst)) h₀₀,
+  have h₁₀ := symvalue.sat_doJMP64_check f₁₀ (sat_of_le l₀₀ (pre.regs_ok dst)) h₀₀,
   have h₁₁ := assert_spec (of_le (le_trans l₀₀ l₁₀) pre) h₁₀ f₁₁,
-  have h₁ := symvalue.sat_doJMP f₁ (h₁₁.regs_ok dst) (sat_of_le (le_trans l₁₀ l₁₁) h₀₀),
+  have h₁ := symvalue.sat_doJMP64 f₁ (h₁₁.regs_ok dst) (sat_of_le (le_trans l₁₀ l₁₁) h₀₀),
   have h₂ := sat_mk_not f₂ h₁,
   have h₃ := assume_spec (of_le (le_trans l₁ l₂) h₁₁) (sat_of_le l₂ h₁) f₃,
   simp only [bv.not] at h₂,
@@ -551,7 +551,7 @@ begin
 
   rename ih → ih₁,
   have ih₂ := ih₁,
-  specialize @ih₁ g₃ g₄ true_condition _ (asserts && bimplies assumes (op.doJMP_check (concrete.regs dst) (bpf.value.scalar imm.nth))) ((bpf.JMP.doJMP op (concrete.regs dst) (bpf.value.scalar imm.nth)) && assumes) { pc := if_true, ..concrete } true.intro _ f₄,
+  specialize @ih₁ g₃ g₄ true_condition _ (asserts && bimplies assumes (op.doJMP64_check (concrete.regs dst) (bpf.value.scalar imm.nth))) ((bpf.JMP.doJMP64 op (concrete.regs dst) (bpf.value.scalar imm.nth)) && assumes) { pc := if_true, ..concrete } true.intro _ f₄,
   { apply concretizes.mk,
     { apply h₃.asserts_ok },
     { apply h₃.assumes_ok },
@@ -559,7 +559,7 @@ begin
       apply h₃.regs_ok r },
     { refl },
     { apply h₃.next_rng_ok } },
-  specialize @ih₂ g₅ g₆ false_condition _ (asserts && bimplies assumes (op.doJMP_check (concrete.regs dst) (bpf.value.scalar imm.nth))) (!(bpf.JMP.doJMP op (concrete.regs dst) (bpf.value.scalar imm.nth)) && assumes) { pc := if_false, ..concrete } true.intro _ f₆,
+  specialize @ih₂ g₅ g₆ false_condition _ (asserts && bimplies assumes (op.doJMP64_check (concrete.regs dst) (bpf.value.scalar imm.nth))) (!(bpf.JMP.doJMP64 op (concrete.regs dst) (bpf.value.scalar imm.nth)) && assumes) { pc := if_false, ..concrete } true.intro _ f₆,
   { apply concretizes.mk,
     { apply h₅.asserts_ok },
     { apply h₅.assumes_ok },
@@ -578,15 +578,15 @@ begin
     rcases vcs_true with ⟨⟨⟩, ⟨⟩⟩,
     simp only [eq_self_iff_true, to_bool_iff, forall_true_left, band_tt] at vc₁_sound,
     simp only [bnot_eq_true_eq_eq_ff, bool.to_bool_not, eq_self_iff_true, to_bool_ff_iff, forall_true_left, band_tt] at vc₂_sound,
-    cases cond : bpf.JMP.doJMP op (concrete.regs dst) (bpf.value.scalar imm.nth),
+    cases cond : bpf.JMP.doJMP64 op (concrete.regs dst) (bpf.value.scalar imm.nth),
     case tt {
       clear vc₂_sound,
       obtain ⟨as_ok, tail⟩ := vc₁_sound cond,
       simp only [band_eq_true_eq_eq_tt_and_eq_tt, bimplies] at as_ok,
       refine ⟨as_ok.1, _⟩,
       simp only [set.mem_def, pre.pc_ok] at fetch_i,
-      apply bpf.cfg.safe_from_state_of_det_step tail _ (bpf.cfg.step_jmp_k_det _ fetch_i),
-      have step := bpf.cfg.step.JMP_K _ fetch_i as_ok.2 rfl,
+      apply bpf.cfg.safe_from_state_of_det_step tail _ (bpf.cfg.step_jmp64_k_det _ fetch_i),
+      have step := bpf.cfg.step.JMP64_K _ fetch_i as_ok.2 rfl,
       rw [cond] at step,
       exact step },
     case ff {
@@ -595,8 +595,8 @@ begin
       simp only [band_eq_true_eq_eq_tt_and_eq_tt, bimplies] at as_ok,
       refine ⟨as_ok.1, _⟩,
       simp only [set.mem_def, pre.pc_ok] at fetch_i,
-      apply bpf.cfg.safe_from_state_of_det_step tail _ (bpf.cfg.step_jmp_k_det _ fetch_i),
-      have step := bpf.cfg.step.JMP_K _ fetch_i as_ok.2 rfl,
+      apply bpf.cfg.safe_from_state_of_det_step tail _ (bpf.cfg.step_jmp64_k_det _ fetch_i),
+      have step := bpf.cfg.step.JMP64_K _ fetch_i as_ok.2 rfl,
       rw [cond] at step,
       exact step } }
 end
@@ -882,8 +882,8 @@ begin
       exact die_correct true.intro pre mk },
     case ALU32_K {
       exact die_correct true.intro pre mk },
-    case JMP_X { exact step_jmp64_x_correct k_inc ih fetch_i pre mk },
-    case JMP_K { exact step_jmp64_k_correct k_inc ih fetch_i pre mk },
+    case JMP64_X { exact step_jmp64_x_correct k_inc ih fetch_i pre mk },
+    case JMP64_K { exact step_jmp64_k_correct k_inc ih fetch_i pre mk },
     case STX {
       exact die_correct true.intro pre mk },
     case CALL {

@@ -26,11 +26,11 @@ class value_abstr (α : Type*) extends
 (doALU64_check (op : bpf.ALU) :
   abstr_binary_test (λ x y, op.doALU64_check x y = tt) α α)
 
-(doJMP_check (op : bpf.JMP) :
-  abstr_binary_test (λ x y, op.doJMP_check x y = tt) α α)
+(doJMP64_check (op : bpf.JMP) :
+  abstr_binary_test (λ x y, op.doJMP64_check x y = tt) α α)
 
-(doJMP_tt (op : bpf.JMP) :
-  abstr_binary_inversion (λ x y, op.doJMP x y = tt) α α (with_bot α) (with_bot α))
+(doJMP64_tt (op : bpf.JMP) :
+  abstr_binary_inversion (λ x y, op.doJMP64 x y = tt) α α (with_bot α) (with_bot α))
 
 (is_scalar : abstr_unary_test (λ (x : bpf.value), x.is_scalar) α)
 
@@ -474,7 +474,7 @@ private def doALU64_check (op : bpf.ALU) : abstr_binary_test (λ x y, op.doALU64
             cases y; try{cases h₃},
             simp only with match_simp } } } } } }
 
-private def doJMP_check (op : bpf.JMP) : abstr_binary_test (λ x y, op.doJMP_check x y = tt) (with_top (avalue (β 64))) (with_top (avalue (β 64))) :=
+private def doJMP64_check (op : bpf.JMP) : abstr_binary_test (λ x y, op.doJMP64_check x y = tt) (with_top (avalue (β 64))) (with_top (avalue (β 64))) :=
 { test := λ (x y : with_top (avalue (β 64))),
     match x, y with
     | some (avalue.scalar x), some (avalue.scalar y) := tt
@@ -504,8 +504,8 @@ private def is_scalar : abstr_unary_test (λ (x : bpf.value), x.is_scalar) (with
     dunfold bpf.value.is_scalar,
     simp only [to_bool_true_eq_tt, coe_sort_tt, exists_eq'] } }
 
-private def doJMP_tt (op : bpf.JMP) :
-  abstr_binary_inversion (λ (x y : bpf.value), op.doJMP x y = tt)
+private def doJMP64_tt (op : bpf.JMP) :
+  abstr_binary_inversion (λ (x y : bpf.value), op.doJMP64 x y = tt)
     (with_top (avalue (β 64))) (with_top (avalue (β 64)))
     (with_bot (with_top (avalue (β 64)))) (with_bot (with_top (avalue (β 64)))) :=
 abstr_binary_inversion.trivial
@@ -522,9 +522,9 @@ instance : value_abstr (with_top (avalue (β 64))) :=
 { doALU64        := doALU64_with_top,
   const          := λ v, with_top.lift_nullary_relation (const v),
   doALU64_check  := doALU64_check,
-  doJMP_check    := doJMP_check,
+  doJMP64_check  := doJMP64_check,
   is_scalar      := is_scalar,
-  doJMP_tt       := doJMP_tt,
+  doJMP64_tt     := doJMP64_tt,
   unknown_scalar := unknown_scalar }
 
 end avalue

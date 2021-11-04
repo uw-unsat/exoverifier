@@ -44,16 +44,16 @@ class regs_abstr (α : Type*) extends
   abstr_unary_test (λ (cregs : bpf.reg → bpf.value), bpf.ALU.doALU64_check op (cregs dst) (bpf.value.scalar imm.nth)) α)
 
 -- Check if a JMP is legal on some operands.
-(do_jmp_check (op : bpf.JMP) (dst src : bpf.reg) :
-  abstr_unary_test (λ (cregs : bpf.reg → bpf.value), bpf.JMP.doJMP_check op (cregs dst) (cregs src)) α)
+(do_jmp64_check (op : bpf.JMP) (dst src : bpf.reg) :
+  abstr_unary_test (λ (cregs : bpf.reg → bpf.value), bpf.JMP.doJMP64_check op (cregs dst) (cregs src)) α)
 
 -- Check if a JMP is legal on some operands.
-(do_jmp_imm_check (op : bpf.JMP) (dst : bpf.reg) (imm : lsbvector 64) :
-  abstr_unary_test (λ (cregs : bpf.reg → bpf.value), bpf.JMP.doJMP_check op (cregs dst) (bpf.value.scalar imm.nth)) α)
+(do_jmp64_imm_check (op : bpf.JMP) (dst : bpf.reg) (imm : lsbvector 64) :
+  abstr_unary_test (λ (cregs : bpf.reg → bpf.value), bpf.JMP.doJMP64_check op (cregs dst) (bpf.value.scalar imm.nth)) α)
 
 -- Invert a reg/reg JMP op whose condition is true
-(invert_jmp_tt (op : bpf.JMP) (dst src : bpf.reg) :
-  abstr_unary_inversion (λ (cregs : bpf.reg → bpf.value), bpf.JMP.doJMP op (cregs dst) (cregs src) = tt)
+(invert_jmp64_tt (op : bpf.JMP) (dst src : bpf.reg) :
+  abstr_unary_inversion (λ (cregs : bpf.reg → bpf.value), bpf.JMP.doJMP64 op (cregs dst) (cregs src) = tt)
     α (with_bot α))
 
 (is_scalar (r : bpf.reg) :
@@ -174,41 +174,41 @@ private def do_alu64_imm (op : bpf.ALU) (dst : bpf.reg) (imm : lsbvector 64) :
       rw [vector.nth_update_nth_of_ne (bpf.reg.to_fin_ne_of_ne (ne.symm h))],
       exact h₁ r } } }
 
-private def do_jmp_check (op : bpf.JMP) (dst src : bpf.reg) :
+private def do_jmp64_check (op : bpf.JMP) (dst src : bpf.reg) :
   abstr_unary_test
-    (λ (cregs : bpf.reg → bpf.value), op.doJMP_check (cregs dst) (cregs src))
+    (λ (cregs : bpf.reg → bpf.value), op.doJMP64_check (cregs dst) (cregs src))
     (aregs β) :=
-{ test := λ (l : aregs β), (value_abstr.doJMP_check op).test (interpret l dst) (interpret l src),
+{ test := λ (l : aregs β), (value_abstr.doJMP64_check op).test (interpret l dst) (interpret l src),
   test_sound := by {
     intros _ _ h₁ h₂,
-    apply (value_abstr.doJMP_check op).test_sound h₁ (h₂ _) (h₂ _) } }
+    apply (value_abstr.doJMP64_check op).test_sound h₁ (h₂ _) (h₂ _) } }
 
-private def do_jmp_imm_check (op : bpf.JMP) (dst : bpf.reg) (imm : lsbvector 64) :
+private def do_jmp64_imm_check (op : bpf.JMP) (dst : bpf.reg) (imm : lsbvector 64) :
   abstr_unary_test
-    (λ (cregs : bpf.reg → bpf.value), op.doJMP_check (cregs dst) (bpf.value.scalar imm.nth))
+    (λ (cregs : bpf.reg → bpf.value), op.doJMP64_check (cregs dst) (bpf.value.scalar imm.nth))
     (aregs β) :=
-{ test := λ (l : aregs β), (value_abstr.doJMP_check op).test (interpret l dst) (value_abstr.const (bpf.value.scalar imm.nth)).op,
+{ test := λ (l : aregs β), (value_abstr.doJMP64_check op).test (interpret l dst) (value_abstr.const (bpf.value.scalar imm.nth)).op,
   test_sound := by {
     intros _ _ h₁ h₂,
-    apply (value_abstr.doJMP_check op).test_sound h₁ (h₂ _) _,
+    apply (value_abstr.doJMP64_check op).test_sound h₁ (h₂ _) _,
     apply (value_abstr.const _).correct rfl } }
 
-private def invert_jmp_tt (op : bpf.JMP) (dst src : bpf.reg) :
+private def invert_jmp64_tt (op : bpf.JMP) (dst src : bpf.reg) :
   abstr_unary_inversion
-    (λ (cregs : bpf.reg → bpf.value), bpf.JMP.doJMP op (cregs dst) (cregs src) = tt)
+    (λ (cregs : bpf.reg → bpf.value), bpf.JMP.doJMP64 op (cregs dst) (cregs src) = tt)
     (aregs β) (with_bot (aregs β)) :=
 { inv := λ (l : aregs β),
-    (let z := (value_abstr.doJMP_tt op).inv (interpret l dst) (interpret l src) in do
+    (let z := (value_abstr.doJMP64_tt op).inv (interpret l dst) (interpret l src) in do
       dst' ← z.1,
       src' ← z.2,
       pure $ (l.update_nth dst.to_fin dst').update_nth src.to_fin src'),
   correct := by {
     intros regs regs' h₁ jmp_eq,
     simp only,
-    have h₃ := (value_abstr.doJMP_tt op).correct (h₁ dst) (h₁ src) jmp_eq,
-    cases ((value_abstr.doJMP_tt op).inv (interpret regs' dst) (interpret regs' src)).1 with dst',
+    have h₃ := (value_abstr.doJMP64_tt op).correct (h₁ dst) (h₁ src) jmp_eq,
+    cases ((value_abstr.doJMP64_tt op).inv (interpret regs' dst) (interpret regs' src)).1 with dst',
     { rcases h₃ with ⟨⟨⟩, -⟩ },
-    cases ((value_abstr.doJMP_tt op).inv (interpret regs' dst) (interpret regs' src)).2 with src',
+    cases ((value_abstr.doJMP64_tt op).inv (interpret regs' dst) (interpret regs' src)).2 with src',
     { rcases h₃ with ⟨-, ⟨⟩⟩ },
     simp only [option.some_bind],
     intros r,
@@ -293,10 +293,10 @@ instance : regs_abstr (aregs β) :=
   do_alu64_check     := do_alu64_check,
   do_alu64_imm       := do_alu64_imm,
   do_alu64_imm_check := do_alu64_imm_check,
-  do_jmp_imm_check   := do_jmp_imm_check,
-  invert_jmp_tt      := invert_jmp_tt,
+  do_jmp64_imm_check := do_jmp64_imm_check,
+  invert_jmp64_tt    := invert_jmp64_tt,
   is_scalar          := is_scalar,
-  do_jmp_check       := do_jmp_check }
+  do_jmp64_check     := do_jmp64_check }
 
 end nonrelational
 end absint

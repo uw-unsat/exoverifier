@@ -50,14 +50,14 @@ def gen_one_constraint (current : CTRL) : bpf.cfg.instr CTRL → list constraint
   [{ target  := next,
      source  := current,
      compute := (with_bot.lift_unary_relation (regs_abstr.do_alu64_imm op dst imm)).op }]
-| (bpf.cfg.instr.JMP_X op dst src if_true if_false) :=
+| (bpf.cfg.instr.JMP64_X op dst src if_true if_false) :=
   [{ target  := if_true,
      source  := current,
-     compute := (with_bot.lift_arg_unary_inversion (regs_abstr.invert_jmp_tt op dst src)).inv },
+     compute := (with_bot.lift_arg_unary_inversion (regs_abstr.invert_jmp64_tt op dst src)).inv },
    { target  := if_false,
      source  := current,
      compute := id }]
-| (bpf.cfg.instr.JMP_K _ _ _ if_true if_false) :=
+| (bpf.cfg.instr.JMP64_K _ _ _ if_true if_false) :=
   [{ target  := if_true,
      source  := current,
      compute := id },
@@ -113,16 +113,16 @@ def gen_one_safety (p : PGRM) (current : CTRL) : bpf.cfg.instr CTRL → STATE �
   λ _, (lookup next p.code).is_some ∧ false
 | (bpf.cfg.instr.ALU32_K size dst imm next) :=
   λ _, (lookup next p.code).is_some ∧ false
-| (bpf.cfg.instr.JMP_X op dst src if_true if_false) :=
+| (bpf.cfg.instr.JMP64_X op dst src if_true if_false) :=
   λ mem,
     (lookup if_true p.code).is_some ∧
     (lookup if_false p.code).is_some ∧
-    (with_bot.lift_unary_test (regs_abstr.do_jmp_check op dst src)).test mem = tt
-| (bpf.cfg.instr.JMP_K op dst imm if_true if_false) :=
+    (with_bot.lift_unary_test (regs_abstr.do_jmp64_check op dst src)).test mem = tt
+| (bpf.cfg.instr.JMP64_K op dst imm if_true if_false) :=
   λ mem,
     (lookup if_true p.code).is_some ∧
     (lookup if_false p.code).is_some ∧
-    (with_bot.lift_unary_test (regs_abstr.do_jmp_imm_check op dst imm)).test mem = tt
+    (with_bot.lift_unary_test (regs_abstr.do_jmp64_imm_check op dst imm)).test mem = tt
 | (bpf.cfg.instr.STX size dst src off next) :=
   λ _, (lookup next p.code).is_some ∧ false
 | (bpf.cfg.instr.CALL func next) :=
@@ -241,7 +241,7 @@ begin
       simp only [constraint_holds, gen_one_constraint, list.nth_le] at approx,
       apply le_correct approx,
       apply (with_bot.lift_unary_relation (regs_abstr.do_alu64_imm op dst imm)).correct ih rfl },
-    case bpf.cfg.step.JMP_X : s₀ op dst src v if_true if_false fetch jmpcheck dojmp {
+    case bpf.cfg.step.JMP64_X : s₀ op dst src v if_true if_false fetch jmpcheck dojmp {
       specialize ih s₀ rfl,
       clear tail,
       rw [← option.mem_def, mem_lookup_iff] at fetch,
@@ -253,10 +253,10 @@ begin
       { -- Jump taken
         specialize approx (gen_one_constraint_mem fetch 0),
         apply le_correct approx,
-        apply (with_bot.lift_arg_unary_inversion (regs_abstr.invert_jmp_tt op dst src)).correct ih,
+        apply (with_bot.lift_arg_unary_inversion (regs_abstr.invert_jmp64_tt op dst src)).correct ih,
         symmetry,
         exact dojmp } },
-    case bpf.cfg.step.JMP_K : s₀ op dst imm v if_true if_false fetch dojmp {
+    case bpf.cfg.step.JMP64_K : s₀ op dst imm v if_true if_false fetch dojmp {
       specialize ih s₀ rfl,
       clear tail,
       rw [← option.mem_def, mem_lookup_iff] at fetch,
@@ -328,7 +328,7 @@ begin
       cases fetch',
       simp only [absint.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at secure,
       exact secure.1 },
-    case bpf.cfg.step.JMP_X : _ op dst src _ if_true if_false fetch' {
+    case bpf.cfg.step.JMP64_X : _ op dst src _ if_true if_false fetch' {
       rw [fetch] at fetch',
       cases fetch',
       simp only [absint.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at secure,
@@ -336,7 +336,7 @@ begin
       cases head_c,
       { exact secure₂ },
       { exact secure₁ } },
-    case bpf.cfg.step.JMP_K : _ op dst imm _ if_true if_false fetch' {
+    case bpf.cfg.step.JMP64_K : _ op dst imm _ if_true if_false fetch' {
       rw [fetch] at fetch',
       cases fetch',
       simp only [absint.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at secure,
@@ -378,18 +378,18 @@ begin
     apply bpf.cfg.step.ALU64_K _ fetch _ rfl,
     cases check_tt with _ check_tt,
     exact (with_bot.lift_unary_test (regs_abstr.do_alu64_imm_check _ dst imm)).test_sound check_tt rel },
-  case bpf.cfg.instr.JMP_X : op dst src if_true if_false {
+  case bpf.cfg.instr.JMP64_X : op dst src if_true if_false {
     simp only [absint.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
     rcases check_tt with ⟨-, -, check_tt⟩,
     existsi _,
-    apply bpf.cfg.step.JMP_X _ fetch _ rfl,
-    exact (with_bot.lift_unary_test (regs_abstr.do_jmp_check _ dst src)).test_sound check_tt rel },
-  case bpf.cfg.instr.JMP_K : op dst imm if_true if_false {
+    apply bpf.cfg.step.JMP64_X _ fetch _ rfl,
+    exact (with_bot.lift_unary_test (regs_abstr.do_jmp64_check _ dst src)).test_sound check_tt rel },
+  case bpf.cfg.instr.JMP64_K : op dst imm if_true if_false {
     simp only [absint.gen_one_safety, band_eq_true_eq_eq_tt_and_eq_tt, bool.to_bool_and, bool.to_bool_coe] at check_tt,
     rcases check_tt with ⟨-, -, check_tt⟩,
     existsi _,
-    apply bpf.cfg.step.JMP_K _ fetch _ rfl,
-    exact (with_bot.lift_unary_test (regs_abstr.do_jmp_imm_check _ dst _)).test_sound check_tt rel },
+    apply bpf.cfg.step.JMP64_K _ fetch _ rfl,
+    exact (with_bot.lift_unary_test (regs_abstr.do_jmp64_imm_check _ dst _)).test_sound check_tt rel },
   case bpf.cfg.instr.STX {
     simp only [gen_one_safety, to_bool_false_eq_ff, and_false] at check_tt,
     cases check_tt },
