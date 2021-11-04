@@ -125,8 +125,57 @@
   (__update_reg32_bounds reg)
   (__update_reg64_bounds reg))
 
-(define (__reg32_deduce_bounds reg) (void))
-(define (__reg64_deduce_bounds reg) (void))
+(define (__reg32_deduce_bounds reg)
+  (cond
+    [(|| (bvsge (bpf-reg-state-s32-min-val reg) (bv 0 32))
+         (bvslt (bpf-reg-state-s32-max-val reg) (bv 0 32)))
+
+     (define newmin (bvumax (bpf-reg-state-s32-min-val reg) (bpf-reg-state-u32-min-val reg)))
+     (set-bpf-reg-state-s32-min-val! reg newmin)
+     (set-bpf-reg-state-u32-min-val! reg newmin)
+     (define newmax (bvumin (bpf-reg-state-s32-max-val reg) (bpf-reg-state-u32-max-val reg)))
+     (set-bpf-reg-state-s32-max-val! reg newmax)
+     (set-bpf-reg-state-u32-max-val! reg newmax)]
+
+    [(bvsge (bpf-reg-state-u32-max-val reg) (bv 0 32))
+
+     (set-bpf-reg-state-s32-min-val! reg (bpf-reg-state-u32-min-val reg))
+     (define newmax (bvumin (bpf-reg-state-s32-max-val reg) (bpf-reg-state-u32-max-val reg)))
+     (set-bpf-reg-state-s32-max-val! reg newmax)
+     (set-bpf-reg-state-u32-max-val! reg newmax)]
+
+    [(bvslt (bpf-reg-state-u32-min-val reg) (bv 0 32))
+
+     (define newmin (bvumax (bpf-reg-state-s32-min-val reg) (bpf-reg-state-u32-min-val reg)))
+     (set-bpf-reg-state-s32-min-val! reg newmin)
+     (set-bpf-reg-state-u32-min-val! reg newmin)
+     (set-bpf-reg-state-s32-max-val! reg (bpf-reg-state-u32-max-val reg))]))
+
+(define (__reg64_deduce_bounds reg)
+  (cond
+    [(|| (bvsge (bpf-reg-state-smin-val reg) (bv 0 64))
+         (bvslt (bpf-reg-state-smax-val reg) (bv 0 64)))
+
+     (define newmin (bvumax (bpf-reg-state-smin-val reg) (bpf-reg-state-umin-val reg)))
+     (set-bpf-reg-state-smin-val! reg newmin)
+     (set-bpf-reg-state-umin-val! reg newmin)
+     (define newmax (bvumin (bpf-reg-state-smax-val reg) (bpf-reg-state-umax-val reg)))
+     (set-bpf-reg-state-smax-val! reg newmax)
+     (set-bpf-reg-state-umax-val! reg newmax)]
+
+    [(bvsge (bpf-reg-state-umax-val reg) (bv 0 64))
+
+     (set-bpf-reg-state-smin-val! reg (bpf-reg-state-umin-val reg))
+     (define newmax (bvumin (bpf-reg-state-smax-val reg) (bpf-reg-state-umax-val reg)))
+     (set-bpf-reg-state-smax-val! reg newmax)
+     (set-bpf-reg-state-umax-val! reg newmax)]
+
+    [(bvslt (bpf-reg-state-umin-val reg) (bv 0 64))
+
+     (define newmin (bvumax (bpf-reg-state-smin-val reg) (bpf-reg-state-umin-val reg)))
+     (set-bpf-reg-state-smin-val! reg newmin)
+     (set-bpf-reg-state-umin-val! reg newmin)
+     (set-bpf-reg-state-smax-val! reg (bpf-reg-state-umax-val reg))]))
 
 (define (__reg_deduce_bounds reg)
   (__reg32_deduce_bounds reg)
