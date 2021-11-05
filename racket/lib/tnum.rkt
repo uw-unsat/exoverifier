@@ -82,6 +82,29 @@
   (tnum (zero-extend (bvashr lovalue loshift) (type-of shift))
         (zero-extend (bvashr lomask loshift) (type-of shift))))
 
+; Multiply two tnums.
+(define (tnum-mul a b)
+  (define N (bitvector-size (type-of (tnum-value a))))
+  (define acc_v (bvmul (tnum-value a) (tnum-value b)))
+  (define acc_m (tnum (bv 0 N) (bv 0 N)))
+
+  (define (loop fuel)
+    (cond
+      [(zero? fuel) (bug-assert #f)]
+
+      [(|| (! (bvzero? (tnum-value a))) (! (bvzero? (tnum-mask a))))
+       (cond
+         [(! (bvzero? (bvand (tnum-value a) (bv 1 N))))
+          (set! acc_m (tnum-add acc_m (tnum (bv 0 N) (tnum-mask b))))]
+         [(! (bvzero? (bvand (tnum-mask a) (bv 1 N))))
+          (set! acc_m (tnum-add acc_m (tnum (bv 0 N) (bvor (tnum-value b) (tnum-mask b)))))]
+         [else (void)])
+       (set! a (tnum-rshift a (bv 1 N)))
+       (set! b (tnum-lshift b (bv 1 N)))
+       (loop (sub1 fuel))]))
+  (loop (add1 N))
+  (tnum-add (tnum acc_v (bv 0 N)) acc_m))
+
 ; Intersect two tnums. Sets value bit to 1 if disagreement.
 (define (tnum-intersect a b)
   (define v (bvor (tnum-value a) (tnum-value b)))
