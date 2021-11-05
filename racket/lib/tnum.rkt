@@ -27,12 +27,11 @@
 ; Make a symbolic expression representing the same set of bitvectors as a tnum
 ; Returns the symbolic expression and a list of symbolics involved in the representation,
 ; that does not include symbolics from the tnum itself.
-(define (tnum->symbolic t)
-  (define-symbolic* c (type-of (tnum-value t)))
+(define (tnum->symbolic t c)
   ; Mask out bits not set in the tnum mask
   (set! c (bvand c (tnum-mask t)))
   ; Take value bits from tnum
-  (values (bvor c (tnum-value t)) (list c)))
+  (bvor c (tnum-value t)))
 
 ; Construct a tnum representing a single bitvector.
 (define (tnum-const c) (tnum c (bvxor c c)))

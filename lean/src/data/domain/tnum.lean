@@ -551,4 +551,61 @@ instance : abstr_bv tnum :=
   lshr := λ _ _, { op := tnum.lshr, correct := by { intros, subst_vars, apply tnum.lshr_correct; assumption } },
   ashr := λ _ _, { op := tnum.ashr, correct := by { intros, subst_vars, apply tnum.ashr_correct; assumption } } }
 
+section optimality
+variables (f : tnum n → tnum n → tnum n) (g : (fin n → bool) → (fin n → bool) → fin n → bool)
+
+private def correct : Prop :=
+  ∀ {x y u v}, x ∈ γ u → y ∈ γ v → g x y ∈ γ (f u v)
+
+/-
+A binary tnum operator "f" is optimal iff for any other correct operator "f'",
+f is a subset of f' on all inputs.
+-/
+private def optimal : Prop :=
+  ∀ (f' : tnum n → tnum n → tnum n),
+    correct f' g →
+    ∀ u v, γ (f u v) ⊆ γ (f' u v)
+
+/-
+This is the property we actually check in Rosette.
+-/
+private def rosette_formulation : Prop :=
+  ∀ (a b d : tnum n) (z : fin n → bool),
+    z ∈ γ (f a b) →
+    z ∉ γ d →
+    ∃ (x y : fin n → bool),
+      x ∈ γ a ∧ y ∈ γ b ∧ g x y ∉ γ d
+
+/-
+The rosette formulation of optimality is equivalent to the natural definition
+that quantifies over functions.
+-/
+private theorem rosette_formulation_ok : rosette_formulation f g ↔ optimal f g :=
+begin
+  simp only [optimal, rosette_formulation],
+  split,
+  { intros h₁ f' f'_correct u v z h₂,
+    specialize h₁ u v (f' u v) z h₂,
+    contrapose! h₁,
+    split, exact h₁,
+    simp only [correct] at f'_correct,
+    intros x y,
+    apply f'_correct },
+  { intros h₁ a b d z h₂ h₀,
+    contrapose! h₀,
+    specialize h₁ (λ u v, if a = u ∧ b = v then d else ⊤) _,
+    { simp only [correct],
+      intros _ _ _ _ _ _,
+      split_ifs,
+      cases h,
+      subst_vars,
+      specialize h₀ x y,
+      apply h₀; assumption,
+      apply abstr_top.top_correct _ },
+    { specialize h₁ a b h₂,
+      convert h₁,
+      simp only [if_true, eq_self_iff_true, and_self] } }
+end
+
+end optimality
 end tnum

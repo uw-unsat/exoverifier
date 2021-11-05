@@ -7,14 +7,7 @@
 (provide (all-defined-out))
 
 (struct bpf-reg-state
-        (var-off umin-val
-                 umax-val
-                 smin-val
-                 smax-val
-                 u32-min-val
-                 u32-max-val
-                 s32-min-val
-                 s32-max-val)
+        (var-off umin-val umax-val smin-val smax-val u32-min-val u32-max-val s32-min-val s32-max-val)
   #:mutable
   #:transparent)
 
@@ -407,8 +400,7 @@
   (define umax_val (bpf-reg-state-umax-val src_reg))
 
   (cond
-    [(&& src_known dst_known)
-     (__mark_reg_known dst_reg (tnum-value (bpf-reg-state-var-off dst_reg)))]
+    [(&& src_known dst_known) (__mark_reg_known dst_reg (tnum-value (bpf-reg-state-var-off dst_reg)))]
     [else
      (set-bpf-reg-state-umin-val! dst_reg (tnum-value (bpf-reg-state-var-off dst_reg)))
      (set-bpf-reg-state-umax-val! dst_reg (bvumin (bpf-reg-state-umax-val dst_reg) umax_val))
@@ -443,8 +435,7 @@
      (set-bpf-reg-state-u32-max-val! dst_reg U32_MAX)]
     [else
      (set-bpf-reg-state-u32-min-val! dst_reg (bvshl (bpf-reg-state-u32-min-val dst_reg) umin_val))
-     (set-bpf-reg-state-u32-max-val! dst_reg
-                                     (bvshl (bpf-reg-state-u32-max-val dst_reg) umax_val))]))
+     (set-bpf-reg-state-u32-max-val! dst_reg (bvshl (bpf-reg-state-u32-max-val dst_reg) umax_val))]))
 
 (define (__scalar64_min_max_lsh dst_reg umin_val umax_val)
   (cond

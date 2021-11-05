@@ -6,7 +6,7 @@
          serval/lib/solver
          serval/lib/unittest)
 
-(define N (make-parameter (let ([s (getenv "BITWIDTH")]) (if s (string->number s) 64))))
+(define N (make-parameter (let ([s (getenv "BITWIDTH")]) (if s (string->number s) 8))))
 
 (define (test-unknown n)
   (define unknown (tnum-unknown n))
@@ -88,12 +88,10 @@
 ; Test that tnum->symbolic does the right thing.
 (define (test-tnum->symbolic n)
   (define a (fresh-tnum n))
-  (define-values (symbolic-a _) (tnum->symbolic a))
+  (define-symbolic* x c (bitvector n))
+  (define symbolic-a (tnum->symbolic a c))
 
-  (define-symbolic* c (bitvector n))
-
-  (assume (tnum-contains? a c))
-  (check-sat? (solve (assert (equal? symbolic-a c)))))
+  (assert (<=> (tnum-contains? a x) (exists (list c) (equal? symbolic-a x)))))
 
 (define (test-cast)
   (define a (fresh-tnum 64))
@@ -136,24 +134,28 @@
   (define-symbolic* x (bitvector n))
   (bug-assert (=> (tnum-is-unknown? a) (tnum-contains? a x))))
 
-(define (verify-binary-op-precision n tnum-op bv-op)
+(define (verify-binary-op-precision n tnum-op bv-op #:shift [shift #f])
   (define a (fresh-tnum n))
   (define b (fresh-tnum n))
-  (define c (tnum-op a b))
+  (define d (fresh-tnum n))
 
-  (define-values (symbolic-a a-symbols) (tnum->symbolic a))
-  (define-values (symbolic-b b-symbols) (tnum->symbolic b))
-  (define-values (symbolic-c c-symbols) (tnum->symbolic c))
+  (define-symbolic* x y z w (bitvector n))
 
-  (assume (bvult symbolic-b (bv 64 64)))
+  (assume (tnum-contains? (tnum-op a b) z))
+  (assume (! (tnum-contains? d z)))
 
-  (assert (exists (symbolics (list a-symbols b-symbols))
-                  (equal? (bv-op symbolic-a symbolic-b) symbolic-c))))
+  ; If the operator is a shift operator, disallow oversized shifts.
+  (when shift
+    (assume (forall (list w) (=> (tnum-contains? b w) (bvult w (bv n n))))))
+
+  (bug-assert
+   (exists (list x y)
+           (&& (tnum-contains? a x) (tnum-contains? b y) (! (tnum-contains? d (bv-op x y)))))))
 
 (define tnum-tests
   (test-suite+
    "Tests for tnum"
-   (test-case+ "Test tnum->symbolic" (test-tnum->symbolic (N)))
+   (with-z3 (test-case+ "Test tnum->symbolic" (test-tnum->symbolic (N))))
    (test-case+ "Test constant tnums" (test-const (N)))
    (test-case+ "Test tnum range" (test-range (N)))
    (test-case+ "Test tnum is-const" (test-is-const (N)))
@@ -182,12 +184,13 @@
                (verify-shift-operator (N) (lambda (a b) (tnum-lshr a b (N))) bvlshr))
    (test-case+ "Test arithmetic shift right by tnum"
                (verify-shift-operator (N) (lambda (a b) (tnum-ashr a b (N))) bvashr))
-   (with-z3 (test-case+ "Test precision of shl"
-                        (verify-binary-op-precision (N) (lambda (a b) (tnum-shl a b (N))) bvshl)))
-   (with-z3 (test-case+ "Test precision of add" (verify-binary-op-precision (N) tnum-add bvadd)))
-   (with-z3 (test-case+ "Test precision of and" (verify-binary-op-precision (N) tnum-and bvand)))
-   (with-z3 (test-case+ "Test precision of or" (verify-binary-op-precision (N) tnum-or bvor)))
-   (with-z3 (test-case+ "Test precision of xor" (verify-binary-op-precision (N) tnum-xor bvxor)))
+   (with-z3 (test-case+
+             "Test precision of shl"
+             (verify-binary-op-precision 16 (lambda (a b) (tnum-shl a b 16)) bvshl #:shift #t)))
+   (with-z3 (test-case+ "Test precision of add" (verify-binary-op-precision 4 tnum-add bvadd)))
+   (with-z3 (test-case+ "Test precision of and" (verify-binary-op-precision 8 tnum-and bvand)))
+   (with-z3 (test-case+ "Test precision of or" (verify-binary-op-precision 8 tnum-or bvor)))
+   (with-z3 (test-case+ "Test precision of xor" (verify-binary-op-precision 8 tnum-xor bvxor)))
    (test-case+ "Test unknown tnums" (test-unknown (N)))))
 
 (module+ test
