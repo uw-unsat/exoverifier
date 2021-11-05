@@ -141,19 +141,14 @@
   (define b (fresh-tnum n))
   (define c (tnum-op a b))
 
-  (define-values (approx-result _) (tnum->symbolic c))
+  (define-values (symbolic-a a-symbols) (tnum->symbolic a))
+  (define-values (symbolic-b b-symbols) (tnum->symbolic b))
+  (define-values (symbolic-c c-symbols) (tnum->symbolic c))
 
-  (define-values (symbolic-a as) (tnum->symbolic a))
-  (define-values (symbolic-b bs) (tnum->symbolic b))
+  (assume (bvult symbolic-b (bv 64 64)))
 
-  (define precise-result (bv-op symbolic-a symbolic-b))
-
-  ; Search for input tnums a and b and approximate result, such that, for any interpretation
-  ; of the precise result, the precise result and the approximate result are unequal.
-  ; If no solution exists, then every value represented by approximate result is in the precise
-  ; result, so the approximate result is as precise as can be.
-  (check-unsat? (synthesize #:forall (list as bs)
-                            #:guarantee (assert (! (equal? approx-result precise-result))))))
+  (assert (exists (symbolics (list a-symbols b-symbols))
+                  (equal? (bv-op symbolic-a symbolic-b) symbolic-c))))
 
 (define tnum-tests
   (test-suite+
@@ -187,10 +182,12 @@
                (verify-shift-operator (N) (lambda (a b) (tnum-lshr a b (N))) bvlshr))
    (test-case+ "Test arithmetic shift right by tnum"
                (verify-shift-operator (N) (lambda (a b) (tnum-ashr a b (N))) bvashr))
-   (test-case+ "Test precision of add" (with-z3 (verify-binary-op-precision (N) tnum-add bvadd)))
-   ; (test-case+ "Test precision of and" (with-z3 (verify-binary-op-precision (N) tnum-and bvand)))
-   (test-case+ "Test precision of or" (with-z3 (verify-binary-op-precision (N) tnum-or bvor)))
-   (test-case+ "Test precision of xor" (with-z3 (verify-binary-op-precision (N) tnum-xor bvxor)))
+   (with-z3 (test-case+ "Test precision of shl"
+                        (verify-binary-op-precision (N) (lambda (a b) (tnum-shl a b (N))) bvshl)))
+   (with-z3 (test-case+ "Test precision of add" (verify-binary-op-precision (N) tnum-add bvadd)))
+   (with-z3 (test-case+ "Test precision of and" (verify-binary-op-precision (N) tnum-and bvand)))
+   (with-z3 (test-case+ "Test precision of or" (verify-binary-op-precision (N) tnum-or bvor)))
+   (with-z3 (test-case+ "Test precision of xor" (verify-binary-op-precision (N) tnum-xor bvxor)))
    (test-case+ "Test unknown tnums" (test-unknown (N)))))
 
 (module+ test
