@@ -29,6 +29,11 @@ bool tnum_contains(struct tnum a, u64 constant)
     return (a.mask | ~(a.value ^ constant)) + 1 == 0;
 }
 
+/* Macro version of tnum_contains because CBMC disallows calling functions /
+ * side effects within quantifiers.
+ */
+#define TNUM_CONTAINS(a, constant) ((a.mask | ~(a.value ^ constant)) + 1 == 0)
+
 struct tnum nondet_tnum(void)
 {
     u64 mu, v;
@@ -267,6 +272,30 @@ struct tnum tnum_const_subreg(struct tnum a, u32 value)
     return tnum_or(tnum_clear_subreg(a), tnum_const(value));
 }
 
+#if 0
+void check_tnum_or_optimal(void)
+{
+    struct tnum a, b, d;
+    u64 z;
+
+    a = nondet_tnum();
+    b = nondet_tnum();
+    d = nondet_tnum();
+    z = nondet_u64();
+
+    __CPROVER_assume(tnum_contains(tnum_or(a, b), z));
+    __CPROVER_assume(!tnum_contains(d, z));
+
+    __CPROVER_assert(
+        __CPROVER_exists { u64 x;
+            __CPROVER_exists { u64 y;
+                TNUM_CONTAINS(a, x) &&
+                TNUM_CONTAINS(b, y) &&
+                !TNUM_CONTAINS(d, x | y)
+            } }, "tnum_or optimality");
+}
+#endif
+
 int main(int argc, char **argv) {
 
     struct tnum a, b, c;
@@ -291,12 +320,11 @@ int main(int argc, char **argv) {
     __CPROVER_assert(tnum_valid(tnum_xor(a, b)), "tnum_xor valid");
     __CPROVER_assert(tnum_contains(tnum_xor(a, b), x ^ y), "Test tnum_xor");
 
-    __CPROVER_assume(y < 64);
-    __CPROVER_assert(tnum_valid(tnum_shl(a, b, 64)), "tnum_shl valid");
-    __CPROVER_assert(tnum_contains(tnum_shl(a, b, 64), x << y), "Test tnum_shl");
-    __CPROVER_assert(tnum_valid(tnum_lshr(a, b, 64)), "tnum_lshr valid");
-    __CPROVER_assert(tnum_contains(tnum_lshr(a, b, 64), x >> y), "Test tnum_lshr");
-
+    // __CPROVER_assume(y < 64);
+    // __CPROVER_assert(tnum_valid(tnum_shl(a, b, 64)), "tnum_shl valid");
+    // __CPROVER_assert(tnum_contains(tnum_shl(a, b, 64), x << y), "Test tnum_shl");
+    // __CPROVER_assert(tnum_valid(tnum_lshr(a, b, 64)), "tnum_lshr valid");
+    // __CPROVER_assert(tnum_contains(tnum_lshr(a, b, 64), x >> y), "Test tnum_lshr");
 
     return 0;
 }

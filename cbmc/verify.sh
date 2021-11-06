@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 set -euo pipefail;
-cbmc --trace tnum.c;
+cbmc --z3 tnum.c;
