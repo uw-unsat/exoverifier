@@ -1,4 +1,4 @@
-image: unsat/lean:3.35.0_1
+image: unsat/exoverifier-tools:latest
 
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
