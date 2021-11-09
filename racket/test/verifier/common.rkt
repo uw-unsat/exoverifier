@@ -37,16 +37,44 @@
   ; Assume abstract state initially approximates cpu
   (assume (bpf-verifier-env-contains? env bpf-cpu))
 
+  (define dst 'r0)
+  (define src 'r1)
+
+  (define dst-val-pre (bpf:reg-ref bpf-cpu dst))
+  (define src-val-pre (bpf:reg-ref bpf-cpu src))
+  (define dst-state-pre (struct-copy bpf-reg-state (bpf:@reg-ref (bpf-verifier-env-regs env) dst)))
+  (define src-state-pre (struct-copy bpf-reg-state (bpf:@reg-ref (bpf-verifier-env-regs env) src)))
+
   ; Step the instruction on concrete interrpreter and through the verifier
-  (define insn (bpf:insn op 'r0 'r1 #f #f))
+  (define insn (bpf:insn op dst src #f #f))
   (bpf:interpret-insn bpf-cpu insn #:next #f)
   (adjust_reg_min_max_vals env insn)
 
+  (define dst-val-post (bpf:reg-ref bpf-cpu dst))
+  (define dst-state-post (struct-copy bpf-reg-state (bpf:@reg-ref (bpf-verifier-env-regs env) dst)))
+
   ; Assert that the resulting state is a correct approximation.
-  (assert (bpf-verifier-env-contains? env bpf-cpu))
+  (bug-assert
+   (bpf-verifier-env-contains? env bpf-cpu)
+   #:msg
+   (lambda (m)
+     (set!
+      m
+      (complete-solution
+       m
+       (symbolics
+        (list src-val-pre dst-val-post dst-val-pre src-state-pre dst-state-pre dst-state-post))))
+     (format
+      "\n{\"dst_state_pre\": ~a, \"dst_val_pre\": \"~a\", \"src_state_pre\": ~a, \"src_val_pre\": \"~a\", \"dst_state_post\": ~a, \"dst_val_post\": \"~a\"}"
+      (bpf-reg-state->json (evaluate dst-state-pre m))
+      (evaluate dst-val-pre m)
+      (bpf-reg-state->json (evaluate src-state-pre m))
+      (evaluate src-val-pre m)
+      (bpf-reg-state->json (evaluate dst-state-post m))
+      (evaluate dst-val-post m))))
 
   ; Asser that invariants still hold
-  (assert (bpf-verifier-env-invariants env)))
+  (bug-assert (bpf-verifier-env-invariants env)))
 
 (define verifier-tests
   (test-suite+ "Verifier tests"

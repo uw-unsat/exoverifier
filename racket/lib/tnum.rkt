@@ -13,8 +13,13 @@
 (define (tnum-valid? t)
   (bvzero? (bvand (tnum-value t) (tnum-mask t))))
 
+; Format a tnum as JSON for debugging
+(define (tnum->json t)
+  (format "{\"value\": \"~v\", \"mask\": \"~v\"}" (tnum-value t) (tnum-mask t)))
+
 ; The unknown tnum of width n.
-(define (tnum-unknown n) (tnum (bv 0 n) (bvnot (bv 0 n))))
+(define (tnum-unknown n)
+  (tnum (bv 0 n) (bvnot (bv 0 n))))
 
 ; Whether some constant bitvector is represented by the tnum t.
 (define (tnum-contains? t c)
@@ -34,7 +39,8 @@
   (bvor c (tnum-value t)))
 
 ; Construct a tnum representing a single bitvector.
-(define (tnum-const c) (tnum c (bvxor c c)))
+(define (tnum-const c)
+  (tnum c (bvxor c c)))
 
 ; Returns a fresh, symbolic tnum of size n, assumed to be valid.
 (define (fresh-tnum n)
@@ -44,14 +50,16 @@
   t)
 
 ; Whether a tnum represents just a single constant.
-(define (tnum-is-const? a) (bvzero? (tnum-mask a)))
+(define (tnum-is-const? a)
+  (bvzero? (tnum-mask a)))
 
 ; Whether the lower 32 bits of a tnum are constant.
 (define (tnum-subreg-is-const? a)
   (bvzero? (tnum-mask (tnum-subreg a))))
 
 ; Whether a tnum is completely unknown.
-(define (tnum-is-unknown? a) (bvzero? (bvnot (tnum-mask a))))
+(define (tnum-is-unknown? a)
+  (bvzero? (bvnot (tnum-mask a))))
 
 (define (tnum-range min max)
   (define N (bitvector-size (type-of min)))
