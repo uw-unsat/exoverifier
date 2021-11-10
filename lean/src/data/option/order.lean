@@ -9,12 +9,14 @@ import order.bounded_lattice
 namespace option
 variables (α β : Type*)
 
-instance : order_bot (α → option β) :=
+instance : partial_order (α → option β) :=
 { le          := λ x y, ∀ {a : α} {b : β}, x a = some b → y a = some b,
   le_refl     := λ _, by tauto,
   le_trans    := λ _ _ _, by tauto,
-  le_antisymm := λ _ _ _ _, by ext; tauto,
-  bot         := λ _, none,
+  le_antisymm := λ _ _ _ _, by ext; tauto}
+
+instance : order_bot (α → option β) :=
+{ bot         := λ _, none,
   bot_le      := λ _ _ _, by simp }
 
 end option
