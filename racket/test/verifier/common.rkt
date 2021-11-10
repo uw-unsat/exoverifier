@@ -21,6 +21,17 @@
   (check-sat? (solve (assert (&& (bpf-verifier-env-invariants env)
                                  (bpf-verifier-env-contains? env bpf-cpu))))))
 
+(define (test-unknown-env)
+
+  (define-symbolic* r0 r1 r2 r3 r4 r5 r6 r7 r8 r9 r10 ax (bitvector 64))
+  (define bpf-regs (bpf:regs r0 r1 r2 r3 r4 r5 r6 r7 r8 r9 r10 ax))
+  (define bpf-cpu (bpf:init-cpu))
+  (bpf:set-cpu-regs! bpf-cpu (struct-copy bpf:regs bpf-regs))
+
+  (define env (unknown-bpf-verifier-env))
+
+  (bug-assert (bpf-verifier-env-contains? env bpf-cpu))
+  (bug-assert (bpf-verifier-env-invariants env)))
 (define (test-insn op)
   ; Create symbolic register content for each BPF register
   (define-symbolic* r0 r1 r2 r3 r4 r5 r6 r7 r8 r9 r10 ax (bitvector 64))
@@ -78,6 +89,7 @@
 
 (define verifier-tests
   (test-suite+ "Verifier tests"
+               (test-case+ "Test unknown env" (test-unknown-env))
                (test-case+ "Test assumptions satisfiable" (test-assumptions-satisfiable))))
 
 (module+ test
