@@ -512,10 +512,51 @@
      (__update_reg_bounds dst_reg)]))
 
 ; Compute new tnum/bounds for BPF_XOR
-(define (scalar32_min_max_xor dst src)
-  (__mark_reg_unbounded dst))
-(define (scalar_min_max_xor dst src)
-  (__mark_reg_unbounded dst))
+(define (scalar32_min_max_xor dst_reg src_reg)
+  (define src_known (tnum-subreg-is-const? (bpf-reg-state-var-off src_reg)))
+  (define dst_known (tnum-subreg-is-const? (bpf-reg-state-var-off dst_reg)))
+  (define var32_off (tnum-subreg (bpf-reg-state-var-off dst_reg)))
+  (define smin_val (bpf-reg-state-s32-min-val src_reg))
+
+  (cond
+    [(&& src_known dst_known) (__mark_reg32_known dst_reg (extract 31 0 (tnum-value var32_off)))]
+    [else
+     (set-bpf-reg-state-u32-min-val! dst_reg (extract 31 0 (tnum-value var32_off)))
+     (set-bpf-reg-state-u32-max-val!
+      dst_reg
+      (extract 31 0 (bvor (tnum-value var32_off) (tnum-mask var32_off))))
+
+     (cond
+       [(&& (bvsge (bpf-reg-state-s32-min-val dst_reg) (bv 0 32)) (bvsge smin_val (bv 0 32)))
+        (set-bpf-reg-state-s32-min-val! dst_reg (bpf-reg-state-u32-min-val dst_reg))
+        (set-bpf-reg-state-s32-max-val! dst_reg (bpf-reg-state-u32-max-val dst_reg))]
+       [else
+        (set-bpf-reg-state-s32-min-val! dst_reg S32_MIN)
+        (set-bpf-reg-state-s32-max-val! dst_reg S32_MAX)])]))
+
+(define (scalar_min_max_xor dst_reg src_reg)
+  (define src_known (tnum-is-const? (bpf-reg-state-var-off src_reg)))
+  (define dst_known (tnum-is-const? (bpf-reg-state-var-off dst_reg)))
+  (define smin_val (bpf-reg-state-smin-val src_reg))
+
+  (cond
+    [(&& src_known dst_known)
+     (__mark_reg_known dst_reg (tnum-value (bpf-reg-state-var-off dst_reg)))]
+    [else
+     (set-bpf-reg-state-umin-val! dst_reg (tnum-value (bpf-reg-state-var-off dst_reg)))
+     (set-bpf-reg-state-umax-val! dst_reg
+                                  (bvor (tnum-value (bpf-reg-state-var-off dst_reg))
+                                        (tnum-mask (bpf-reg-state-var-off dst_reg))))
+
+     (cond
+       [(&& (bvsge (bpf-reg-state-smin-val dst_reg) (bv 0 64)) (bvsge smin_val (bv 0 64)))
+        (set-bpf-reg-state-smin-val! dst_reg (bpf-reg-state-umin-val dst_reg))
+        (set-bpf-reg-state-smax-val! dst_reg (bpf-reg-state-umax-val dst_reg))]
+       [else
+        (set-bpf-reg-state-smin-val! dst_reg S64_MIN)
+        (set-bpf-reg-state-smax-val! dst_reg S64_MAX)])
+
+     (__update_reg_bounds dst_reg)]))
 
 ; Compute new tnum/bounds for BPF_LSH
 
@@ -631,11 +672,11 @@
      (scalar_min_max_or dst_reg src_reg)]
 
     [(BPF_XOR)
-     (scalar32_min_max_xor dst_reg src_reg)
-     (scalar_min_max_xor dst_reg src_reg)
      (set-bpf-reg-state-var-off! dst_reg
                                  (tnum-xor (bpf-reg-state-var-off dst_reg)
-                                           (bpf-reg-state-var-off src_reg)))]
+                                           (bpf-reg-state-var-off src_reg)))
+     (scalar32_min_max_xor dst_reg src_reg)
+     (scalar_min_max_xor dst_reg src_reg)]
 
     [(BPF_LSH) (cond
                  [(bvuge umax_val insn_bitness) (mark_reg_unknown env regs (bpf:insn-dst insn))]
