@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Luke Nelson, Xi Wang
 -/
 import data.fin.basic
+import data.fin.tuple
 import data.list
 import misc.list
 import tactic.omega.main
