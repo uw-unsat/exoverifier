@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Luke Nelson, Xi Wang
 -/
 import data.option.basic
-import order.bounded_lattice
+import order.bounded_order
 
 namespace option
 variables (α β : Type*)

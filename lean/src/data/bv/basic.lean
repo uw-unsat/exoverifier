@@ -346,7 +346,7 @@ instance : has_inf (fin n → bool) :=
 instance : has_sup (fin n → bool) :=
 ⟨bv.or⟩
 
-instance : bounded_distrib_lattice bool :=
+instance : distrib_lattice bool :=
 { sup          := bor,
   le_sup_left  := dec_trivial,
   le_sup_right := dec_trivial,
@@ -358,13 +358,14 @@ instance : bounded_distrib_lattice bool :=
   le_inf       := dec_trivial,
   le_sup_inf   := dec_trivial,
 
-  top          := tt,
+  .. (_ : partial_order bool) }
+
+instance : bounded_order bool :=
+{ top          := tt,
   le_top       := dec_trivial,
 
   bot          := ff,
-  bot_le       := dec_trivial,
-
-  .. (_ : partial_order bool) }
+  bot_le       := dec_trivial }
 
 instance : boolean_algebra bool :=
 { compl            := bnot,
@@ -374,7 +375,8 @@ instance : boolean_algebra bool :=
   inf_inf_sdiff    := dec_trivial,
   inf_compl_le_bot := dec_trivial,
   top_le_sup_compl := dec_trivial,
-  .. (_ : bounded_distrib_lattice bool) }
+  .. (_ : distrib_lattice bool),
+  .. (_ : bounded_order bool) }
 
 instance : boolean_algebra (fin n → bool) :=
 { sup   := (⊔),

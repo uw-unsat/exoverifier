@@ -5,7 +5,7 @@ Authors: Luke Nelson, Xi Wang
 -/
 import misc.with_bot
 import misc.with_top
-import order.bounded_lattice
+import order.bounded_order
 import data.fintype.basic
 
 /-!
