@@ -1,4 +1,4 @@
-include Makefile.lib
+include ../scripts/Makefile.lib
 
 UBPF_DISASSEMBLER ?= ./pkgs/ubpf/bin/ubpf-disassembler
 PROOF_GENERATOR := ./scripts/make_proof.py

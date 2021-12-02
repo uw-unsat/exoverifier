@@ -47,4 +47,4 @@ test-python-tests:
 
 test-racket:
   script:
-    - raco test -- ../racket/test
+    - make -C racket verify-all
