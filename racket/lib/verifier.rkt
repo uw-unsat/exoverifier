@@ -663,6 +663,27 @@
   (__mark_reg32_unbounded dst_reg)
   (__update_reg_bounds dst_reg))
 
+(define (scalar32_min_max_arsh dst_reg src_reg)
+  (__mark_reg_unbounded dst_reg)
+  (set-bpf-reg-state-var-off! dst_reg (tnum-unknown 64)))
+
+(define (scalar_min_max_arsh dst_reg src_reg)
+  (define umin_val (bpf-reg-state-umin-val src_reg))
+
+  ; Assume umin_val and umax_val of src_reg are equal, i.e., that it is a constant.
+  (assume (equal? (bpf-reg-state-umin-val src_reg) (bpf-reg-state-umax-val src_reg)))
+
+  (set-bpf-reg-state-smin-val! dst_reg (bvashr (bpf-reg-state-smin-val dst_reg) umin_val))
+  (set-bpf-reg-state-smax-val! dst_reg (bvashr (bpf-reg-state-smax-val dst_reg) umin_val))
+
+  (set-bpf-reg-state-var-off! dst_reg (tnum-arshift (bpf-reg-state-var-off dst_reg) umin_val 64))
+
+  (set-bpf-reg-state-umin-val! dst_reg (bv 0 64))
+  (set-bpf-reg-state-umax-val! dst_reg U64_MAX)
+
+  (__mark_reg32_unbounded dst_reg)
+  (__update_reg_bounds dst_reg))
+
 (define BPF_CLASS first)
 (define BPF_OP second)
 
@@ -724,6 +745,11 @@
                  [(bvuge umax_val insn_bitness) (mark_reg_unknown env regs (bpf:insn-dst insn))]
                  [alu32 (scalar32_min_max_rsh dst_reg src_reg)]
                  [else (scalar_min_max_rsh dst_reg src_reg)])]
+
+    [(BPF_ARSH) (cond
+                  [(bvuge umax_val insn_bitness) (mark_reg_unknown env regs (bpf:insn-dst insn))]
+                  [alu32 (scalar32_min_max_arsh dst_reg src_reg)]
+                  [else (scalar_min_max_arsh dst_reg src_reg)])]
 
     [else (assert #f)])
 
