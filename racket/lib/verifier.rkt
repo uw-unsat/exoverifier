@@ -664,8 +664,24 @@
   (__update_reg_bounds dst_reg))
 
 (define (scalar32_min_max_arsh dst_reg src_reg)
-  (__mark_reg_unbounded dst_reg)
-  (set-bpf-reg-state-var-off! dst_reg (tnum-unknown 64)))
+  (define umin_val (bpf-reg-state-u32-min-val src_reg))
+
+  ; Assume umin_val and umax_val of src_reg are equal, i.e., that it is a constant.
+  (assume (equal? (bpf-reg-state-u32-min-val src_reg) (bpf-reg-state-u32-max-val src_reg)))
+
+  (set-bpf-reg-state-s32-min-val! dst_reg (bvashr (bpf-reg-state-s32-min-val dst_reg) umin_val))
+  (set-bpf-reg-state-s32-max-val! dst_reg (bvashr (bpf-reg-state-s32-max-val dst_reg) umin_val))
+
+  (set-bpf-reg-state-var-off! dst_reg
+                              (tnum-arshift (tnum-subreg (bpf-reg-state-var-off dst_reg))
+                                            (zero-extend umin_val (bitvector 64))
+                                            32))
+
+  (set-bpf-reg-state-u32-min-val! dst_reg (bv 0 32))
+  (set-bpf-reg-state-u32-max-val! dst_reg U32_MAX)
+
+  (__mark_reg64_unbounded dst_reg)
+  (__update_reg32_bounds dst_reg))
 
 (define (scalar_min_max_arsh dst_reg src_reg)
   (define umin_val (bpf-reg-state-umin-val src_reg))
