@@ -15,6 +15,13 @@ LLVM_PREFIX     := "$(shell $(LLVM_CONFIG) --bindir)/"
 endif
 
 LLVM_CC           := $(LLVM_PREFIX)clang
+
+# Some package managers don't install clang to the same root as other
+# LLVM tools. If so, fall back to system clang.
+ifeq ($(shell which $(LLVM_CC) 2> /dev/null),)
+LLVM_CC           := clang
+endif
+
 LLVM_CLANG_FORMAT := $(LLVM_PREFIX)clang-format
 LLVM_LD           := $(LLVM_PREFIX)ld.lld
 LLVM_LINK         := $(LLVM_PREFIX)llvm-link
