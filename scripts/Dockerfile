@@ -1,4 +1,4 @@
-FROM alpine:3.13
+FROM alpine:3.15
 
 ARG BOOLECTOR_VERSION=3.2.1
 ARG LEAN_VERSION=v3.35.1
@@ -20,6 +20,7 @@ RUN apk add --no-cache \
     libffi \
     linux-headers \
     llvm \
+    llvm-dev \
     make \
     musl-dev \
     ninja \
