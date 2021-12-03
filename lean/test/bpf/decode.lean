@@ -32,6 +32,7 @@ example : bpf.decode (by file "common/test-decode.bin") = some [
   instr.CALL BPF_FUNC.get_prandom_u32,
   instr.ALU32_K ALU.MOV bpf.reg.R1 0,
   instr.ALU32_X ALU.ADD bpf.reg.R1 bpf.reg.R2,
+  instr.LD_IMM bpf.reg.R1 0x42,
   instr.Exit
 ] := by {
   refl,

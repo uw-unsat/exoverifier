@@ -138,6 +138,7 @@ def step_symeval (cfg : CFG χ η) (o : erased bpf.oracle) (k : symstate β η �
     step_jmp64_k cfg k op r₁ imm if_true if_false s
   | some (instr.Exit) := step_exit cfg k s
   | some (instr.STX size dst src imm next) := die
+  | some (instr.LD_IMM dst imm next) := die
   | some (instr.CALL func next) := step_call cfg o k func next s
   | none := die
   end

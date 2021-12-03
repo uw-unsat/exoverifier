@@ -118,25 +118,58 @@ private def decode_op : msbvector 32 → msbvector 16 → reg → reg → list b
 
 | _ _ _ _ _ := none
 
-private def decode_core : list bool → list instr → option (list instr)
+set_option eqn_compiler.max_steps 4096
+
+/- Decode the second half of an LD_IMM instruction. Returns the decoded upper bits of the immediate and the rest of the instruction stream. -/
+private def decode_ld_imm_second_instr : list bool → option (msbvector 32)
 | (imm₁  :: imm₂  :: imm₃  :: imm₄  :: imm₅  :: imm₆  :: imm₇  :: imm₈  :: imm₉  :: imm₁₀ :: imm₁₁ :: imm₁₂ :: imm₁₃ :: imm₁₄ :: imm₁₅ :: imm₁₆ ::
    imm₁₇ :: imm₁₈ :: imm₁₉ :: imm₂₀ :: imm₂₁ :: imm₂₂ :: imm₂₃ :: imm₂₄ :: imm₂₅ :: imm₂₆ :: imm₂₇ :: imm₂₈ :: imm₂₉ :: imm₃₀ :: imm₃₁ :: imm₃₂ ::
-   off₁ :: off₂ :: off₃ :: off₄ :: off₅ :: off₆ :: off₇ :: off₈ :: off₉ :: off₁₀ :: off₁₁ :: off₁₂ :: off₁₃ :: off₁₄ :: off₁₅ :: off₁₆ ::
-   src₁ :: src₂ :: src₃ :: src₄ :: dst₁ :: dst₂ :: dst₃ :: dst₄ :: op₁ :: op₂ :: op₃ :: op₄ :: op₅ :: op₆ :: op₇ :: op₈ :: tl) is :=
+   ff :: ff :: ff :: ff :: ff :: ff :: ff :: ff :: ff :: ff :: ff :: ff :: ff :: ff :: ff :: ff ::
+   ff :: ff :: ff :: ff :: ff :: ff :: ff :: ff :: ff :: ff :: ff :: ff :: ff :: ff :: ff :: ff :: tl) :=
+  let imm32 : vector bool 32 :=
+    imm₁  ::ᵥ imm₂  ::ᵥ imm₃  ::ᵥ imm₄  ::ᵥ imm₅  ::ᵥ imm₆  ::ᵥ imm₇  ::ᵥ imm₈  ::ᵥ imm₉  ::ᵥ imm₁₀ ::ᵥ imm₁₁ ::ᵥ imm₁₂ ::ᵥ imm₁₃ ::ᵥ imm₁₄ ::ᵥ imm₁₅ ::ᵥ imm₁₆ ::ᵥ
+    imm₁₇ ::ᵥ imm₁₈ ::ᵥ imm₁₉ ::ᵥ imm₂₀ ::ᵥ imm₂₁ ::ᵥ imm₂₂ ::ᵥ imm₂₃ ::ᵥ imm₂₄ ::ᵥ imm₂₅ ::ᵥ imm₂₆ ::ᵥ imm₂₇ ::ᵥ imm₂₈ ::ᵥ imm₂₉ ::ᵥ imm₃₀ ::ᵥ imm₃₁ ::ᵥ imm₃₂ ::ᵥ vector.nil in
+  imm32
+| _ := none
+
+private def is_ld_imm : list bool → bool
+/- BPF_LD | BPF_IMM | BPF_DW -/
+| [ff, ff, ff, tt, tt, ff, ff, ff] := tt
+| _ := ff
+
+/-
+`decode_core drop ls instr` accumulates decoded instructions from the list `ls`. It first drops
+`drop` number of bits from the instruction stream. This is to write a decoder for LD_IMM that avoids
+introducing another huge pattern match that will kill the lean eqn compiler.
+-/
+private def decode_core : ℕ → list bool → list instr → option (list instr)
+| (n + 1) (_ :: tl) is :=
+  decode_core n tl is
+
+| 0 (imm₁  :: imm₂  :: imm₃  :: imm₄  :: imm₅  :: imm₆  :: imm₇  :: imm₈  :: imm₉  :: imm₁₀ :: imm₁₁ :: imm₁₂ :: imm₁₃ :: imm₁₄ :: imm₁₅ :: imm₁₆ ::
+      imm₁₇ :: imm₁₈ :: imm₁₉ :: imm₂₀ :: imm₂₁ :: imm₂₂ :: imm₂₃ :: imm₂₄ :: imm₂₅ :: imm₂₆ :: imm₂₇ :: imm₂₈ :: imm₂₉ :: imm₃₀ :: imm₃₁ :: imm₃₂ ::
+      off₁ :: off₂ :: off₃ :: off₄ :: off₅ :: off₆ :: off₇ :: off₈ :: off₉ :: off₁₀ :: off₁₁ :: off₁₂ :: off₁₃ :: off₁₄ :: off₁₅ :: off₁₆ ::
+      src₁ :: src₂ :: src₃ :: src₄ :: dst₁ :: dst₂ :: dst₃ :: dst₄ :: op₁ :: op₂ :: op₃ :: op₄ :: op₅ :: op₆ :: op₇ :: op₈ :: tl) is :=
   let imm32 : vector bool 32 :=
     imm₁  ::ᵥ imm₂  ::ᵥ imm₃  ::ᵥ imm₄  ::ᵥ imm₅  ::ᵥ imm₆  ::ᵥ imm₇  ::ᵥ imm₈  ::ᵥ imm₉  ::ᵥ imm₁₀ ::ᵥ imm₁₁ ::ᵥ imm₁₂ ::ᵥ imm₁₃ ::ᵥ imm₁₄ ::ᵥ imm₁₅ ::ᵥ imm₁₆ ::ᵥ
     imm₁₇ ::ᵥ imm₁₈ ::ᵥ imm₁₉ ::ᵥ imm₂₀ ::ᵥ imm₂₁ ::ᵥ imm₂₂ ::ᵥ imm₂₃ ::ᵥ imm₂₄ ::ᵥ imm₂₅ ::ᵥ imm₂₆ ::ᵥ imm₂₇ ::ᵥ imm₂₈ ::ᵥ imm₂₉ ::ᵥ imm₃₀ ::ᵥ imm₃₁ ::ᵥ imm₃₂ ::ᵥ vector.nil in
   let off16 : vector bool 16 :=
-    off₁ ::ᵥ off₂ ::ᵥ off₃ ::ᵥ off₄ ::ᵥ off₅ ::ᵥ off₆ ::ᵥ off₇ ::ᵥ off₈ ::ᵥ off₉ ::ᵥ off₁₀ ::ᵥ off₁₁ ::ᵥ off₁₂ ::ᵥ off₁₃ ::ᵥ off₁₄ ::ᵥ off₁₅ ::ᵥ off₁₆ ::ᵥ vector.nil in do
+    off₁ ::ᵥ off₂ ::ᵥ off₃ ::ᵥ off₄ ::ᵥ off₅ ::ᵥ off₆ ::ᵥ off₇ ::ᵥ off₈ ::ᵥ off₉ ::ᵥ off₁₀ ::ᵥ off₁₁ ::ᵥ off₁₂ ::ᵥ off₁₃ ::ᵥ off₁₄ ::ᵥ off₁₅ ::ᵥ off₁₆ ::ᵥ vector.nil in
+  let op : list bool := [op₁, op₂, op₃, op₄, op₅, op₆, op₇, op₈] in do
   dst ← decode_reg [dst₁, dst₂, dst₃, dst₄],
   src ← decode_reg [src₁, src₂, src₃, src₄],
-  i ← decode_op imm32 off16 dst src [op₁, op₂, op₃, op₄, op₅, op₆, op₇, op₈],
-  decode_core tl (i :: is)
-| [] is := pure is
-| _  _  := none
+  if is_ld_imm op
+  then do
+    imm_high ← decode_ld_imm_second_instr tl,
+    decode_core 64 tl ((instr.LD_IMM dst (vector.append imm_high imm32)) :: is)
+  else do
+    i ← decode_op imm32 off16 dst src op,
+    decode_core 0 tl (i :: is)
+| 0 [] is := pure is
+| _ _  _  := none
 
 /-- Decode a list of bits as a list of BPF instructions. -/
 def decode (l : list bool) : option (list instr) :=
-  (decode_core l []).map(λ l, l.reverse)
+  (decode_core 0 l []).map(λ l, l.reverse)
 
 end bpf

@@ -123,6 +123,8 @@ def gen_one_safety (p : PGRM) (current : CTRL) : bpf.cfg.instr CTRL → STATE �
     (lookup if_true p.code).is_some ∧
     (lookup if_false p.code).is_some ∧
     (with_bot.lift_unary_test (regs_abstr.do_jmp64_imm_check op dst imm)).test mem = tt
+| (bpf.cfg.instr.LD_IMM dst imm next) :=
+  λ _, (lookup next p.code).is_some ∧ false
 | (bpf.cfg.instr.STX size dst src off next) :=
   λ _, (lookup next p.code).is_some ∧ false
 | (bpf.cfg.instr.CALL func next) :=
@@ -390,6 +392,9 @@ begin
     existsi _,
     apply bpf.cfg.step.JMP64_K _ fetch _ rfl,
     exact (with_bot.lift_unary_test (regs_abstr.do_jmp64_imm_check _ dst _)).test_sound check_tt rel },
+  case bpf.cfg.instr.LD_IMM {
+    simp only [gen_one_safety, to_bool_false_eq_ff, and_false] at check_tt,
+    cases check_tt },
   case bpf.cfg.instr.STX {
     simp only [gen_one_safety, to_bool_false_eq_ff, and_false] at check_tt,
     cases check_tt },

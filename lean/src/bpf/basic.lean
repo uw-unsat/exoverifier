@@ -494,6 +494,7 @@ inductive instr : Type
 | JMP64_X : JMP → reg → reg → msbvector 16 → instr
 | JMP64_K : JMP → reg → msbvector 32 → msbvector 16 → instr
 | STX     : SIZE → reg → reg → msbvector 16 → instr
+| LD_IMM  : reg → msbvector 64 → instr
 | CALL    : BPF_FUNC → instr
 | Exit    : instr
 
@@ -507,6 +508,7 @@ private def repr' : instr → string
 | (JMP64_X op dst src off) := "JMP64_X " ++ repr op ++ " " ++ repr dst ++ " " ++ repr src ++ " " ++ repr off
 | (JMP64_K op dst imm off) := "JMP64_K " ++ repr op ++ " " ++ repr dst ++ " " ++ repr imm ++ " " ++ repr off
 | (STX size dst src off)   := "STX " ++ repr size ++ " " ++ repr dst ++ " " ++ repr src ++ " " ++ repr off
+| (LD_IMM dst imm)         := "LD_IMM " ++ repr dst ++ " " ++ repr imm
 | (CALL BPF_FUNC)          := "CALL " ++ repr BPF_FUNC
 | Exit                     := "Exit"
 

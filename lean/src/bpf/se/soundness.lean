@@ -281,6 +281,8 @@ begin
       apply step_jmp64_x_increasing ih },
     case instr.JMP64_K : op r₁ imm if_true if_false {
       apply step_jmp64_k_increasing ih },
+    case instr.LD_IMM : dst imm next {
+      apply die_increasing },
     case instr.STX : op dst src off next {
       apply die_increasing },
     case instr.CALL : func next {
@@ -884,6 +886,8 @@ begin
       exact die_correct true.intro pre mk },
     case JMP64_X { exact step_jmp64_x_correct k_inc ih fetch_i pre mk },
     case JMP64_K { exact step_jmp64_k_correct k_inc ih fetch_i pre mk },
+    case LD_IMM {
+      exact die_correct true.intro pre mk },
     case STX {
       exact die_correct true.intro pre mk },
     case CALL {
