@@ -40,7 +40,7 @@ def fn_to_list (f : α → β) : list β :=
 Convert a list to a function over a finite, enumerable type.
 -/
 def fn_of_list (l : list β) : α → β :=
-λ x, (l.nth ((fin_enum.equiv α).to_fun x)).get_or_else (default _)
+λ x, (l.nth ((fin_enum.equiv α).to_fun x)).get_or_else default
 
 /--
 Convert a function to expression by converting to list in meta-lean,

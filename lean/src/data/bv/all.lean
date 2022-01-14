@@ -58,7 +58,7 @@ begin
     { rw [list.length_of_fn],
       cases i,
       tauto },
-    simp only [eq_ff_eq_not_eq_tt, list.nth_le_of_fn', fin.eta] at h,
+    simp only [eq_ff_eq_not_eq_tt, ne.def, list.nth_le_of_fn', fin.eta] at h,
     rw h,
     tauto }
 end

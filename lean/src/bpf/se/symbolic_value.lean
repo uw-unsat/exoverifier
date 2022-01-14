@@ -76,7 +76,7 @@ end
 private def denote_n (γ : Type u) [smt.factory β γ] (n : ℕ) (b : β) : erased (fin n → bool) := do
 (v : Σ (n : ℕ), fin n → bool) ← factory.denote γ b,
 match v with
-| ⟨n', x⟩ := if h : n = n' then pure $ h.symm.rec_on x else default _
+| ⟨n', x⟩ := if h : n = n' then pure $ h.symm.rec_on x else default
 end
 
 private def denote (γ : Type u) [smt.factory β γ] : symvalue β → erased value

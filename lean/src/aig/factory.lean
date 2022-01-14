@@ -351,7 +351,7 @@ end
 
 instance : sat.factory (bref α) (factory α σ) :=
 { sat          := λ g x b, ref.sat (node.interpret g.nodes) x.1 b ∧ erased.mk b = x.2,
-  default      := ⟨(ref.root counter.init tt, default _)⟩,
+  default      := ⟨(ref.root counter.init tt, default)⟩,
   denote       := λ e, e.2,
   denote_sound := by {
     rintros g e x ⟨h₁, h₂⟩,

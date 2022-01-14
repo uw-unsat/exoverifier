@@ -1154,36 +1154,45 @@ theorem eq_of_union₂_ne_none : ∀ {t₁ t₂ : trie α},
   simp only [union₂, ne.def, option.bind_eq_none, not_forall, not_not] at h,
   simp only [option.mem_def, option.bind_eq_some] at h,
   rcases h with ⟨t, l, hl, r, hr, ht⟩, subst_vars,
-  rw [option.mem_def] at hl,
+  rw [← option.mem_def] at hl,
   simp only [to_list, list.mem_append, list.mem_map] at h₁ h₂,
   cases h₁; rcases h₁ with ⟨⟨k₁, a₁'⟩, h₃, h₄, _⟩;
   cases h₂; rcases h₂ with ⟨⟨k₂, a₂'⟩, h₅, h₆, _⟩; subst_vars;
   simp only at h₆ ⊢; subst_vars;
-  { apply eq_of_union₂_ne_none _ h₃ h₅, simp [hl, hr] } <|>
+  { apply eq_of_union₂_ne_none _ h₃ h₅,
+    intros h₇,
+    simp [h₇] at hl hr,
+    assumption } <|>
   { exfalso, assumption } }
 | (node (some a₁) l₁ r₁) (node none      l₂ r₂) := λ h k _ _ h₁ h₂, by {
   simp only [union₂, ne.def, option.bind_eq_none, not_forall, not_not] at h,
   simp only [option.mem_def, option.bind_eq_some] at h,
   rcases h with ⟨t, l, hl, r, hr, ht⟩, subst_vars,
-  rw [option.mem_def] at hl,
+  rw [← option.mem_def] at hl,
   simp only [to_list, list.mem_append, list.mem_cons_iff, list.mem_map] at h₁ h₂,
   rcases h₁ with (⟨_, _⟩ | h₁), { subst_vars, exfalso, simpa using h₂ },
   cases h₁; rcases h₁ with ⟨⟨k₁, a₁'⟩, h₃, h₄, _⟩;
   cases h₂; rcases h₂ with ⟨⟨k₂, a₂'⟩, h₅, h₆, _⟩; subst_vars;
   simp only at h₆ ⊢; subst_vars;
-  { apply eq_of_union₂_ne_none _ h₃ h₅, simp [hl, hr] } <|>
+  { apply eq_of_union₂_ne_none _ h₃ h₅,
+    intros h₇,
+    simp [h₇] at hl hr,
+    assumption } <|>
   { exfalso, assumption } }
 | (node none      l₁ r₁) (node (some a₂) l₂ r₂) := λ h k _ _ h₁ h₂, by {
   simp only [union₂, ne.def, option.bind_eq_none, not_forall, not_not] at h,
   simp only [option.mem_def, option.bind_eq_some] at h,
   rcases h with ⟨t, l, hl, r, hr, ht⟩, subst_vars,
-  rw [option.mem_def] at hl,
+  rw [← option.mem_def] at hl,
   simp only [to_list, list.mem_append, list.mem_cons_iff, list.mem_map] at h₁ h₂,
   rcases h₂ with (⟨_, _⟩ | h₂), { subst_vars, exfalso, simpa using h₁ },
   cases h₁; rcases h₁ with ⟨⟨k₁, a₁'⟩, h₃, h₄, _⟩;
   cases h₂; rcases h₂ with ⟨⟨k₂, a₂'⟩, h₅, h₆, _⟩; subst_vars;
   simp only at h₆ ⊢; subst_vars;
-  { apply eq_of_union₂_ne_none _ h₃ h₅, simp [hl, hr] } <|>
+  { apply eq_of_union₂_ne_none _ h₃ h₅,
+    intros h₇,
+    simp [h₇] at hl hr,
+    assumption } <|>
   { exfalso, assumption } }
 | (node (some a₁) l₁ r₁) (node (some a₂) l₂ r₂) := λ h k _ _ h₁ h₂, by {
   simp only [union₂] at h,
@@ -1191,14 +1200,17 @@ theorem eq_of_union₂_ne_none : ∀ {t₁ t₂ : trie α},
   simp only [union₂, ne.def, option.bind_eq_none, not_forall, not_not] at h,
   simp only [option.mem_def, option.bind_eq_some] at h,
   rcases h with ⟨t, l, hl, r, hr, ht⟩, subst_vars,
-  rw [option.mem_def] at hl,
+  rw [← option.mem_def] at hl,
   simp only [to_list, list.mem_append, list.mem_cons_iff, list.mem_map] at h₁ h₂,
   rcases h₁ with (⟨_, _⟩ | h₁), { subst_vars, symmetry, simp at h₂, simpa using h₂ },
   rcases h₂ with (⟨_, _⟩ | h₂), { subst_vars, simpa using h₁ },
   cases h₁; rcases h₁ with ⟨⟨k₁, a₁'⟩, h₃, h₄, _⟩;
   cases h₂; rcases h₂ with ⟨⟨k₂, a₂'⟩, h₅, h₆, _⟩; subst_vars;
   simp only at h₆ ⊢; subst_vars;
-  { apply eq_of_union₂_ne_none _ h₃ h₅, simp [hl, hr] } <|>
+  { apply eq_of_union₂_ne_none _ h₃ h₅,
+    intros h₇,
+    simp [h₇] at hl hr,
+    assumption } <|>
   { exfalso, assumption } }
 
 theorem exists_of_union₂_eq_none : ∀ {t₁ t₂ : trie α},
@@ -1623,7 +1635,9 @@ theorem filter_map₂_ne_none_of_subset {f : α → β → option γ} : ∀ {ta 
   have h' := list.eq_nil_of_subset_nil h,
   rw [list.keys, list.map_eq_nil, list.append_eq_nil] at h',
   simp only [filter_map₂, null_iff, to_list],
-  cases h' with h₁ h₂, simp [h₁, h₂] }
+  cases h' with h₁ h₂,
+  simp [map_bit0, map_bit1] at h₁ h₂,
+  simp [null, null_iff, h₁, h₂] }
 | (node (some _) la ra) nil                   := by simp [to_list]
 | (node oa       la ra) (node ob       lb rb) := λ h, by {
   cases oa; cases ob,

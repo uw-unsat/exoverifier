@@ -79,7 +79,7 @@ begin
   { apply bv.eq_of_to_nat_eq_to_nat,
     simp only [bv.to_of_nat, bv.to_nat_cons, bv.to_nat_tail],
     simp only [nat.bit_val, nat.div2_val],
-    conv_rhs { rw [nat.mod_pow_succ (show 0 < 2, by dec_trivial),
+    conv_rhs { rw [nat.mod_pow_succ,
                    nat.div_div_eq_div_mul, mul_comm _ 2, ← nat.div_div_eq_div_mul] },
     congr' 1,
     rw [mul_comm],

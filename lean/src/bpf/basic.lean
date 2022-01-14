@@ -27,7 +27,7 @@ structure oracle : Type :=
 namespace oracle
 
 instance : inhabited oracle :=
-⟨⟨ λ _, default _ ⟩⟩
+⟨⟨ λ _, default ⟩⟩
 
 end oracle
 

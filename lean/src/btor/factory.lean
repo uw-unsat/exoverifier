@@ -205,7 +205,7 @@ def mk_binary_op
       ⟨r n₁,
         v₁.bind (λ v₁',
           v₂.bind (λ v₂',
-            erased.mk $ λ (i : fin (r n₁)), dite (n₁ = n₂) (λ h, f v₁' (eq.rec_on h.symm v₂') i) (λ _, default _)))⟩),
+            erased.mk $ λ (i : fin (r n₁)), dite (n₁ = n₂) (λ h, f v₁' (eq.rec_on h.symm v₂') i) (λ _, default)))⟩),
       { nodes    := kinsert g.nextid (k i₁ i₂) g.nodes,
         nextid   := counter.next g.nextid,
         complete := by apply kinsert_nextid_complete g.complete, ..g })
@@ -357,7 +357,7 @@ def mk_ite : ref α → ref α → ref α → state (factory α σ) (ref α)
         v₀.bind (λ v₀',
           v₁.bind (λ v₁',
             v₂.bind (λ v₂',
-              erased.mk (λ (i : fin n₁), dite (n₁ = n₂) (λ h₁, dite (n₀ = 1) (λ h₂, bv.ite (h₂.rec_on v₀') v₁' (h₁.symm.rec_on v₂') i) (λ _, default _)) (λ _, default _)))))⟩),
+              erased.mk (λ (i : fin n₁), dite (n₁ = n₂) (λ h₁, dite (n₀ = 1) (λ h₂, bv.ite (h₂.rec_on v₀') v₁' (h₁.symm.rec_on v₂') i) (λ _, default)) (λ _, default)))))⟩),
       { nodes    := kinsert g.nextid (node.ite i₀ i₁ i₂) g.nodes,
         nextid   := counter.next g.nextid,
         complete := by apply kinsert_nextid_complete g.complete, ..g })

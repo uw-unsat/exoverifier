@@ -299,7 +299,7 @@ protected def demote_mk_binary_op (r : ℕ → ℕ) (f : ∀ {n : ℕ}, vector �
 | ⟨n₁, x'⟩ ⟨n₂, y'⟩ :=
   if H : n₁ = n₂
   then f x' (H.symm.rec_on y') >>= λ x, pure (sigma.mk (r n₁) x)
-  else pure $ default _ -- Dummy value if ill-typed
+  else pure default -- Dummy value if ill-typed
 
 protected theorem increasing_demote_mk_binary_op {r : ℕ → ℕ} (f : ∀ {n : ℕ}, vector β n → vector β n → state γ (vector β (r n))) :
   (∀ (n : ℕ) (e₁ e₂ : vector β n), increasing (f e₁ e₂)) →

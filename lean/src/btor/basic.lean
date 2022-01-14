@@ -66,7 +66,7 @@ namespace node
 variables {α : Type u}
 
 instance : inhabited (node α) :=
-⟨node.var (default (erased (fin 0 → bool)))⟩
+⟨node.var (default : (erased (fin 0 → bool)))⟩
 
 /-- Evaluate a node according to its bitvector semantics. -/
 @[mk_iff]

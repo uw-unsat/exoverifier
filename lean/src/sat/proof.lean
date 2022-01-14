@@ -89,7 +89,7 @@ namespace action
 variables {α β κ γ : Type*}
 
 instance [inhabited κ] [inhabited γ] : inhabited (action α β κ γ) :=
-⟨action.del (default κ) (default γ)⟩
+⟨action.del (default : κ) (default : γ)⟩
 
 section repr
 variables [decidable_eq α] [has_coe_t α ℕ] [has_coe_t κ ℕ] [clause α β] [formula κ β γ]

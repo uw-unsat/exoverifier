@@ -52,7 +52,7 @@ instance : smt.ite_factory (Σ (n : ℕ), vector β n) γ :=
 { mk_ite    := λ (c : Σ n, vector β n),
     match c with
     | ⟨1, c_b⟩ := sat.demote_mk_binary_op id (λ n x y, @mk_ite _ _ _ _ _ _ c_b.head n x y)
-    | _        := λ _ _, pure $ default _
+    | _        := λ _ _, pure default
     end,
   le_mk_ite := by {
     intros c _ _,

@@ -58,7 +58,7 @@ namespace node
 variables {α : Type*}
 
 instance : inhabited (node α) :=
-⟨node.var $ default _⟩
+⟨node.var $ default⟩
 
 section repr
 variable [has_repr α]

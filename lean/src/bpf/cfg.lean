@@ -195,7 +195,7 @@ structure runstate (α : Type*) :=
 (regs     : reg → value)
 (next_rng : ℕ)
 
-instance [inhabited α] : inhabited (runstate α) := ⟨⟨default _, (λ _, default _), 0⟩⟩
+instance [inhabited α] : inhabited (runstate α) := ⟨⟨default, (λ _, default), 0⟩⟩
 
 @[derive [decidable_eq]]
 inductive state (α : Type*)

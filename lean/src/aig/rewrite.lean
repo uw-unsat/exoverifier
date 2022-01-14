@@ -721,7 +721,7 @@ namespace result
 variable {α : Type*}
 
 instance : inhabited (result α) :=
-⟨sub (default (ref α))⟩
+⟨sub (default : (ref α))⟩
 
 end result
 

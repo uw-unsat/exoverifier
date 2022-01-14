@@ -33,7 +33,7 @@ def progbits : list bool :=
 (by tactic.io.from_le_quadword_file_as_be_bits bpf_path)
 
 def proof : sat.proof.default.proof :=
-by semidecision.by_oracle (bpf.decision.default.binary_safety_via_reduce_to_smt_oracle fuel) (default _, progbits)
+by semidecision.by_oracle (bpf.decision.default.binary_safety_via_reduce_to_smt_oracle fuel) (default, progbits)
 
 theorem binary_program_safety : bpf.binary_safe progbits :=
 bpf.safe_of_erased_regs $

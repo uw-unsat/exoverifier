@@ -211,7 +211,7 @@ begin
   { rw [pow_zero, nat.mod_one],
     refl },
   { rw [of_nat_succ, to_nat_succ, fin.cons_zero, fin.tail_cons],
-    rw [ih, @nat.mod_pow_succ 2 dec_trivial],
+    rw [ih, @nat.mod_pow_succ 2],
     rw [nat.bit_val, nat.mod_two_of_bodd, nat.div2_val] }
 end
 
