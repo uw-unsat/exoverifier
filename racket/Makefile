@@ -17,4 +17,9 @@ verify-all: $(KERNEL_RKTS)
 %.rkt: %.ll
 	$(SERVAL_LLVM) < "$<" > "$@"
 
-.PHONY: all clean verify-all
+kernel/bpf/main.ll: FORCE
+	$(MAKE) -C kernel/bpf
+
+FORCE:
+
+.PHONY: all clean verify-all FORCE

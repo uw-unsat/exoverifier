@@ -4,7 +4,7 @@
          serval/lib/unittest
          (prefix-in tnum: "../../lib/tnum.rkt")
          (prefix-in llvm: serval/llvm)
-         "../../kernel/bpf/tnum.rkt")
+         "../../kernel/bpf/main.rkt")
 
 (define (run-basic-test)
   (parameterize ([llvm:current-machine (llvm:make-machine null null)])
@@ -18,7 +18,16 @@
 
     (bug-assert (equal? c d) #:msg "test tnum_add")))
 
-(define tnum-tests (test-suite+ "Kernel tnum tests" (test-case+ "simple tests" (run-basic-test))))
+(define (test-driver)
+  (parameterize ([llvm:current-machine (llvm:make-machine null null)])
+    (define-symbolic* a b c d (bitvector 64))
+    (define result (@driver_main a b c d))
+    (bug-assert (bvzero? result))))
+
+(define tnum-tests
+  (test-suite+ "Kernel tnum tests"
+               (test-case+ "simple tests" (run-basic-test))
+               (test-case+ "test driver" (test-driver))))
 
 (module+ test
   (time (with-prefer-boolector (run-tests tnum-tests))))
