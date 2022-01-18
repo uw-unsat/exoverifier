@@ -2,7 +2,7 @@ include ../scripts/Makefile.lib
 
 SERVAL_LLVM := raco serval-llvm
 
-KERNEL_LLS  := $(call rwildcard,kernel,*.ll)
+KERNEL_LLS  := $(call rwildcard,kernel,*.ll) kernel/bpf/main.ll
 KERNEL_RKTS := $(patsubst %.ll,%.rkt,$(KERNEL_LLS))
 RACO_JOBS   ?= $(shell nproc)
 
