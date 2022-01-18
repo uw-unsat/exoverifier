@@ -1,22 +1,5 @@
-#include <stdbool.h>
-
-typedef unsigned long u64;
-
-struct tnum {
-    u64 value, mask;
-};
-
-extern struct tnum tnum_add(struct tnum a, struct tnum b);
-
-/*
- * For now, trap on assertion failure. Serval turns this into a "bug-on" and assertion in Rosette.
- * Later can write something for better error messages.
- */
-static void __attribute__((noinline)) serval_assert(bool condition)
-{
-    if (!condition)
-        __builtin_trap();
-}
+#include "tnum.h"
+#include "serval.h"
 
 /*
  * A very simple test driver. It assumes it will be passed four non-deterministic inputs, and
