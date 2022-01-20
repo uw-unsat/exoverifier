@@ -5,11 +5,17 @@
  * A very simple test driver. It assumes it will be passed four non-deterministic inputs, and
  * checks that tnum addition commutes over these inputs.
  */
-int driver_main(u64 a, u64 b, u64 c, u64 d)
+int driver_main(void)
 {
-    struct tnum xy, yx;
-    struct tnum x = { a, b };
-    struct tnum y = { c, d };
+    u64 a, b, c, d;
+    struct tnum x, y, xy, yx;
+    a = serval_fresh_u64();
+    b = serval_fresh_u64();
+    c = serval_fresh_u64();
+    d = serval_fresh_u64();
+
+    x = (struct tnum) { a, b };
+    y = (struct tnum) { c, d };
 
     xy = tnum_add(x, y);
     yx = tnum_add(y, x);

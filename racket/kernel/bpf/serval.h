@@ -1,4 +1,7 @@
 #pragma once
+#include "types.h"
+
+extern u64 serval_fresh_u64(void);
 
 /*
  * For now, trap on assertion failure. Serval turns this into a "bug-on" and assertion in Rosette.

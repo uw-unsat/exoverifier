@@ -15,7 +15,7 @@ verify-all: $(KERNEL_RKTS)
 	raco test --jobs "$(RACO_JOBS)" -- test
 
 %.rkt: %.ll
-	$(SERVAL_LLVM) < "$<" > "$@"
+	$(SERVAL_LLVM) -R "serval-helpers.rkt" -- "$<" > "$@"
 
 kernel/bpf/main.ll: FORCE
 	$(MAKE) -C kernel/bpf

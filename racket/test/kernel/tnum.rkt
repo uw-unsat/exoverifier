@@ -20,8 +20,7 @@
 
 (define (test-driver)
   (parameterize ([llvm:current-machine (llvm:make-machine null null)])
-    (define-symbolic* a b c d (bitvector 64))
-    (define result (@driver_main a b c d))
+    (define result (@driver_main))
     (bug-assert (bvzero? result))))
 
 (define tnum-tests
