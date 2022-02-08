@@ -46,5 +46,9 @@ test-python-tests:
     - green -vv -f test
 
 test-racket:
+  before_script:
+    - git clone 'https://github.com/uw-unsat/serval.git'
+    - cd serval && git checkout $SERVAL_VERSION
+    - raco pkg install --auto -i --no-setup && raco setup -Dl serval
   script:
     - make -C ../racket verify-all

@@ -1,11 +1,12 @@
 FROM alpine:3.15
 
 ARG BOOLECTOR_VERSION=3.2.1
-ARG LEAN_VERSION=v3.38.0
+ARG LEAN_VERSION=v3.39.1
 ARG RACKET_VERSION=8.3
 ARG ROSETTE_VERSION=dbfd8476d970c7fd110a7d8f0a91464f4b155e18
-ARG SERVAL_VERSION=5443b56d5a8255ba6f6e3a585098db72692d5170
 ARG Z3_VERSION=4.8.9
+
+ENV SERVAL_VERSION=72adc4952a1e62330aea527214a26bd0c09cbd05
 
 RUN apk add --no-cache \
     bash \
@@ -43,11 +44,6 @@ RUN wget "https://mirror.racket-lang.org/installers/${RACKET_VERSION}/racket-${R
 RUN git clone 'https://github.com/emina/rosette.git' && \
     cd rosette && git checkout ${ROSETTE_VERSION} && \
     raco pkg install --auto -i --no-setup && raco setup -Dl rosette
-
-# Install Serval
-RUN git clone 'https://github.com/uw-unsat/serval.git' && \
-    cd serval && git checkout ${SERVAL_VERSION} && \
-    raco pkg install --auto -i --no-setup && raco setup -Dl serval
 
 # Install Boolector twice with CaDiCal and Lingeling backends
 RUN git clone 'https://github.com/boolector/boolector.git' && \
