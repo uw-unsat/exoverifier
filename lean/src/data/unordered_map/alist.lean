@@ -208,7 +208,7 @@ begin
   split; intro h,
   { split,
     { have hkeys := list.mem_keys_of_mem h,
-      rw [list.keys_kerase, list.mem_erase_iff_of_nodup m.nodupkeys] at hkeys,
+      rw [list.keys_kerase, m.2.mem_erase_iff  ] at hkeys,
       exact hkeys.1 },
     { apply list.mem_of_mem_erasep h } },
   { simp only [list.kerase],
@@ -222,7 +222,7 @@ variables [decidable_eq α] [∀ a, decidable_eq (β a)]
 
 /-- Remove a key-value pair from a map. -/
 def erase₂ (m : alist β) (a : α) (b : β a) : alist β :=
-⟨m.entries.erase ⟨a, b⟩, list.nodupkeys_of_sublist (by apply list.erase_sublist) m.nodupkeys⟩
+⟨m.entries.erase ⟨a, b⟩, list.nodupkeys.sublist (by apply list.erase_sublist) m.nodupkeys⟩
 
 theorem mem_erase₂_iff (m : alist β) (a : α) (b : β a) (s : sigma β) :
   s ∈ (erase₂ m a b).entries ↔ s ≠ ⟨a, b⟩ ∧ s ∈ m.entries :=
@@ -230,8 +230,8 @@ begin
   simp only [erase₂],
   cases decidable.em (s = ⟨a, b⟩) with h h,
   { suffices : sigma.mk a b ∉ m.entries.erase ⟨a, b⟩, by simpa [h],
-    apply list.mem_erase_of_nodup,
-    apply list.nodup_of_nodupkeys m.nodupkeys },
+    apply list.nodup.not_mem_erase,
+    apply list.nodupkeys.nodup m.nodupkeys },
   { simp [h] }
 end
 
@@ -298,11 +298,11 @@ variables [decidable_eq α] [∀ a, decidable_eq (β a)]
 
 /-- Remove key-value pairs in `m₂` from `m₁`. -/
 def sdiff₂ (m₁ m₂ : alist β) : alist β :=
-⟨m₁.entries.diff m₂.entries, list.nodupkeys_of_sublist (by apply list.diff_sublist) m₁.nodupkeys⟩
+⟨m₁.entries.diff m₂.entries, list.nodupkeys.sublist (by apply list.diff_sublist) m₁.nodupkeys⟩
 
 theorem mem_sdiff₂_iff (m₁ m₂ : alist β) (s : sigma β) :
   s ∈ (m₁.sdiff₂ m₂).entries ↔ s ∈ m₁.entries ∧ s ∉ m₂.entries :=
-list.mem_diff_iff_of_nodup (list.nodup_of_nodupkeys m₁.nodupkeys)
+list.nodup.mem_diff_iff (list.nodupkeys.nodup m₁.nodupkeys)
 
 theorem sdiff₂_eq_nil_iff_subset (m₁ m₂ : alist β) :
   (m₁.sdiff₂ m₂).entries = [] ↔ m₁.entries ⊆ m₂.entries :=

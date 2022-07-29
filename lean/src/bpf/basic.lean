@@ -9,10 +9,10 @@ import data.bv.vector
 import data.list.alist
 import data.trie.basic
 import data.vector
-import misc.vector
+import logic.equiv.basic
 import misc.fin_enum
+import misc.vector
 import tactic.basic
-import data.equiv.basic
 import tactic.derive_fintype
 
 namespace bpf

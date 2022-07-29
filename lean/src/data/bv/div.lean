@@ -64,7 +64,7 @@ begin
     { simp [k, mul_div_cancel _ hy'] },
     rw [hm, hq, sub_div, ← sub_add], clear hm,
     congr' 1,
-    conv_rhs { simp only [div_mul_div] },
+    conv_rhs { simp only [div_mul_div_comm] },
     rw [div_sub_div _ _ (pow_ne_zero _ (show (2 : ℚ) ≠ 0, by simp)) hy'],
     congr' 1,
     { rw [mul_assoc, mul_comm ↑x ↑y, ← mul_assoc],

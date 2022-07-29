@@ -6,6 +6,7 @@ Authors: Luke Nelson, Xi Wang
 import .proof
 import .default
 import data.unordered_map.trie
+import data.buffer.parser
 
 namespace parser
 

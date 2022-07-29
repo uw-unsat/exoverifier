@@ -22,13 +22,6 @@ instance : is_lawful_applicative with_top := by apply_instance
 instance : monad with_top           := by apply_instance
 instance : is_lawful_monad with_top := by apply_instance
 
-instance [has_repr T] : has_repr (with_top T) :=
-⟨λ r,
-  match r with
-  | some x := repr x
-  | none := "⊤"
-  end⟩
-
 meta instance [has_to_pexpr T] : has_to_pexpr (with_top T) := by apply_instance
 
 end
